@@ -1,6 +1,33 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Location for live tracking. Fine accuracy is required for usable
+         speed and distance — coarse is too noisy at vehicle speeds.
+         Background permission is requested at runtime separately for the
+         foreground-service-backed continuous tracking path. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+
+    <!-- Foreground service for keeping the GPS stream alive while the
+         user has DriveRank in the background (Android 10+). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- Network — Firestore sync, weather API, GlobalPetrolPrices. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
+    <!-- Heads-up notifications for trip auto-detection and post-purchase. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Standard hardware features — declared so Play Store filters
+         devices without the required sensors. -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false"/>
+
     <application
-        android:label="drive_rank"
+        android:label="DriveRank"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

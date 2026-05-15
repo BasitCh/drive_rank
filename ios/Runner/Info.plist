@@ -7,7 +7,17 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Drive Rank</string>
+	<string>DriveRank</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>DriveRank uses your location to track your trips — distance, speed, and route. We only record while you have an active trip.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Background access lets DriveRank keep recording your trip while you're using navigation or have the screen locked.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>DriveRank uses motion data to detect cornering, hard braking, and peak g-force on your trips.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
