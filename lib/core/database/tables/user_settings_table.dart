@@ -1,0 +1,47 @@
+import 'package:drift/drift.dart';
+
+/// Single-row user/profile/settings table.
+///
+/// One row per signed-in user (or anonymous local profile). Stores everything
+/// the rest of the app needs to know about the user that isn't a trip:
+/// car, country, units, fuel config, paywall state.
+@DataClassName('UserSettingsRow')
+class UserSettings extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  TextColumn get uid => text()();
+  TextColumn get username => text().withDefault(const Constant(''))();
+
+  // Vehicle.
+  TextColumn get carMake => text().withDefault(const Constant(''))();
+  TextColumn get carModel => text().withDefault(const Constant(''))();
+  IntColumn get carYear => integer().nullable()();
+  TextColumn get carColour => text().nullable()();
+  TextColumn get carPhotoPath => text().nullable()();
+  TextColumn get vehicleType =>
+      text().withDefault(const Constant('car'))(); // car | motorbike
+
+  // Locale.
+  TextColumn get country => text().nullable()(); // ISO 3166-1 alpha-2
+  TextColumn get unitSystem =>
+      text().withDefault(const Constant('metric'))(); // metric | imperial
+
+  // Fuel (all nullable — feature is optional).
+  TextColumn get fuelType =>
+      text().nullable()(); // petrol | diesel | cng | electric
+  RealColumn get fuelConsumption => real().nullable()(); // L/100km or mpg
+  RealColumn get fuelPricePerUnit => real().nullable()(); // local currency
+  TextColumn get currencyCode => text().nullable()(); // ISO 4217
+
+  // App preferences.
+  TextColumn get selectedMapTheme =>
+      text().withDefault(const Constant('regular'))();
+
+  // Paywall + onboarding state.
+  IntColumn get freeTripsUsed => integer().withDefault(const Constant(0))();
+  BoolColumn get isPro => boolean().withDefault(const Constant(false))();
+  BoolColumn get onboardingComplete =>
+      boolean().withDefault(const Constant(false))();
+
+  DateTimeColumn get createdAt => dateTime()();
+}
