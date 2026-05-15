@@ -32,6 +32,12 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       // Migrations land here when schemaVersion is bumped.
     },
+    beforeOpen: (details) async {
+      // SQLite has foreign-key enforcement off by default per connection.
+      // Without this, the `onDelete: cascade` on waypoints does nothing
+      // and deleting a trip leaves orphaned rows behind.
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
   );
 }
 

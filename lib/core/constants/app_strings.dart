@@ -122,9 +122,20 @@ class AppStrings {
   static const String trackingGrantPermission = 'Grant Permission';
 
   // Trip summary.
+  static const String tripSummaryTitle = 'Trip Summary';
   static const String tripSummaryShare = 'Share';
   static const String tripSummarySave = 'Save to Gallery';
+  static const String tripSummaryDelete = 'Delete trip';
+  static const String tripSummaryDeleteConfirm =
+      'Delete this trip? This cannot be undone.';
   static const String tripSummaryRankBadgePrefix = '#';
+  static const String tripSummaryDriveAnalytics = 'DRIVE ANALYTICS';
+  static const String tripSummaryHardCorners = 'Hard Corners';
+  static const String tripSummaryHardBrakes = 'Hard Brakes';
+  static const String tripSummaryYourRank = 'Your Rank';
+  static const String tripSummaryGforcePeakSuffix = 'g peak';
+  static const String tripSummaryNoRouteYet = 'No GPS fix recorded';
+  static const String tripSummaryShareSubject = 'My DriveRank trip';
 
   // History.
   static const String historyTitle = 'History';
@@ -133,10 +144,19 @@ class AppStrings {
   static const String historyFilterNight = 'Night Drives';
   static const String historyFilterBest = 'Personal Best';
   static const String historyEmpty = 'No trips yet — go for a drive';
+  static const String historyTripFallbackName = 'Trip';
 
   // Monthly report.
   static const String monthlyReportTitle = 'Your Driving Month';
   static const String monthlyReportCta = 'See your month →';
+  static const String monthlyReportEmpty =
+      'No drives this month — your report will appear after your first trip';
+  static const String monthlyReportTotalKm = 'TOTAL DISTANCE';
+  static const String monthlyReportTotalTrips = 'TRIPS';
+  static const String monthlyReportTopSpeed = 'TOP SPEED';
+  static const String monthlyReportTotalDuration = 'TOTAL TIME';
+  static const String monthlyReportMostActiveDay = 'MOST ACTIVE DAY';
+  static const String monthlyReportBestGforce = 'BEST G-FORCE';
 
   // Leaderboard.
   static const String leaderboardTitle = 'RANKINGS';
