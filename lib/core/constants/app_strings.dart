@@ -65,16 +65,49 @@ class AppStrings {
   static const String onboardReviewsRatingSuffix = 'ratings';
 
   // Onboarding — safety.
-  static const String onboardSafetyTitle = 'Drive safe, always';
+  static const String onboardSafetyTitle = 'Before you drive';
+  static const String onboardSafetySub = 'Important safety reminders';
+  static const String onboardSafetyItem1 =
+      'Obey local traffic laws and speed limits. Never drive recklessly.';
+  static const String onboardSafetyItem2 =
+      'Start and stop recording only while safely parked.';
+  static const String onboardSafetyItem3 =
+      'Use a phone holder. Never touch your phone while driving.';
   static const String onboardSafetyAccept =
-      "I won't use the app while driving and "
-      'will only check stats when stopped.';
+      'I acknowledge these guidelines and agree to drive responsibly';
+  static const String onboardSafetyCta = 'I Agree & Continue';
+
+  // Onboarding — community popup numbers (computed at runtime).
+  static const String onboardCommunityMostPopularPrefix = '#';
+  static const String onboardCommunityMostPopularSuffix =
+      ' most popular on DriveRank';
+
+  // Onboarding — map theme labels.
+  static const String mapThemePixel = 'Pixel';
+  static const String mapThemeCyber = 'Cyber';
+  static const String mapThemeGta = 'GTA';
+  static const String mapThemeRegular = 'Classic';
+  static const String mapThemeWest = 'West';
+  static const String mapThemeDark = 'Dark';
+
+  // Onboarding — reviews seed (English-only v1, generic and global).
+  static const String reviewerOneName = 'hassan_drives';
+  static const String reviewerOneText =
+      'Finally an app that gets car people. The stat cards are insane to '
+      'post on TikTok, everyone asks what app I use.';
+  static const String reviewerTwoName = 'karachispeeds';
+  static const String reviewerTwoText =
+      'Love the GTA map style lol. Global leaderboard is actually '
+      'competitive. Using it every single drive now.';
+  static const String reviewsAppStoreSource = 'App Store';
 
   // Tracking screen.
   static const String trackingLive = 'LIVE';
   static const String trackingEndTrip = 'End Trip';
+  static const String trackingCurrentSpeedSuffix = ' — CURRENT SPEED';
   static const String trackingTopSpeed = 'TOP SPEED';
   static const String trackingAvgSpeed = 'AVG';
+  static const String trackingMaxSpeed = 'MAX';
   static const String trackingDistance = 'DISTANCE';
   static const String trackingDuration = 'DURATION';
   static const String trackingGForce = 'G-FORCE';
@@ -82,6 +115,11 @@ class AppStrings {
   static const String trackingFuelNotConfigured = '—';
   static const String trackingFuelTapToConfigure =
       'Set fuel price in settings to see trip cost';
+  static const String trackingWaitingForGps = 'WAITING FOR GPS…';
+  static const String trackingPermissionDenied =
+      'Location permission is required to track trips.';
+  static const String trackingOpenSettings = 'Open Settings';
+  static const String trackingGrantPermission = 'Grant Permission';
 
   // Trip summary.
   static const String tripSummaryShare = 'Share';
