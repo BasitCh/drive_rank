@@ -1,0 +1,263 @@
+{
+  "$comment": "Famous + heavily-trafficked road segments worldwide. A trip is auto-tagged with a segment when its GPS bbox intersects with the segment bbox. New segments are added via Firestore remote config — code does not need to ship to add a road.",
+  "segments": [
+    {
+      "id": "nurburgring_nordschleife",
+      "name": "Nürburgring Nordschleife",
+      "country": "DE",
+      "bbox": { "minLat": 50.32, "maxLat": 50.38, "minLng": 6.91, "maxLng": 6.97 }
+    },
+    {
+      "id": "stelvio_pass",
+      "name": "Stelvio Pass",
+      "country": "IT",
+      "bbox": { "minLat": 46.50, "maxLat": 46.55, "minLng": 10.43, "maxLng": 10.46 }
+    },
+    {
+      "id": "transfagarasan",
+      "name": "Transfăgărășan",
+      "country": "RO",
+      "bbox": { "minLat": 45.55, "maxLat": 45.65, "minLng": 24.59, "maxLng": 24.68 }
+    },
+    {
+      "id": "transalpina",
+      "name": "Transalpina",
+      "country": "RO",
+      "bbox": { "minLat": 45.32, "maxLat": 45.42, "minLng": 23.65, "maxLng": 23.75 }
+    },
+    {
+      "id": "grossglockner",
+      "name": "Großglockner High Alpine Road",
+      "country": "AT",
+      "bbox": { "minLat": 47.07, "maxLat": 47.15, "minLng": 12.78, "maxLng": 12.86 }
+    },
+    {
+      "id": "amalfi_coast",
+      "name": "Amalfi Coast SS163",
+      "country": "IT",
+      "bbox": { "minLat": 40.61, "maxLat": 40.66, "minLng": 14.45, "maxLng": 14.71 }
+    },
+    {
+      "id": "passo_dello_spluga",
+      "name": "Passo dello Spluga",
+      "country": "IT",
+      "bbox": { "minLat": 46.50, "maxLat": 46.55, "minLng": 9.32, "maxLng": 9.40 }
+    },
+    {
+      "id": "col_de_turini",
+      "name": "Col de Turini",
+      "country": "FR",
+      "bbox": { "minLat": 43.96, "maxLat": 44.00, "minLng": 7.36, "maxLng": 7.41 }
+    },
+    {
+      "id": "route_des_grandes_alpes",
+      "name": "Route des Grandes Alpes",
+      "country": "FR",
+      "bbox": { "minLat": 44.10, "maxLat": 46.40, "minLng": 6.10, "maxLng": 7.60 }
+    },
+    {
+      "id": "tail_of_the_dragon",
+      "name": "Tail of the Dragon (US129)",
+      "country": "US",
+      "bbox": { "minLat": 35.45, "maxLat": 35.58, "minLng": -83.95, "maxLng": -83.85 }
+    },
+    {
+      "id": "blue_ridge_parkway",
+      "name": "Blue Ridge Parkway",
+      "country": "US",
+      "bbox": { "minLat": 35.55, "maxLat": 38.50, "minLng": -83.10, "maxLng": -79.10 }
+    },
+    {
+      "id": "pacific_coast_highway",
+      "name": "Pacific Coast Highway (CA-1)",
+      "country": "US",
+      "bbox": { "minLat": 35.50, "maxLat": 37.80, "minLng": -123.10, "maxLng": -121.40 }
+    },
+    {
+      "id": "going_to_the_sun",
+      "name": "Going-to-the-Sun Road",
+      "country": "US",
+      "bbox": { "minLat": 48.62, "maxLat": 48.78, "minLng": -114.00, "maxLng": -113.40 }
+    },
+    {
+      "id": "tiogapass",
+      "name": "Tioga Pass",
+      "country": "US",
+      "bbox": { "minLat": 37.90, "maxLat": 38.00, "minLng": -119.30, "maxLng": -119.10 }
+    },
+    {
+      "id": "mulholland",
+      "name": "Mulholland Drive",
+      "country": "US",
+      "bbox": { "minLat": 34.10, "maxLat": 34.15, "minLng": -118.55, "maxLng": -118.35 }
+    },
+    {
+      "id": "angeles_crest",
+      "name": "Angeles Crest Highway",
+      "country": "US",
+      "bbox": { "minLat": 34.20, "maxLat": 34.45, "minLng": -118.20, "maxLng": -117.65 }
+    },
+    {
+      "id": "i405_la",
+      "name": "I-405 (Los Angeles)",
+      "country": "US",
+      "bbox": { "minLat": 33.78, "maxLat": 34.30, "minLng": -118.50, "maxLng": -118.35 }
+    },
+    {
+      "id": "highway_one_au",
+      "name": "Highway 1 (Great Ocean Road)",
+      "country": "AU",
+      "bbox": { "minLat": -38.85, "maxLat": -38.30, "minLng": 143.30, "maxLng": 145.10 }
+    },
+    {
+      "id": "stuart_highway",
+      "name": "Stuart Highway",
+      "country": "AU",
+      "bbox": { "minLat": -34.93, "maxLat": -12.46, "minLng": 130.84, "maxLng": 138.60 }
+    },
+    {
+      "id": "m25_london",
+      "name": "M25 London Orbital",
+      "country": "GB",
+      "bbox": { "minLat": 51.30, "maxLat": 51.75, "minLng": -0.55, "maxLng": 0.30 }
+    },
+    {
+      "id": "snake_pass",
+      "name": "Snake Pass (A57)",
+      "country": "GB",
+      "bbox": { "minLat": 53.39, "maxLat": 53.42, "minLng": -1.80, "maxLng": -1.65 }
+    },
+    {
+      "id": "north_coast_500",
+      "name": "North Coast 500",
+      "country": "GB",
+      "bbox": { "minLat": 57.40, "maxLat": 58.80, "minLng": -5.50, "maxLng": -3.00 }
+    },
+    {
+      "id": "ring_road_iceland",
+      "name": "Ring Road (Route 1)",
+      "country": "IS",
+      "bbox": { "minLat": 63.30, "maxLat": 66.60, "minLng": -24.55, "maxLng": -13.50 }
+    },
+    {
+      "id": "atlantic_road",
+      "name": "Atlantic Road",
+      "country": "NO",
+      "bbox": { "minLat": 63.00, "maxLat": 63.04, "minLng": 7.27, "maxLng": 7.41 }
+    },
+    {
+      "id": "trollstigen",
+      "name": "Trollstigen",
+      "country": "NO",
+      "bbox": { "minLat": 62.43, "maxLat": 62.47, "minLng": 7.65, "maxLng": 7.72 }
+    },
+    {
+      "id": "hakone_turnpike",
+      "name": "Hakone Turnpike",
+      "country": "JP",
+      "bbox": { "minLat": 35.20, "maxLat": 35.27, "minLng": 139.00, "maxLng": 139.10 }
+    },
+    {
+      "id": "irohazaka",
+      "name": "Irohazaka",
+      "country": "JP",
+      "bbox": { "minLat": 36.74, "maxLat": 36.76, "minLng": 139.45, "maxLng": 139.48 }
+    },
+    {
+      "id": "shuto_expressway",
+      "name": "Shuto Expressway (Tokyo Loop)",
+      "country": "JP",
+      "bbox": { "minLat": 35.62, "maxLat": 35.72, "minLng": 139.69, "maxLng": 139.81 }
+    },
+    {
+      "id": "guoliang",
+      "name": "Guoliang Tunnel Road",
+      "country": "CN",
+      "bbox": { "minLat": 35.65, "maxLat": 35.70, "minLng": 113.55, "maxLng": 113.60 }
+    },
+    {
+      "id": "tianmen_99_bends",
+      "name": "Tianmen Mountain 99-Bend Road",
+      "country": "CN",
+      "bbox": { "minLat": 29.04, "maxLat": 29.07, "minLng": 110.46, "maxLng": 110.49 }
+    },
+    {
+      "id": "leh_manali",
+      "name": "Leh–Manali Highway",
+      "country": "IN",
+      "bbox": { "minLat": 32.15, "maxLat": 34.16, "minLng": 76.95, "maxLng": 77.80 }
+    },
+    {
+      "id": "khardung_la",
+      "name": "Khardung La",
+      "country": "IN",
+      "bbox": { "minLat": 34.27, "maxLat": 34.30, "minLng": 77.59, "maxLng": 77.63 }
+    },
+    {
+      "id": "karakoram_highway",
+      "name": "Karakoram Highway",
+      "country": "PK",
+      "bbox": { "minLat": 35.00, "maxLat": 37.10, "minLng": 73.00, "maxLng": 75.80 }
+    },
+    {
+      "id": "babusar_pass",
+      "name": "Babusar Pass",
+      "country": "PK",
+      "bbox": { "minLat": 35.13, "maxLat": 35.17, "minLng": 74.05, "maxLng": 74.10 }
+    },
+    {
+      "id": "lowari_pass",
+      "name": "Lowari Pass",
+      "country": "PK",
+      "bbox": { "minLat": 35.30, "maxLat": 35.36, "minLng": 71.79, "maxLng": 71.85 }
+    },
+    {
+      "id": "motorway_m2",
+      "name": "M2 Motorway (Islamabad–Lahore)",
+      "country": "PK",
+      "bbox": { "minLat": 31.55, "maxLat": 33.65, "minLng": 72.30, "maxLng": 74.45 }
+    },
+    {
+      "id": "sheikh_zayed_road",
+      "name": "Sheikh Zayed Road",
+      "country": "AE",
+      "bbox": { "minLat": 25.05, "maxLat": 25.30, "minLng": 55.10, "maxLng": 55.30 }
+    },
+    {
+      "id": "jebel_jais",
+      "name": "Jebel Jais",
+      "country": "AE",
+      "bbox": { "minLat": 25.92, "maxLat": 26.00, "minLng": 56.13, "maxLng": 56.22 }
+    },
+    {
+      "id": "chapmans_peak",
+      "name": "Chapman's Peak Drive",
+      "country": "ZA",
+      "bbox": { "minLat": -34.10, "maxLat": -34.05, "minLng": 18.35, "maxLng": 18.40 }
+    },
+    {
+      "id": "carretera_austral",
+      "name": "Carretera Austral",
+      "country": "CL",
+      "bbox": { "minLat": -49.30, "maxLat": -41.45, "minLng": -73.50, "maxLng": -71.20 }
+    },
+    {
+      "id": "ruta_40",
+      "name": "Ruta 40",
+      "country": "AR",
+      "bbox": { "minLat": -52.30, "maxLat": -22.00, "minLng": -72.30, "maxLng": -64.40 }
+    },
+    {
+      "id": "highway_61_canada",
+      "name": "Sea-to-Sky Highway",
+      "country": "CA",
+      "bbox": { "minLat": 49.30, "maxLat": 50.20, "minLng": -123.30, "maxLng": -122.80 }
+    },
+    {
+      "id": "icefields_parkway",
+      "name": "Icefields Parkway",
+      "country": "CA",
+      "bbox": { "minLat": 51.40, "maxLat": 52.90, "minLng": -117.50, "maxLng": -116.20 }
+    }
+  ]
+}
