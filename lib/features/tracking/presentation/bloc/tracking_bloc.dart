@@ -7,6 +7,8 @@ import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dar
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_state.dart';
+import 'package:drive_rank/shared/repositories/trip_repository.dart';
+import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -18,26 +20,43 @@ import 'package:injectable/injectable.dart';
 ///    `LiveTripStats` (top speed, distance via Haversine, duration, max g).
 ///  - Tick a per-second timer for duration display so the UI updates even
 ///    when the vehicle is stationary.
-///  - Tear down streams on stop and emit `TrackingPhase.finished`.
-///
-/// Trip persistence to Drift happens in Session 3 (Trip Summary feature).
-/// For now we keep the trip purely in memory — when the user ends the trip
-/// they're navigated to the trip summary page which receives the stats.
+///  - Tear down streams on stop, persist the trip (with all waypoints) in
+///    a single Drift transaction, emit `TrackingPhase.finished` with the
+///    new tripId — the page listens for that id and navigates to the
+///    trip summary.
 @injectable
 class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
-  TrackingBloc(this._gps, this._sensors, this._permissions)
-    : super(TrackingState.initial()) {
+  TrackingBloc(
+    this._gps,
+    this._sensors,
+    this._permissions,
+    this._trips,
+    this._settings,
+  ) : super(TrackingState.initial()) {
     on<TrackingStarted>(_onStarted);
     on<TrackingStopRequested>(_onStop);
     on<TrackingPointReceived>(_onPoint);
     on<TrackingGforceReceived>(_onGforce);
     on<TrackingTicked>(_onTick);
     on<TrackingPermissionRequested>(_onPermissionRequested);
+    on<TrackingReset>(_onReset);
+  }
+
+  Future<void> _onReset(
+    TrackingReset event,
+    Emitter<TrackingState> emit,
+  ) async {
+    await _teardown();
+    _startedAt = null;
+    emit(TrackingState.initial());
+    add(const TrackingStarted());
   }
 
   final GpsService _gps;
   final SensorService _sensors;
   final PermissionService _permissions;
+  final TripRepository _trips;
+  final UserSettingsRepository _settings;
 
   StreamSubscription<TripPoint>? _pointSub;
   StreamSubscription<double>? _gforceSub;
@@ -120,7 +139,31 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     Emitter<TrackingState> emit,
   ) async {
     await _teardown();
-    emit(state.copyWith(phase: TrackingPhase.finished));
+
+    // Skip persisting a trip with zero distance (user tapped end before
+    // moving) — keeps history clean of "0 km · 5s" stubs.
+    if (state.stats.distanceKm <= 0 || _startedAt == null) {
+      emit(state.copyWith(phase: TrackingPhase.finished));
+      return;
+    }
+
+    final settings = await _settings.read();
+    final tripId = await _trips.saveTrip(
+      uid: settings.uid,
+      stats: state.stats,
+      startedAt: _startedAt!,
+      endedAt: DateTime.now(),
+      mapTheme: settings.selectedMapTheme,
+      country: settings.country,
+    );
+    await _settings.incrementFreeTripsUsed();
+
+    emit(
+      state.copyWith(
+        phase: TrackingPhase.finished,
+        completedTripId: tripId,
+      ),
+    );
   }
 
   void _onPoint(

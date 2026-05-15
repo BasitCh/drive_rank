@@ -3,6 +3,7 @@ import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/di/injection.dart';
+import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.dart';
@@ -14,6 +15,7 @@ import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 /// Full-screen live tracking page.
 ///
@@ -45,7 +47,18 @@ class _TrackingPageBody extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
-        child: BlocBuilder<TrackingBloc, TrackingState>(
+        child: BlocConsumer<TrackingBloc, TrackingState>(
+          listenWhen: (a, b) => a.phase != b.phase,
+          listener: (context, state) async {
+            if (state.phase != TrackingPhase.finished) return;
+            final tripId = state.completedTripId;
+            if (tripId != null) {
+              await context.push(RouteNames.tripSummaryFor(tripId));
+            }
+            if (context.mounted) {
+              context.read<TrackingBloc>().add(const TrackingReset());
+            }
+          },
           builder: (context, state) {
             return switch (state.phase) {
               TrackingPhase.permissionRequired ||

@@ -38,3 +38,10 @@ class TrackingTicked extends TrackingEvent {
 class TrackingPermissionRequested extends TrackingEvent {
   const TrackingPermissionRequested();
 }
+
+/// Resets the bloc back to a fresh starting state — used after the user
+/// finishes a trip and navigates to the summary, so when they return to
+/// the live page it's ready to record a new trip.
+class TrackingReset extends TrackingEvent {
+  const TrackingReset();
+}
