@@ -2,6 +2,7 @@ import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/features/history/presentation/pages/history_page.dart';
 import 'package:drive_rank/features/leaderboard/presentation/pages/leaderboard_page.dart';
+import 'package:drive_rank/features/monthly_report/presentation/pages/monthly_report_page.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/splash_page.dart';
 import 'package:drive_rank/features/paywall/presentation/pages/paywall_page.dart';
@@ -55,6 +56,10 @@ class AppRouter {
         GoRoute(
           path: RouteNames.settings,
           builder: (_, __) => const SettingsPage(),
+        ),
+        GoRoute(
+          path: RouteNames.monthlyReport,
+          builder: (_, __) => const MonthlyReportPage(),
         ),
         ShellRoute(
           builder: (context, state, child) =>

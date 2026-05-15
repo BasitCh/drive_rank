@@ -11,10 +11,13 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:drive_rank/core/database/app_database.dart' as _i425;
 import 'package:drive_rank/core/router/app_router.dart' as _i901;
+import 'package:drive_rank/core/services/card_export_service.dart' as _i261;
 import 'package:drive_rank/core/services/gps_service.dart' as _i375;
 import 'package:drive_rank/core/services/locale_service.dart' as _i447;
 import 'package:drive_rank/core/services/permission_service.dart' as _i576;
 import 'package:drive_rank/core/services/sensor_service.dart' as _i125;
+import 'package:drive_rank/features/history/presentation/bloc/history_bloc.dart'
+    as _i586;
 import 'package:drive_rank/features/onboarding/data/repositories/car_repository_impl.dart'
     as _i639;
 import 'package:drive_rank/features/onboarding/domain/repositories/car_repository.dart'
@@ -23,8 +26,12 @@ import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_bloc
     as _i162;
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart'
     as _i687;
+import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_bloc.dart'
+    as _i990;
+import 'package:drive_rank/shared/repositories/trip_repository.dart' as _i634;
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart'
     as _i727;
+import 'package:drive_rank/shared/services/trip_stats_service.dart' as _i67;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 
@@ -39,6 +46,7 @@ _i174.GetIt $initGetIt(
   gh.singleton<_i901.AppRouter>(() => _i901.AppRouter());
   gh.singleton<_i375.GpsService>(() => _i375.GpsService());
   gh.singleton<_i125.SensorService>(() => _i125.SensorService());
+  gh.lazySingleton<_i261.CardExportService>(() => _i261.CardExportService());
   gh.lazySingleton<_i447.LocaleService>(() => _i447.LocaleService());
   gh.lazySingleton<_i576.PermissionService>(() => _i576.PermissionService());
   gh.lazySingleton<_i972.CarRepository>(() => _i639.AssetCarRepository());
@@ -48,19 +56,40 @@ _i174.GetIt $initGetIt(
       gh<_i447.LocaleService>(),
     ),
   );
-  gh.factory<_i687.TrackingBloc>(
-    () => _i687.TrackingBloc(
-      gh<_i375.GpsService>(),
-      gh<_i125.SensorService>(),
-      gh<_i576.PermissionService>(),
-    ),
-  );
   gh.factory<_i162.OnboardingBloc>(
     () => _i162.OnboardingBloc(
       gh<_i972.CarRepository>(),
       gh<_i727.UserSettingsRepository>(),
       gh<_i447.LocaleService>(),
       gh<_i576.PermissionService>(),
+    ),
+  );
+  gh.lazySingleton<_i634.TripRepository>(
+    () => _i634.TripRepository(gh<_i425.AppDatabase>()),
+  );
+  gh.factory<_i990.TripSummaryBloc>(
+    () => _i990.TripSummaryBloc(
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i261.CardExportService>(),
+    ),
+  );
+  gh.lazySingleton<_i67.TripStatsService>(
+    () => _i67.TripStatsService(gh<_i634.TripRepository>()),
+  );
+  gh.factory<_i687.TrackingBloc>(
+    () => _i687.TrackingBloc(
+      gh<_i375.GpsService>(),
+      gh<_i125.SensorService>(),
+      gh<_i576.PermissionService>(),
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+    ),
+  );
+  gh.factory<_i586.HistoryBloc>(
+    () => _i586.HistoryBloc(
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
     ),
   );
   return getIt;
