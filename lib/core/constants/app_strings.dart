@@ -165,32 +165,96 @@ class AppStrings {
   static const String leaderboardTabFriends = 'Friends';
   static const String leaderboardTabGlobal = 'Global';
   static const String leaderboardYou = 'YOU';
+  static const String leaderboardFriendsEmptyTitle = 'No friends yet';
+  static const String leaderboardFriendsEmptyBody =
+      'Invite friends to see how you stack up against them on every drive.';
+  static const String leaderboardFriendsCta = 'Invite Friends';
+  static const String leaderboardSubThisWeek = 'This week';
+  static const String leaderboardEmpty =
+      'No drives recorded here yet — be the first to set a time.';
 
   // Profile.
   static const String profileTitle = 'Profile';
   static const String profileGoPro = 'Go Pro';
   static const String profileSignOut = 'Sign out';
   static const String profileDeleteAccount = 'Delete account';
+  static const String profileStatTopSpeed = 'TOP SPEED';
+  static const String profileStatTotalTrips = 'TOTAL TRIPS';
+  static const String profileStatTotalDistance = 'TOTAL DISTANCE';
+  static const String profileStatFuelSpent = 'FUEL SPENT';
+  static const String profileStatBestGforce = 'BEST G-FORCE';
+  static const String profileEditSettings = 'Edit Settings';
+  static const String profileSetUsernamePrompt = 'Set a username';
+  static const String profileUsernameHint = 'username';
+  static const String profileUsernamePlaceholder = 'driver';
 
   // Paywall.
   static const String paywallTitle = 'Free trip limit reached';
+  static const String paywallYourBestTrip = 'YOUR BEST TRIP';
+  static const String paywallTripCountSuffix = 'of';
+  static const String paywallTripLimitReached = 'Free limit reached';
   static const String paywallPlanAnnual = 'Annual';
   static const String paywallPlanMonthly = 'Monthly';
   static const String paywallBadgeBestValue = 'BEST VALUE';
+  static const String paywallPerWeekSuffix = '/week';
   static const String paywallContinue = 'Continue →';
   static const String paywallFooter =
-      'No tricks. Cancel anytime. Restore purchases.';
+      'No spin wheels. No fake discounts. Cancel anytime.';
   static const String paywallRestore = 'Restore purchases';
+  static const String paywallLoadingPrices = 'Loading prices…';
+  static const String paywallUnavailable =
+      'Pricing is temporarily unavailable. Please try again later.';
+  // Feature card titles (mock's swipeable cards).
+  static const String paywallFeature1Title = '🏁 Unlimited Trip Recaps';
+  static const String paywallFeature1Body =
+      'Detailed breakdown of every drive\n'
+      'Speed, distance and duration stats\n'
+      'Never lose track of your journeys';
+  static const String paywallFeature2Title = '🗺️ Animated Stat Cards';
+  static const String paywallFeature2Body =
+      'Route heat map on every card\n'
+      'Animated countdown of your top stats\n'
+      'Share-ready PNGs at 3× resolution';
+  static const String paywallFeature3Title = '🏆 Global + Friend Leaderboards';
+  static const String paywallFeature3Body =
+      'Compete on famous driving roads\n'
+      'Beat your friends on local segments\n'
+      'Weekly + all-time rankings';
+  static const String paywallFeature4Title = '⛽ Fuel Cost Tracking';
+  static const String paywallFeature4Body =
+      'Per-trip fuel spend in your currency\n'
+      'Monthly fuel totals on your profile\n'
+      'Calibrate for your exact consumption';
 
   // Settings.
   static const String settingsTitle = 'Settings';
   static const String settingsCarProfile = 'Car Profile';
+  static const String settingsCarMake = 'Make';
+  static const String settingsCarModel = 'Model';
+  static const String settingsCarYear = 'Year';
+  static const String settingsCarColour = 'Colour';
   static const String settingsUnits = 'Units';
+  static const String settingsUnitsSpeed = 'Speed & distance';
   static const String settingsFuel = 'Fuel';
+  static const String settingsFuelType = 'Fuel type';
+  static const String settingsFuelConsumption = 'Consumption';
+  static const String settingsFuelPrice = 'Price per litre';
+  static const String settingsFuelPriceImperial = 'Price per gallon';
+  static const String settingsFuelCurrency = 'Currency';
+  static const String settingsFuelTypePetrol = 'Petrol';
+  static const String settingsFuelTypeDiesel = 'Diesel';
+  static const String settingsFuelTypeCng = 'CNG';
+  static const String settingsFuelTypeElectric = 'Electric';
   static const String settingsMapTheme = 'Map Theme';
   static const String settingsAccount = 'Account';
+  static const String settingsUsername = 'Username';
+  static const String settingsCountry = 'Country';
   static const String settingsUnitSystemMetric = 'Metric (km, km/h, L/100km)';
   static const String settingsUnitSystemImperial = 'Imperial (mi, mph, mpg)';
+  static const String settingsRestorePurchases = 'Restore Purchases';
+  static const String settingsDeleteAccountConfirm =
+      'This will delete your account and all trip history. This cannot be undone.';
+  static const String settingsSavedToast = 'Saved';
 
   // Errors.
   static const String errorNoInternet =

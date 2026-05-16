@@ -32,6 +32,7 @@ class TripRepository {
     String? localCurrencyCode,
     String? weatherCondition,
     double? weatherTempC,
+    List<String> roadSegmentIds = const <String>[],
   }) {
     final isNight = _isNightDrive(startedAt);
     return _db.transaction(() async {
@@ -52,6 +53,7 @@ class TripRepository {
               isNightDrive: Value(isNight),
               mapTheme: Value(mapTheme),
               country: Value(country),
+              roadSegmentIds: Value(roadSegmentIds.join(',')),
               startedAt: startedAt,
               endedAt: Value(endedAt),
             ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/services/gps_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/core/services/sensor_service.dart';
@@ -9,6 +10,7 @@ import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.da
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_state.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/services/road_segment_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -32,6 +34,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     this._permissions,
     this._trips,
     this._settings,
+    this._segments,
   ) : super(TrackingState.initial()) {
     on<TrackingStarted>(_onStarted);
     on<TrackingStopRequested>(_onStop);
@@ -57,6 +60,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   final PermissionService _permissions;
   final TripRepository _trips;
   final UserSettingsRepository _settings;
+  final RoadSegmentService _segments;
 
   StreamSubscription<TripPoint>? _pointSub;
   StreamSubscription<double>? _gforceSub;
@@ -148,6 +152,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     }
 
     final settings = await _settings.read();
+    final detected = await _segments.detectFromTrip(state.stats.points);
     final tripId = await _trips.saveTrip(
       uid: settings.uid,
       stats: state.stats,
@@ -155,13 +160,22 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       endedAt: DateTime.now(),
       mapTheme: settings.selectedMapTheme,
       country: settings.country,
+      roadSegmentIds: [for (final s in detected) s.id],
     );
     await _settings.incrementFreeTripsUsed();
+
+    // Re-read settings to get the freshly-incremented trip count, then
+    // decide whether this trip crossed the free-trip limit. Pro users
+    // never see the paywall.
+    final after = await _settings.read();
+    final paywallDue =
+        !after.isPro && after.freeTripsUsed >= AppConstants.freeTripLimit;
 
     emit(
       state.copyWith(
         phase: TrackingPhase.finished,
         completedTripId: tripId,
+        shouldShowPaywall: paywallDue,
       ),
     );
   }

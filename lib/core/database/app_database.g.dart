@@ -205,6 +205,18 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _roadSegmentIdsMeta = const VerificationMeta(
+    'roadSegmentIds',
+  );
+  @override
+  late final GeneratedColumn<String> roadSegmentIds = GeneratedColumn<String>(
+    'road_segment_ids',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _startedAtMeta = const VerificationMeta(
     'startedAt',
   );
@@ -261,6 +273,7 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     isNightDrive,
     mapTheme,
     country,
+    roadSegmentIds,
     startedAt,
     endedAt,
     isSynced,
@@ -419,6 +432,15 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         country.isAcceptableOrUnknown(data['country']!, _countryMeta),
       );
     }
+    if (data.containsKey('road_segment_ids')) {
+      context.handle(
+        _roadSegmentIdsMeta,
+        roadSegmentIds.isAcceptableOrUnknown(
+          data['road_segment_ids']!,
+          _roadSegmentIdsMeta,
+        ),
+      );
+    }
     if (data.containsKey('started_at')) {
       context.handle(
         _startedAtMeta,
@@ -516,6 +538,10 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         DriftSqlType.string,
         data['${effectivePrefix}country'],
       ),
+      roadSegmentIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}road_segment_ids'],
+      )!,
       startedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}started_at'],
@@ -565,6 +591,14 @@ class TripRow extends DataClass implements Insertable<TripRow> {
 
   /// ISO 3166-1 alpha-2 country code where the trip occurred.
   final String? country;
+
+  /// Comma-separated road-segment ids the trip's bounding box overlapped
+  /// at save time (e.g. `nurburgring_nordschleife,m25_london`). Empty when
+  /// the trip touched no known segment. We denormalise instead of using a
+  /// join table because the v1 leaderboard query is "find me a trip's
+  /// segments", not "find me all trips on a segment" — and the comma list
+  /// loads with the row, no extra query.
+  final String roadSegmentIds;
   final DateTime startedAt;
   final DateTime? endedAt;
   final bool isSynced;
@@ -586,6 +620,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     required this.isNightDrive,
     required this.mapTheme,
     this.country,
+    required this.roadSegmentIds,
     required this.startedAt,
     this.endedAt,
     required this.isSynced,
@@ -620,6 +655,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     if (!nullToAbsent || country != null) {
       map['country'] = Variable<String>(country);
     }
+    map['road_segment_ids'] = Variable<String>(roadSegmentIds);
     map['started_at'] = Variable<DateTime>(startedAt);
     if (!nullToAbsent || endedAt != null) {
       map['ended_at'] = Variable<DateTime>(endedAt);
@@ -657,6 +693,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       country: country == null && nullToAbsent
           ? const Value.absent()
           : Value(country),
+      roadSegmentIds: Value(roadSegmentIds),
       startedAt: Value(startedAt),
       endedAt: endedAt == null && nullToAbsent
           ? const Value.absent()
@@ -690,6 +727,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       isNightDrive: serializer.fromJson<bool>(json['isNightDrive']),
       mapTheme: serializer.fromJson<String>(json['mapTheme']),
       country: serializer.fromJson<String?>(json['country']),
+      roadSegmentIds: serializer.fromJson<String>(json['roadSegmentIds']),
       startedAt: serializer.fromJson<DateTime>(json['startedAt']),
       endedAt: serializer.fromJson<DateTime?>(json['endedAt']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
@@ -716,6 +754,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       'isNightDrive': serializer.toJson<bool>(isNightDrive),
       'mapTheme': serializer.toJson<String>(mapTheme),
       'country': serializer.toJson<String?>(country),
+      'roadSegmentIds': serializer.toJson<String>(roadSegmentIds),
       'startedAt': serializer.toJson<DateTime>(startedAt),
       'endedAt': serializer.toJson<DateTime?>(endedAt),
       'isSynced': serializer.toJson<bool>(isSynced),
@@ -740,6 +779,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     bool? isNightDrive,
     String? mapTheme,
     Value<String?> country = const Value.absent(),
+    String? roadSegmentIds,
     DateTime? startedAt,
     Value<DateTime?> endedAt = const Value.absent(),
     bool? isSynced,
@@ -767,6 +807,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     isNightDrive: isNightDrive ?? this.isNightDrive,
     mapTheme: mapTheme ?? this.mapTheme,
     country: country.present ? country.value : this.country,
+    roadSegmentIds: roadSegmentIds ?? this.roadSegmentIds,
     startedAt: startedAt ?? this.startedAt,
     endedAt: endedAt.present ? endedAt.value : this.endedAt,
     isSynced: isSynced ?? this.isSynced,
@@ -814,6 +855,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           : this.isNightDrive,
       mapTheme: data.mapTheme.present ? data.mapTheme.value : this.mapTheme,
       country: data.country.present ? data.country.value : this.country,
+      roadSegmentIds: data.roadSegmentIds.present
+          ? data.roadSegmentIds.value
+          : this.roadSegmentIds,
       startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
       endedAt: data.endedAt.present ? data.endedAt.value : this.endedAt,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
@@ -840,6 +884,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ..write('isNightDrive: $isNightDrive, ')
           ..write('mapTheme: $mapTheme, ')
           ..write('country: $country, ')
+          ..write('roadSegmentIds: $roadSegmentIds, ')
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
           ..write('isSynced: $isSynced')
@@ -848,7 +893,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     uid,
     topSpeedKmh,
@@ -866,10 +911,11 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     isNightDrive,
     mapTheme,
     country,
+    roadSegmentIds,
     startedAt,
     endedAt,
     isSynced,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -891,6 +937,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           other.isNightDrive == this.isNightDrive &&
           other.mapTheme == this.mapTheme &&
           other.country == this.country &&
+          other.roadSegmentIds == this.roadSegmentIds &&
           other.startedAt == this.startedAt &&
           other.endedAt == this.endedAt &&
           other.isSynced == this.isSynced);
@@ -914,6 +961,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
   final Value<bool> isNightDrive;
   final Value<String> mapTheme;
   final Value<String?> country;
+  final Value<String> roadSegmentIds;
   final Value<DateTime> startedAt;
   final Value<DateTime?> endedAt;
   final Value<bool> isSynced;
@@ -935,6 +983,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.isNightDrive = const Value.absent(),
     this.mapTheme = const Value.absent(),
     this.country = const Value.absent(),
+    this.roadSegmentIds = const Value.absent(),
     this.startedAt = const Value.absent(),
     this.endedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
@@ -957,6 +1006,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.isNightDrive = const Value.absent(),
     this.mapTheme = const Value.absent(),
     this.country = const Value.absent(),
+    this.roadSegmentIds = const Value.absent(),
     required DateTime startedAt,
     this.endedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
@@ -984,6 +1034,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Expression<bool>? isNightDrive,
     Expression<String>? mapTheme,
     Expression<String>? country,
+    Expression<String>? roadSegmentIds,
     Expression<DateTime>? startedAt,
     Expression<DateTime>? endedAt,
     Expression<bool>? isSynced,
@@ -1006,6 +1057,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       if (isNightDrive != null) 'is_night_drive': isNightDrive,
       if (mapTheme != null) 'map_theme': mapTheme,
       if (country != null) 'country': country,
+      if (roadSegmentIds != null) 'road_segment_ids': roadSegmentIds,
       if (startedAt != null) 'started_at': startedAt,
       if (endedAt != null) 'ended_at': endedAt,
       if (isSynced != null) 'is_synced': isSynced,
@@ -1030,6 +1082,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Value<bool>? isNightDrive,
     Value<String>? mapTheme,
     Value<String?>? country,
+    Value<String>? roadSegmentIds,
     Value<DateTime>? startedAt,
     Value<DateTime?>? endedAt,
     Value<bool>? isSynced,
@@ -1052,6 +1105,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       isNightDrive: isNightDrive ?? this.isNightDrive,
       mapTheme: mapTheme ?? this.mapTheme,
       country: country ?? this.country,
+      roadSegmentIds: roadSegmentIds ?? this.roadSegmentIds,
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
       isSynced: isSynced ?? this.isSynced,
@@ -1112,6 +1166,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     if (country.present) {
       map['country'] = Variable<String>(country.value);
     }
+    if (roadSegmentIds.present) {
+      map['road_segment_ids'] = Variable<String>(roadSegmentIds.value);
+    }
     if (startedAt.present) {
       map['started_at'] = Variable<DateTime>(startedAt.value);
     }
@@ -1144,6 +1201,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
           ..write('isNightDrive: $isNightDrive, ')
           ..write('mapTheme: $mapTheme, ')
           ..write('country: $country, ')
+          ..write('roadSegmentIds: $roadSegmentIds, ')
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
           ..write('isSynced: $isSynced')
@@ -2766,6 +2824,7 @@ typedef $$TripsTableCreateCompanionBuilder =
       Value<bool> isNightDrive,
       Value<String> mapTheme,
       Value<String?> country,
+      Value<String> roadSegmentIds,
       required DateTime startedAt,
       Value<DateTime?> endedAt,
       Value<bool> isSynced,
@@ -2789,6 +2848,7 @@ typedef $$TripsTableUpdateCompanionBuilder =
       Value<bool> isNightDrive,
       Value<String> mapTheme,
       Value<String?> country,
+      Value<String> roadSegmentIds,
       Value<DateTime> startedAt,
       Value<DateTime?> endedAt,
       Value<bool> isSynced,
@@ -2907,6 +2967,11 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
 
   ColumnFilters<String> get country => $composableBuilder(
     column: $table.country,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get roadSegmentIds => $composableBuilder(
+    column: $table.roadSegmentIds,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3045,6 +3110,11 @@ class $$TripsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get roadSegmentIds => $composableBuilder(
+    column: $table.roadSegmentIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get startedAt => $composableBuilder(
     column: $table.startedAt,
     builder: (column) => ColumnOrderings(column),
@@ -3145,6 +3215,11 @@ class $$TripsTableAnnotationComposer
   GeneratedColumn<String> get country =>
       $composableBuilder(column: $table.country, builder: (column) => column);
 
+  GeneratedColumn<String> get roadSegmentIds => $composableBuilder(
+    column: $table.roadSegmentIds,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get startedAt =>
       $composableBuilder(column: $table.startedAt, builder: (column) => column);
 
@@ -3225,6 +3300,7 @@ class $$TripsTableTableManager
                 Value<bool> isNightDrive = const Value.absent(),
                 Value<String> mapTheme = const Value.absent(),
                 Value<String?> country = const Value.absent(),
+                Value<String> roadSegmentIds = const Value.absent(),
                 Value<DateTime> startedAt = const Value.absent(),
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
@@ -3246,6 +3322,7 @@ class $$TripsTableTableManager
                 isNightDrive: isNightDrive,
                 mapTheme: mapTheme,
                 country: country,
+                roadSegmentIds: roadSegmentIds,
                 startedAt: startedAt,
                 endedAt: endedAt,
                 isSynced: isSynced,
@@ -3269,6 +3346,7 @@ class $$TripsTableTableManager
                 Value<bool> isNightDrive = const Value.absent(),
                 Value<String> mapTheme = const Value.absent(),
                 Value<String?> country = const Value.absent(),
+                Value<String> roadSegmentIds = const Value.absent(),
                 required DateTime startedAt,
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
@@ -3290,6 +3368,7 @@ class $$TripsTableTableManager
                 isNightDrive: isNightDrive,
                 mapTheme: mapTheme,
                 country: country,
+                roadSegmentIds: roadSegmentIds,
                 startedAt: startedAt,
                 endedAt: endedAt,
                 isSynced: isSynced,

@@ -24,13 +24,22 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
-      // Migrations land here when schemaVersion is bumped.
+      if (from < 2) {
+        // v2 adds Trips.road_segment_ids — comma-separated famous-road
+        // segment ids the trip's bounding box overlapped at save time.
+        // Raw SQL keeps the migration independent of generated code so the
+        // file compiles even when build_runner hasn't been re-run yet.
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN road_segment_ids TEXT NOT NULL '
+          "DEFAULT ''",
+        );
+      }
     },
     beforeOpen: (details) async {
       // SQLite has foreign-key enforcement off by default per connection.

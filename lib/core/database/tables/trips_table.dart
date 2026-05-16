@@ -42,6 +42,15 @@ class Trips extends Table {
   /// ISO 3166-1 alpha-2 country code where the trip occurred.
   TextColumn get country => text().nullable()();
 
+  /// Comma-separated road-segment ids the trip's bounding box overlapped
+  /// at save time (e.g. `nurburgring_nordschleife,m25_london`). Empty when
+  /// the trip touched no known segment. We denormalise instead of using a
+  /// join table because the v1 leaderboard query is "find me a trip's
+  /// segments", not "find me all trips on a segment" — and the comma list
+  /// loads with the row, no extra query.
+  TextColumn get roadSegmentIds =>
+      text().withDefault(const Constant(''))();
+
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime().nullable()();
 
