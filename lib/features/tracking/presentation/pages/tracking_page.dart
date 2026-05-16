@@ -52,8 +52,12 @@ class _TrackingPageBody extends StatelessWidget {
           listener: (context, state) async {
             if (state.phase != TrackingPhase.finished) return;
             final tripId = state.completedTripId;
+            final paywallDue = state.shouldShowPaywall;
             if (tripId != null) {
               await context.push(RouteNames.tripSummaryFor(tripId));
+            }
+            if (paywallDue && context.mounted) {
+              await context.push(RouteNames.paywall);
             }
             if (context.mounted) {
               context.read<TrackingBloc>().add(const TrackingReset());

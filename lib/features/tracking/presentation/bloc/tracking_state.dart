@@ -31,6 +31,7 @@ class TrackingState {
     required this.stats,
     required this.permissionStatus,
     required this.completedTripId,
+    required this.shouldShowPaywall,
   });
 
   factory TrackingState.initial() => TrackingState(
@@ -38,12 +39,18 @@ class TrackingState {
     stats: LiveTripStats.initial(),
     permissionStatus: null,
     completedTripId: null,
+    shouldShowPaywall: false,
   );
 
   final TrackingPhase phase;
   final LiveTripStats stats;
   final LocationPermissionStatus? permissionStatus;
   final int? completedTripId;
+
+  /// True when the just-completed trip pushed the user over the free-trip
+  /// limit (and they're not already Pro). The tracking page listens for
+  /// this and routes the user from `/home` → trip summary → paywall.
+  final bool shouldShowPaywall;
 
   bool get isRecording => phase == TrackingPhase.recording;
 
@@ -52,12 +59,14 @@ class TrackingState {
     LiveTripStats? stats,
     LocationPermissionStatus? permissionStatus,
     int? completedTripId,
+    bool? shouldShowPaywall,
   }) {
     return TrackingState(
       phase: phase ?? this.phase,
       stats: stats ?? this.stats,
       permissionStatus: permissionStatus ?? this.permissionStatus,
       completedTripId: completedTripId ?? this.completedTripId,
+      shouldShowPaywall: shouldShowPaywall ?? this.shouldShowPaywall,
     );
   }
 }
