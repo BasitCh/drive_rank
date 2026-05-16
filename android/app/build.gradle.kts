@@ -8,7 +8,14 @@ plugins {
 android {
     namespace = "com.bytse.drive_rank"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Pinned manually instead of using `flutter.ndkVersion` because the
+    // Flutter 3.41 default (28.2.13676358) has a corrupted local install on
+    // some dev machines. 29.x is the latest fully-installed NDK in this
+    // project's environment. To re-align with Flutter's default, install
+    // the canonical NDK with:
+    //   sdkmanager --install "ndk;${flutter.ndkVersion}"
+    // and switch the line below back to `flutter.ndkVersion`.
+    ndkVersion = "29.0.13599879"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
