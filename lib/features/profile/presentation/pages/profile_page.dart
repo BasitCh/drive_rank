@@ -5,6 +5,7 @@ import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
+import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/monthly_report/presentation/widgets/monthly_report_card.dart';
 import 'package:drive_rank/features/profile/presentation/bloc/profile_bloc.dart';
@@ -95,7 +96,66 @@ class _Loaded extends StatelessWidget {
             onTap: () => context.push(RouteNames.settings),
           ),
         ),
+        const SizedBox(height: 10),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14),
+          child: _AuthRow(),
+        ),
       ],
+    );
+  }
+}
+
+class _AuthRow extends StatelessWidget {
+  const _AuthRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = getIt<AuthService>();
+    return StreamBuilder<AuthUser>(
+      stream: auth.userChanges,
+      initialData: auth.currentUser,
+      builder: (context, snap) {
+        final user = snap.data ?? auth.currentUser;
+        final isSignedIn = !user.isAnonymous;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (isSignedIn) ...[
+              _ActionRow(
+                label: '${AppStrings.profileSignedInAs} '
+                    '${user.displayName ?? user.email ?? user.uid}',
+                icon: Icons.verified_user_rounded,
+                onTap: () {},
+              ),
+              const SizedBox(height: 8),
+              _ActionRow(
+                label: AppStrings.profileSignOut,
+                icon: Icons.logout_rounded,
+                onTap: () async {
+                  await auth.signOut();
+                },
+              ),
+            ] else ...[
+              _ActionRow(
+                label: AppStrings.profileSignInGoogle,
+                icon: Icons.login_rounded,
+                onTap: () async {
+                  final result = await auth.signInWithGoogle();
+                  if (!context.mounted) return;
+                  if (result == SignInResult.failed) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(AppStrings.profileSignedOut),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

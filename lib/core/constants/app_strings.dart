@@ -177,6 +177,9 @@ class AppStrings {
   static const String profileTitle = 'Profile';
   static const String profileGoPro = 'Go Pro';
   static const String profileSignOut = 'Sign out';
+  static const String profileSignInGoogle = 'Sign in with Google';
+  static const String profileSignedInAs = 'Signed in as';
+  static const String profileSignedOut = 'Signed out — your trips are local only';
   static const String profileDeleteAccount = 'Delete account';
   static const String profileStatTopSpeed = 'TOP SPEED';
   static const String profileStatTotalTrips = 'TOTAL TRIPS';
