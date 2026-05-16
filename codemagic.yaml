@@ -1,0 +1,177 @@
+workflows:
+  android-release:
+    name: Android Release
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      java: 17
+      android_signing:
+        - keystore_reference
+      groups:
+        # Secrets are managed in the Codemagic UI (Settings → Teams →
+        # Integrations / Environment variables) — never committed.
+        - firebase_credentials    # FIREBASE_SERVICE_ACCOUNT (base64)
+        - revenuecat_keys         # REVENUECAT_API_KEY_IOS, _ANDROID
+        - onesignal_keys          # ONESIGNAL_APP_ID
+        - google_play             # GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      vars:
+        PACKAGE_NAME: 'com.bytse.drive_rank'
+    triggering:
+      events: [push, tag]
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+    scripts:
+      - name: Set up Flutter SDK
+        script: |
+          flutter packages pub get
+
+      - name: Decode Firebase service account
+        script: |
+          echo $FIREBASE_SERVICE_ACCOUNT | base64 --decode > \
+            "$CM_BUILD_DIR/android/app/google-services.json"
+
+      - name: Code generation (Drift / freezed / injectable / retrofit)
+        script: |
+          dart run build_runner build --delete-conflicting-outputs
+
+      - name: Static analysis
+        script: |
+          flutter analyze
+
+      - name: Tests with coverage
+        script: |
+          flutter test --coverage
+
+      - name: Build app bundle
+        script: |
+          flutter build appbundle --release \
+            --dart-define=ENVIRONMENT=production \
+            --dart-define=ONESIGNAL_APP_ID=$ONESIGNAL_APP_ID \
+            --dart-define=REVENUECAT_API_KEY_ANDROID=$REVENUECAT_API_KEY_ANDROID \
+            --obfuscate \
+            --split-debug-info=build/symbols
+
+      - name: Build split APKs (sideload-friendly artifact)
+        script: |
+          flutter build apk --release \
+            --split-per-abi \
+            --dart-define=ENVIRONMENT=production \
+            --dart-define=ONESIGNAL_APP_ID=$ONESIGNAL_APP_ID \
+            --dart-define=REVENUECAT_API_KEY_ANDROID=$REVENUECAT_API_KEY_ANDROID
+
+    artifacts:
+      - build/**/outputs/**/*.aab
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/mapping.txt
+      - build/symbols/**
+      - flutter_drive.log
+
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
+        in_app_update_priority: 0
+      email:
+        recipients:
+          - basit.saleem13@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  android-staging:
+    name: Android Staging
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      flutter: stable
+      java: 17
+      groups:
+        - firebase_credentials
+        - revenuecat_keys
+        - onesignal_keys
+    triggering:
+      events: [push]
+      branch_patterns:
+        - pattern: develop
+          include: true
+          source: true
+    scripts:
+      - name: Pub get
+        script: flutter packages pub get
+      - name: Decode Firebase service account
+        script: |
+          echo $FIREBASE_SERVICE_ACCOUNT | base64 --decode > \
+            "$CM_BUILD_DIR/android/app/google-services.json"
+      - name: Code generation
+        script: dart run build_runner build --delete-conflicting-outputs
+      - name: Static analysis
+        script: flutter analyze
+      - name: Tests
+        script: flutter test
+      - name: Build debug APK
+        script: |
+          flutter build apk --debug \
+            --dart-define=ENVIRONMENT=staging \
+            --dart-define=ONESIGNAL_APP_ID=$ONESIGNAL_APP_ID
+    artifacts:
+      - build/**/outputs/**/*.apk
+
+  ios-release:
+    name: iOS Release
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.bytse.driveRank
+      groups:
+        - firebase_credentials
+        - revenuecat_keys
+        - onesignal_keys
+    triggering:
+      events: [tag]
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+    scripts:
+      - name: Pub get
+        script: flutter packages pub get
+      - name: Decode Firebase service account (iOS plist)
+        script: |
+          echo $FIREBASE_IOS_PLIST | base64 --decode > \
+            "$CM_BUILD_DIR/ios/Runner/GoogleService-Info.plist"
+      - name: Code generation
+        script: dart run build_runner build --delete-conflicting-outputs
+      - name: Pod install
+        script: |
+          cd ios && pod install --repo-update
+      - name: Build IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist \
+            --dart-define=ENVIRONMENT=production \
+            --dart-define=ONESIGNAL_APP_ID=$ONESIGNAL_APP_ID \
+            --dart-define=REVENUECAT_API_KEY_IOS=$REVENUECAT_API_KEY_IOS \
+            --obfuscate \
+            --split-debug-info=build/symbols
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/symbols/**
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Internal testers

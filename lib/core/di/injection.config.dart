@@ -9,14 +9,20 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:connectivity_plus/connectivity_plus.dart' as _i895;
 import 'package:drive_rank/core/database/app_database.dart' as _i425;
+import 'package:drive_rank/core/di/injection_module.dart' as _i953;
+import 'package:drive_rank/core/network/network_info.dart' as _i721;
 import 'package:drive_rank/core/router/app_router.dart' as _i901;
+import 'package:drive_rank/core/services/auth_service.dart' as _i1009;
 import 'package:drive_rank/core/services/card_export_service.dart' as _i261;
 import 'package:drive_rank/core/services/gps_service.dart' as _i375;
 import 'package:drive_rank/core/services/locale_service.dart' as _i447;
 import 'package:drive_rank/core/services/paywall_service.dart' as _i495;
 import 'package:drive_rank/core/services/permission_service.dart' as _i576;
+import 'package:drive_rank/core/services/push_service.dart' as _i488;
 import 'package:drive_rank/core/services/sensor_service.dart' as _i125;
+import 'package:drive_rank/core/services/telemetry_service.dart' as _i46;
 import 'package:drive_rank/features/history/presentation/bloc/history_bloc.dart'
     as _i586;
 import 'package:drive_rank/features/leaderboard/presentation/bloc/leaderboard_bloc.dart'
@@ -40,7 +46,9 @@ import 'package:drive_rank/shared/repositories/leaderboard_repository.dart'
 import 'package:drive_rank/shared/repositories/trip_repository.dart' as _i634;
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart'
     as _i727;
+import 'package:drive_rank/shared/services/remote_trip_sink.dart' as _i88;
 import 'package:drive_rank/shared/services/road_segment_service.dart' as _i928;
+import 'package:drive_rank/shared/services/sync_manager.dart' as _i830;
 import 'package:drive_rank/shared/services/trip_stats_service.dart' as _i67;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
@@ -52,23 +60,42 @@ _i174.GetIt $initGetIt(
   _i526.EnvironmentFilter? environmentFilter,
 }) {
   final gh = _i526.GetItHelper(getIt, environment, environmentFilter);
+  final injectionModule = _$InjectionModule();
   gh.singleton<_i425.AppDatabase>(() => _i425.AppDatabase());
   gh.singleton<_i901.AppRouter>(() => _i901.AppRouter());
   gh.singleton<_i375.GpsService>(() => _i375.GpsService());
   gh.singleton<_i125.SensorService>(() => _i125.SensorService());
+  gh.lazySingleton<_i895.Connectivity>(() => injectionModule.connectivity());
   gh.lazySingleton<_i261.CardExportService>(() => _i261.CardExportService());
   gh.lazySingleton<_i447.LocaleService>(() => _i447.LocaleService());
   gh.lazySingleton<_i576.PermissionService>(() => _i576.PermissionService());
   gh.lazySingleton<_i928.RoadSegmentService>(() => _i928.RoadSegmentService());
   gh.lazySingleton<_i972.CarRepository>(() => _i639.AssetCarRepository());
+  gh.lazySingleton<_i488.PushService>(() => injectionModule.noopPush());
   gh.lazySingleton<_i727.UserSettingsRepository>(
     () => _i727.UserSettingsRepository(
       gh<_i425.AppDatabase>(),
       gh<_i447.LocaleService>(),
     ),
   );
+  gh.lazySingleton<_i46.TelemetryService>(
+    () => injectionModule.consoleTelemetry(),
+  );
   gh.lazySingleton<_i495.PaywallService>(
     () => _i495.PreviewPaywallService(gh<_i447.LocaleService>()),
+  );
+  gh.lazySingleton<_i88.RemoteTripSink>(() => injectionModule.noopSink());
+  gh.lazySingleton<_i1009.AuthService>(() => injectionModule.anonymousAuth());
+  gh.lazySingleton<_i721.NetworkInfo>(
+    () => _i721.NetworkInfo(gh<_i895.Connectivity>()),
+  );
+  gh.singleton<_i830.SyncManager>(
+    () => _i830.SyncManager(
+      gh<_i425.AppDatabase>(),
+      gh<_i721.NetworkInfo>(),
+      gh<_i88.RemoteTripSink>(),
+      gh<_i46.TelemetryService>(),
+    ),
   );
   gh.factory<_i162.OnboardingBloc>(
     () => _i162.OnboardingBloc(
@@ -135,3 +162,5 @@ _i174.GetIt $initGetIt(
   );
   return getIt;
 }
+
+class _$InjectionModule extends _i953.InjectionModule {}
