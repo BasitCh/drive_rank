@@ -28,6 +28,11 @@ class GpsService {
   final StreamController<TripPoint> _controller =
       StreamController<TripPoint>.broadcast();
 
+  /// Tracked for the Issue-7 spike filter — a sample whose speed differs
+  /// from this by more than [AppConstants.maxSpeedDeltaPerSampleKmh] is a
+  /// GPS glitch and is discarded. Reset on every [start].
+  double _previousSpeedKmh = 0;
+
   /// Live point stream — null until [start] is called.
   Stream<TripPoint> get points => _controller.stream;
 
@@ -37,6 +42,7 @@ class GpsService {
   Future<void> start() async {
     if (_sub != null) return;
     _filter.reset();
+    _previousSpeedKmh = 0;
 
     const settings = LocationSettings(
       accuracy: LocationAccuracy.bestForNavigation,
@@ -70,7 +76,10 @@ class GpsService {
       timestampMs: p.timestamp.millisecondsSinceEpoch,
     );
 
-    final speedKmh = (p.speed.isNaN || p.speed < 0) ? 0.0 : p.speed * 3.6;
+    final speedKmh = _denoiseSpeed(
+      rawSpeedMetresPerSecond: p.speed,
+      accuracyMeters: p.accuracy,
+    );
 
     _controller.add(
       TripPoint(
@@ -81,6 +90,49 @@ class GpsService {
         timestamp: p.timestamp,
       ),
     );
+  }
+
+  /// Filters out the two flavours of GPS noise that make the live speed
+  /// counter feel broken:
+  ///   1. Drift: when the device is stationary, GPS still reports
+  ///      sub-3 km/h drifts. Clamp anything below
+  ///      [AppConstants.minReliableSpeedKmh] to zero, and do the same
+  ///      when reported accuracy is worse than
+  ///      [AppConstants.maxReliableAccuracyMeters] (motion is
+  ///      unresolvable at that error level).
+  ///   2. Spikes: a fix that disagrees with the last one by more than
+  ///      [AppConstants.maxSpeedDeltaPerSampleKmh] is a glitch — keep
+  ///      the previous reading rather than emitting the spike.
+  ///
+  /// Internally everything is km/h. Never returns mph; the display
+  /// layer converts via `LocaleService` only.
+  double _denoiseSpeed({
+    required double rawSpeedMetresPerSecond,
+    required double accuracyMeters,
+  }) {
+    // Geolocator can report NaN or negative speeds on cold-start fixes.
+    if (rawSpeedMetresPerSecond.isNaN || rawSpeedMetresPerSecond < 0) {
+      _previousSpeedKmh = 0;
+      return 0;
+    }
+    final candidate = rawSpeedMetresPerSecond * 3.6;
+
+    // Drift filter — too slow or accuracy too poor → treat as stationary.
+    if (candidate < AppConstants.minReliableSpeedKmh ||
+        accuracyMeters > AppConstants.maxReliableAccuracyMeters) {
+      _previousSpeedKmh = 0;
+      return 0;
+    }
+
+    // Spike filter — only applies once we have a previous reading.
+    if (_previousSpeedKmh > 0 &&
+        (candidate - _previousSpeedKmh).abs() >
+            AppConstants.maxSpeedDeltaPerSampleKmh) {
+      return _previousSpeedKmh;
+    }
+
+    _previousSpeedKmh = candidate;
+    return candidate;
   }
 
   /// Convenience used by TrackingBloc to add an incremental segment to a

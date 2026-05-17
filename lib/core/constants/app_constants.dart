@@ -56,7 +56,10 @@ class AppConstants {
 
   // ---- Locale ----
   /// Countries that default to imperial units (per ISO 3166-1 alpha-2).
-  static const Set<String> imperialCountryCodes = {'US', 'MM', 'LR'};
+  /// Countries that default to imperial units (mph / mi). Per the spec:
+  /// United States, United Kingdom, Myanmar, Liberia. The user can override
+  /// in settings either direction — this only seeds the initial default.
+  static const Set<String> imperialCountryCodes = {'US', 'GB', 'MM', 'LR'};
 
   // ---- Conversions ----
   /// Multiplier from km to miles (precise to 6dp).

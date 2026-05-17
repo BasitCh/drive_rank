@@ -12,10 +12,10 @@ void main() {
       expect(svc.distanceUnitLabel, 'mi');
     });
 
-    test('GB locale uses metric (per spec — only US/MM/LR are imperial)', () {
+    test('GB locale uses imperial (per spec — US/GB/MM/LR)', () {
       final svc = LocaleService.forLocale(const Locale('en', 'GB'));
-      expect(svc.unitSystem, UnitSystem.metric);
-      expect(svc.speedUnitLabel, 'km/h');
+      expect(svc.unitSystem, UnitSystem.imperial);
+      expect(svc.speedUnitLabel, 'mph');
     });
 
     test('PK locale uses metric', () {
