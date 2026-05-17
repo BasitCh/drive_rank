@@ -7,8 +7,24 @@ class AppConstants {
   const AppConstants._();
 
   // ---- Free tier ----
-  /// Free trips before the paywall is shown.
-  static const int freeTripLimit = 10;
+  /// Free trips before the paywall is shown. DriveRank's free tier is
+  /// deliberately smaller than TripRank's so users see the value of pro
+  /// faster — the spec calls for 5.
+  static const int freeTripLimit = 5;
+
+  // ---- Speed noise filter (Issue 7) ----
+  /// Speeds below this (km/h) are clamped to zero — under it, GPS drift
+  /// dominates the real motion signal.
+  static const double minReliableSpeedKmh = 3;
+
+  /// Reported GPS accuracy worse than this (m) → ignore the speed
+  /// reading and clamp to zero. 20m is around the threshold where car
+  /// motion stops being resolvable.
+  static const double maxReliableAccuracyMeters = 20;
+
+  /// A speed delta greater than this (km/h) between consecutive samples
+  /// is a GPS glitch — discard and keep the previous reading.
+  static const double maxSpeedDeltaPerSampleKmh = 50;
 
   // ---- Auto trip detection ----
   /// Speed threshold (km/h) above which a candidate trip start is registered.

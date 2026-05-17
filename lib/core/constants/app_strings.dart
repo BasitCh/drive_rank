@@ -120,6 +120,32 @@ class AppStrings {
       'Location permission is required to track trips.';
   static const String trackingOpenSettings = 'Open Settings';
   static const String trackingGrantPermission = 'Grant Permission';
+  // Idle / Start-Trip surface.
+  static const String homeReadyToDrive = 'Ready to drive?';
+  static const String homeReadyToDriveSub =
+      'Tap below to start recording. GPS is off until you start.';
+  static const String homeStartTrip = 'Start Trip';
+  static const String homeStartTripDisabled = 'Free trips used up';
+  static const String homeStartingTrip = 'Starting…';
+  static const String homeStoppingTrip = 'Saving trip…';
+  static const String homeUpgradeToContinue = 'Upgrade to keep tracking';
+  static const String homeLastFreeTripWarning =
+      'Last free trip — upgrade to keep tracking unlimited.';
+  static const String homeProMember = 'Pro · unlimited trips';
+  static const String homeRetry = 'Retry';
+  // Free-trip counter — formatted with sprintf-style placeholders.
+  static String homeFreeTripsRemaining(int remaining, int total) {
+    if (remaining <= 0) return 'No free trips remaining';
+    if (remaining == 1) return '1 of $total free trips left';
+    return '$remaining of $total free trips left';
+  }
+
+  // End Trip confirmation dialog.
+  static const String endTripConfirmTitle = 'End this trip?';
+  static const String endTripConfirmBody =
+      "We'll save your route and stats. You can't add more after this.";
+  static const String endTripConfirmKeepDriving = 'Keep driving';
+  static const String endTripConfirmEnd = 'End trip';
 
   // Trip summary.
   static const String tripSummaryTitle = 'Trip Summary';

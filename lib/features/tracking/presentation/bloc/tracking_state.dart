@@ -2,26 +2,38 @@ import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:flutter/foundation.dart';
 
-/// Phase of the live tracking screen.
+/// Discrete phases of the live tracking screen.
+///
+/// The lifecycle is strictly:
+///   idle → starting → active → stopping → idle
+/// with `permissionDenied` and `error` as terminal branches that loop
+/// back to `idle` once the user resolves them.
 enum TrackingPhase {
-  /// Initial — bloc just constructed, nothing has resolved yet.
-  initial,
+  /// No trip in progress. Home page shows the Start Trip button + the
+  /// free-trips-remaining counter. Default state on app launch — GPS
+  /// must never be running.
+  idle,
 
-  /// We need location permission and haven't asked / been denied.
-  permissionRequired,
+  /// User tapped Start Trip. We're requesting permission / spinning up
+  /// the GPS and sensor streams. Brief — usually <1s.
+  starting,
 
-  /// Location services are off at the OS level.
-  servicesDisabled,
+  /// A trip is recording. The hero number is live, the map strip is
+  /// drawing the polyline, the End Trip button is visible.
+  active,
 
-  /// Streams are subscribed but no GPS fix yet.
-  waitingForFix,
+  /// User tapped End Trip. Tearing down streams, persisting the trip
+  /// row + waypoints to Drift. Brief — usually <500ms.
+  stopping,
 
-  /// Recording a trip.
-  recording,
+  /// Location permission is denied or location services are off at the
+  /// OS level. The page shows a gate with a Grant Permission / Open
+  /// Settings button.
+  permissionDenied,
 
-  /// User stopped the trip — final stats are exposed for navigation to
-  /// the trip summary page.
-  finished,
+  /// Something went wrong. Page shows the error message + a Retry
+  /// button that re-emits StartRequested.
+  error,
 }
 
 @immutable
@@ -32,27 +44,36 @@ class TrackingState {
     required this.permissionStatus,
     required this.completedTripId,
     required this.shouldShowPaywall,
+    required this.errorMessage,
   });
 
   factory TrackingState.initial() => TrackingState(
-    phase: TrackingPhase.initial,
+    phase: TrackingPhase.idle,
     stats: LiveTripStats.initial(),
     permissionStatus: null,
     completedTripId: null,
     shouldShowPaywall: false,
+    errorMessage: null,
   );
 
   final TrackingPhase phase;
   final LiveTripStats stats;
   final LocationPermissionStatus? permissionStatus;
+
+  /// Id of the just-saved trip. Set when `phase` transitions to `idle`
+  /// after a successful stop — the page listens for this and pushes
+  /// the user to `/trip-summary/<id>`. Cleared on the next `idle`.
   final int? completedTripId;
 
-  /// True when the just-completed trip pushed the user over the free-trip
-  /// limit (and they're not already Pro). The tracking page listens for
-  /// this and routes the user from `/home` → trip summary → paywall.
+  /// True when the just-completed trip pushed the user over the
+  /// free-trip limit (and they're not already Pro). The tracking page
+  /// listens for this and routes /home → trip summary → paywall.
   final bool shouldShowPaywall;
 
-  bool get isRecording => phase == TrackingPhase.recording;
+  /// Human-readable error copy shown in the error-state gate.
+  final String? errorMessage;
+
+  bool get isRecording => phase == TrackingPhase.active;
 
   TrackingState copyWith({
     TrackingPhase? phase,
@@ -60,13 +81,19 @@ class TrackingState {
     LocationPermissionStatus? permissionStatus,
     int? completedTripId,
     bool? shouldShowPaywall,
+    String? errorMessage,
+    bool clearCompletedTripId = false,
+    bool clearError = false,
   }) {
     return TrackingState(
       phase: phase ?? this.phase,
       stats: stats ?? this.stats,
       permissionStatus: permissionStatus ?? this.permissionStatus,
-      completedTripId: completedTripId ?? this.completedTripId,
+      completedTripId: clearCompletedTripId
+          ? null
+          : (completedTripId ?? this.completedTripId),
       shouldShowPaywall: shouldShowPaywall ?? this.shouldShowPaywall,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 }

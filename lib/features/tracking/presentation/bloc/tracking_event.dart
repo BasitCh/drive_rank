@@ -6,15 +6,23 @@ sealed class TrackingEvent {
   const TrackingEvent();
 }
 
-/// Page-init lifecycle event — checks/requests permission, then starts the
-/// GPS and sensor streams.
-class TrackingStarted extends TrackingEvent {
-  const TrackingStarted();
+/// User tapped Start Trip on the idle home screen. The bloc resolves
+/// permission, then spins up GPS / sensor streams. Never auto-fired.
+class TrackingStartRequested extends TrackingEvent {
+  const TrackingStartRequested();
 }
 
-/// User pressed the red "End Trip" button.
+/// User tapped End Trip on the live screen and confirmed the dialog.
+/// The bloc tears down streams, persists the trip, and emits the
+/// resulting tripId in `completedTripId` so the page can route to the
+/// trip summary.
 class TrackingStopRequested extends TrackingEvent {
   const TrackingStopRequested();
+}
+
+/// User tapped Grant Permission on the gate (permissionDenied phase).
+class TrackingPermissionRequested extends TrackingEvent {
+  const TrackingPermissionRequested();
 }
 
 /// Internal — a new Kalman-filtered point arrived from `GpsService`.
@@ -34,14 +42,9 @@ class TrackingTicked extends TrackingEvent {
   const TrackingTicked();
 }
 
-/// User tapped "Grant Permission" on the gate.
-class TrackingPermissionRequested extends TrackingEvent {
-  const TrackingPermissionRequested();
-}
-
-/// Resets the bloc back to a fresh starting state — used after the user
-/// finishes a trip and navigates to the summary, so when they return to
-/// the live page it's ready to record a new trip.
+/// Reset to the idle state — used after the user finishes the trip
+/// summary and returns to home so the next trip starts from a clean
+/// slate.
 class TrackingReset extends TrackingEvent {
   const TrackingReset();
 }

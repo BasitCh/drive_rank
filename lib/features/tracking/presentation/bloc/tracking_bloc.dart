@@ -14,18 +14,22 @@ import 'package:drive_rank/shared/services/road_segment_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
-/// Coordinates the live-tracking screen.
+/// Coordinates the live tracking page.
 ///
-/// Responsibilities:
-///  - Resolve location permission before the GPS stream is started.
-///  - Subscribe to GPS + sensor streams and aggregate them into
-///    `LiveTripStats` (top speed, distance via Haversine, duration, max g).
-///  - Tick a per-second timer for duration display so the UI updates even
-///    when the vehicle is stationary.
-///  - Tear down streams on stop, persist the trip (with all waypoints) in
-///    a single Drift transaction, emit `TrackingPhase.finished` with the
-///    new tripId — the page listens for that id and navigates to the
-///    trip summary.
+/// **GPS never auto-starts.** The default state is `TrackingPhase.idle`
+/// and stays there until the user explicitly emits
+/// `TrackingStartRequested`. The home page renders an idle UI with a
+/// Start Trip button — there's no "live tracking" surface until a trip
+/// is actually recording.
+///
+/// State machine (see `TrackingPhase`):
+///   idle → starting → active → stopping → idle
+/// with `permissionDenied` and `error` as terminal branches that loop
+/// back to idle once the user resolves them.
+///
+/// Trip persistence is atomic — every stop runs through one Drift
+/// transaction (trip row + waypoints). If any step of the stop sequence
+/// fails the bloc emits `error` and the UI lets the user retry.
 @injectable
 class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   TrackingBloc(
@@ -36,23 +40,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     this._settings,
     this._segments,
   ) : super(TrackingState.initial()) {
-    on<TrackingStarted>(_onStarted);
-    on<TrackingStopRequested>(_onStop);
+    on<TrackingStartRequested>(_onStartRequested);
+    on<TrackingStopRequested>(_onStopRequested);
+    on<TrackingPermissionRequested>(_onPermissionRequested);
     on<TrackingPointReceived>(_onPoint);
     on<TrackingGforceReceived>(_onGforce);
     on<TrackingTicked>(_onTick);
-    on<TrackingPermissionRequested>(_onPermissionRequested);
     on<TrackingReset>(_onReset);
-  }
-
-  Future<void> _onReset(
-    TrackingReset event,
-    Emitter<TrackingState> emit,
-  ) async {
-    await _teardown();
-    _startedAt = null;
-    emit(TrackingState.initial());
-    add(const TrackingStarted());
   }
 
   final GpsService _gps;
@@ -67,31 +61,50 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   Timer? _ticker;
   DateTime? _startedAt;
 
-  Future<void> _onStarted(
-    TrackingStarted event,
+  // ---------- user-initiated transitions ----------
+
+  Future<void> _onStartRequested(
+    TrackingStartRequested event,
     Emitter<TrackingState> emit,
   ) async {
+    // Block re-entry: starting an already-active trip is a no-op.
+    if (state.phase == TrackingPhase.starting ||
+        state.phase == TrackingPhase.active ||
+        state.phase == TrackingPhase.stopping) {
+      return;
+    }
+    emit(
+      state.copyWith(
+        phase: TrackingPhase.starting,
+        stats: LiveTripStats.initial(),
+        clearCompletedTripId: true,
+        clearError: true,
+        shouldShowPaywall: false,
+      ),
+    );
+
     final status = await _permissions.currentLocationStatus();
-    if (status == LocationPermissionStatus.servicesDisabled) {
+    if (!_isGranted(status)) {
       emit(
         state.copyWith(
-          phase: TrackingPhase.servicesDisabled,
+          phase: TrackingPhase.permissionDenied,
           permissionStatus: status,
         ),
       );
       return;
     }
-    if (status != LocationPermissionStatus.granted &&
-        status != LocationPermissionStatus.grantedAlways) {
+    try {
+      await _spinUp();
+      emit(state.copyWith(phase: TrackingPhase.active));
+    } catch (e) {
+      await _teardown();
       emit(
         state.copyWith(
-          phase: TrackingPhase.permissionRequired,
-          permissionStatus: status,
+          phase: TrackingPhase.error,
+          errorMessage: 'Could not start tracking: $e',
         ),
       );
-      return;
     }
-    await _spinUp(emit);
   }
 
   Future<void> _onPermissionRequested(
@@ -99,91 +112,118 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     Emitter<TrackingState> emit,
   ) async {
     final status = await _permissions.requestLocation();
-    if (status == LocationPermissionStatus.granted ||
-        status == LocationPermissionStatus.grantedAlways) {
-      await _spinUp(emit);
+    if (!_isGranted(status)) {
+      emit(
+        state.copyWith(
+          phase: TrackingPhase.permissionDenied,
+          permissionStatus: status,
+        ),
+      );
       return;
     }
-    emit(
-      state.copyWith(
-        phase: status == LocationPermissionStatus.servicesDisabled
-            ? TrackingPhase.servicesDisabled
-            : TrackingPhase.permissionRequired,
-        permissionStatus: status,
-      ),
-    );
+    // Permission just granted — continue the original Start request.
+    try {
+      await _spinUp();
+      emit(state.copyWith(phase: TrackingPhase.active));
+    } catch (e) {
+      await _teardown();
+      emit(
+        state.copyWith(
+          phase: TrackingPhase.error,
+          errorMessage: 'Could not start tracking: $e',
+        ),
+      );
+    }
   }
 
-  Future<void> _spinUp(Emitter<TrackingState> emit) async {
-    emit(
-      state.copyWith(
-        phase: TrackingPhase.waitingForFix,
-        stats: LiveTripStats.initial(),
-      ),
-    );
-    _startedAt = DateTime.now();
-
-    await _gps.start();
-    await _sensors.start();
-
-    _pointSub = _gps.points.listen(
-      (p) => add(TrackingPointReceived(p)),
-    );
-    _gforceSub = _sensors.gforce.listen(
-      (g) => add(TrackingGforceReceived(g)),
-    );
-    _ticker = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) => add(const TrackingTicked()),
-    );
-  }
-
-  Future<void> _onStop(
+  Future<void> _onStopRequested(
     TrackingStopRequested event,
     Emitter<TrackingState> emit,
   ) async {
-    await _teardown();
+    if (state.phase != TrackingPhase.active &&
+        state.phase != TrackingPhase.starting) {
+      return;
+    }
+    emit(state.copyWith(phase: TrackingPhase.stopping));
 
-    // Skip persisting a trip with zero distance (user tapped end before
-    // moving) — keeps history clean of "0 km · 5s" stubs.
-    if (state.stats.distanceKm <= 0 || _startedAt == null) {
-      emit(state.copyWith(phase: TrackingPhase.finished));
+    try {
+      await _teardown();
+    } catch (e) {
+      emit(
+        state.copyWith(
+          phase: TrackingPhase.error,
+          errorMessage: 'Could not stop tracking cleanly: $e',
+        ),
+      );
       return;
     }
 
-    final settings = await _settings.read();
-    final detected = await _segments.detectFromTrip(state.stats.points);
-    final tripId = await _trips.saveTrip(
-      uid: settings.uid,
-      stats: state.stats,
-      startedAt: _startedAt!,
-      endedAt: DateTime.now(),
-      mapTheme: settings.selectedMapTheme,
-      country: settings.country,
-      roadSegmentIds: [for (final s in detected) s.id],
-    );
-    await _settings.incrementFreeTripsUsed();
+    // Skip persisting a no-distance trip — keeps history clean.
+    if (state.stats.distanceKm <= 0 || _startedAt == null) {
+      emit(
+        state.copyWith(
+          phase: TrackingPhase.idle,
+          stats: LiveTripStats.initial(),
+          clearCompletedTripId: true,
+        ),
+      );
+      _startedAt = null;
+      return;
+    }
 
-    // Re-read settings to get the freshly-incremented trip count, then
-    // decide whether this trip crossed the free-trip limit. Pro users
-    // never see the paywall.
-    final after = await _settings.read();
-    final paywallDue =
-        !after.isPro && after.freeTripsUsed >= AppConstants.freeTripLimit;
+    try {
+      final settings = await _settings.read();
+      final detected = await _segments.detectFromTrip(state.stats.points);
+      final tripId = await _trips.saveTrip(
+        uid: settings.uid,
+        stats: state.stats,
+        startedAt: _startedAt!,
+        endedAt: DateTime.now(),
+        mapTheme: settings.selectedMapTheme,
+        country: settings.country,
+        roadSegmentIds: [for (final s in detected) s.id],
+      );
+      await _settings.incrementFreeTripsUsed();
 
-    emit(
-      state.copyWith(
-        phase: TrackingPhase.finished,
-        completedTripId: tripId,
-        shouldShowPaywall: paywallDue,
-      ),
-    );
+      final after = await _settings.read();
+      final paywallDue = !after.isPro &&
+          after.freeTripsUsed >= AppConstants.freeTripLimit;
+
+      _startedAt = null;
+      emit(
+        state.copyWith(
+          phase: TrackingPhase.idle,
+          completedTripId: tripId,
+          shouldShowPaywall: paywallDue,
+          stats: LiveTripStats.initial(),
+        ),
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          phase: TrackingPhase.error,
+          errorMessage: 'Could not save trip: $e',
+        ),
+      );
+    }
   }
+
+  Future<void> _onReset(
+    TrackingReset event,
+    Emitter<TrackingState> emit,
+  ) async {
+    await _teardown();
+    _startedAt = null;
+    emit(TrackingState.initial());
+  }
+
+  // ---------- internal stream-driven transitions ----------
 
   void _onPoint(
     TrackingPointReceived event,
     Emitter<TrackingState> emit,
   ) {
+    if (state.phase != TrackingPhase.active) return;
     final p = event.point;
     final prev = state.stats;
     final wasFirstFix = prev.lastPoint == null;
@@ -192,9 +232,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         ? prev.distanceKm
         : prev.distanceKm + _gps.distanceMeters(prev.lastPoint!, p) / 1000.0;
 
-    final newMaxSpeed = p.speedKmh > prev.maxSpeedKmh
-        ? p.speedKmh
-        : prev.maxSpeedKmh;
+    final newMaxSpeed =
+        p.speedKmh > prev.maxSpeedKmh ? p.speedKmh : prev.maxSpeedKmh;
 
     final durationSeconds = _startedAt == null
         ? prev.durationSeconds
@@ -205,7 +244,6 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
     emit(
       state.copyWith(
-        phase: TrackingPhase.recording,
         stats: prev.copyWith(
           currentSpeedKmh: p.speedKmh,
           maxSpeedKmh: newMaxSpeed,
@@ -223,16 +261,40 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     TrackingGforceReceived event,
     Emitter<TrackingState> emit,
   ) {
+    if (state.phase != TrackingPhase.active) return;
     if (event.gforce <= state.stats.maxGforce) return;
     emit(state.copyWith(stats: state.stats.copyWith(maxGforce: event.gforce)));
   }
 
   void _onTick(TrackingTicked event, Emitter<TrackingState> emit) {
+    if (state.phase != TrackingPhase.active) return;
     if (_startedAt == null) return;
     final seconds = DateTime.now().difference(_startedAt!).inSeconds;
     if (seconds == state.stats.durationSeconds) return;
     emit(
       state.copyWith(stats: state.stats.copyWith(durationSeconds: seconds)),
+    );
+  }
+
+  // ---------- helpers ----------
+
+  bool _isGranted(LocationPermissionStatus status) =>
+      status == LocationPermissionStatus.granted ||
+      status == LocationPermissionStatus.grantedAlways;
+
+  Future<void> _spinUp() async {
+    _startedAt = DateTime.now();
+    await _gps.start();
+    await _sensors.start();
+    _pointSub = _gps.points.listen(
+      (p) => add(TrackingPointReceived(p)),
+    );
+    _gforceSub = _sensors.gforce.listen(
+      (g) => add(TrackingGforceReceived(g)),
+    );
+    _ticker = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => add(const TrackingTicked()),
     );
   }
 
