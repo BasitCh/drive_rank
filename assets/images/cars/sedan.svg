@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" fill="none">
+  <!-- Body -->
+  <path d="M14 70 L30 70 L40 50 L78 36 L130 36 L156 50 L186 50 L188 70 L172 70" stroke="#3ECFBF" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- Greenhouse / windows -->
+  <path d="M52 50 L66 40 L122 40 L138 50 Z" stroke="#3ECFBF" stroke-width="2" stroke-linejoin="round" opacity="0.55"/>
+  <!-- B-pillar -->
+  <line x1="92" y1="40" x2="92" y2="50" stroke="#3ECFBF" stroke-width="1.5" opacity="0.55"/>
+  <!-- Door cut -->
+  <line x1="92" y1="50" x2="92" y2="68" stroke="#3ECFBF" stroke-width="1.2" opacity="0.35"/>
+  <!-- Wheel arches + wheels -->
+  <path d="M30 70 Q30 60 42 60 Q54 60 54 70" stroke="#3ECFBF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M148 70 Q148 60 160 60 Q172 60 172 70" stroke="#3ECFBF" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="42" cy="74" r="8" stroke="#3ECFBF" stroke-width="2.5"/>
+  <circle cx="160" cy="74" r="8" stroke="#3ECFBF" stroke-width="2.5"/>
+  <circle cx="42" cy="74" r="3" stroke="#3ECFBF" stroke-width="1.5" opacity="0.4"/>
+  <circle cx="160" cy="74" r="3" stroke="#3ECFBF" stroke-width="1.5" opacity="0.4"/>
+  <!-- Headlight + taillight hints -->
+  <line x1="178" y1="58" x2="184" y2="58" stroke="#3ECFBF" stroke-width="2" stroke-linecap="round"/>
+  <line x1="16" y1="62" x2="22" y2="62" stroke="#3ECFBF" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+</svg>

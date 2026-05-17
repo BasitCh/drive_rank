@@ -1,3 +1,4 @@
+import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:flutter/foundation.dart';
 
 /// A car manufacturer loaded from `assets/data/car_makes.json`.
@@ -10,6 +11,7 @@ class CarMake {
   const CarMake({
     required this.id,
     required this.name,
+    required this.category,
     required this.popularIn,
     required this.models,
   });
@@ -17,6 +19,7 @@ class CarMake {
   factory CarMake.fromJson(Map<String, dynamic> json) => CarMake(
     id: json['id'] as String,
     name: json['name'] as String,
+    category: CarCategory.fromId(json['category'] as String?),
     popularIn: <String>{
       for (final c in (json['popularIn'] as List<dynamic>? ?? <dynamic>[]))
         c as String,
@@ -29,6 +32,7 @@ class CarMake {
 
   final String id;
   final String name;
+  final CarCategory category;
   final Set<String> popularIn;
   final List<String> models;
 

@@ -4,224 +4,975 @@
     {
       "id": "toyota",
       "name": "Toyota",
-      "popularIn": ["JP", "US", "AU", "CA", "PK", "IN", "BD", "LK", "SA", "AE", "ID", "TH", "MY", "VN", "PH", "ZA", "KE", "NG", "EG", "MX", "BR", "TR"],
-      "models": ["Corolla", "Camry", "RAV4", "Hilux", "Land Cruiser", "Yaris", "Fortuner", "Prado", "Supra", "GR86", "C-HR", "Highlander", "Tacoma", "Tundra", "Sienna", "Avalon", "Vios", "Vitz", "Aqua", "Prius"]
+      "category": "sedan",
+      "popularIn": [
+        "JP",
+        "US",
+        "AU",
+        "CA",
+        "PK",
+        "IN",
+        "BD",
+        "LK",
+        "SA",
+        "AE",
+        "ID",
+        "TH",
+        "MY",
+        "VN",
+        "PH",
+        "ZA",
+        "KE",
+        "NG",
+        "EG",
+        "MX",
+        "BR",
+        "TR"
+      ],
+      "models": [
+        "Corolla",
+        "Camry",
+        "RAV4",
+        "Hilux",
+        "Land Cruiser",
+        "Yaris",
+        "Fortuner",
+        "Prado",
+        "Supra",
+        "GR86",
+        "C-HR",
+        "Highlander",
+        "Tacoma",
+        "Tundra",
+        "Sienna",
+        "Avalon",
+        "Vios",
+        "Vitz",
+        "Aqua",
+        "Prius"
+      ]
     },
     {
       "id": "honda",
       "name": "Honda",
-      "popularIn": ["JP", "US", "CA", "IN", "PK", "BD", "BR", "TH", "ID", "MY", "PH", "VN", "MX", "AU"],
-      "models": ["Civic", "City", "Accord", "CR-V", "Jazz", "HR-V", "Type R", "Pilot", "Passport", "Odyssey", "Insight", "BR-V", "Amaze", "Vezel"]
+      "category": "sedan",
+      "popularIn": [
+        "JP",
+        "US",
+        "CA",
+        "IN",
+        "PK",
+        "BD",
+        "BR",
+        "TH",
+        "ID",
+        "MY",
+        "PH",
+        "VN",
+        "MX",
+        "AU"
+      ],
+      "models": [
+        "Civic",
+        "City",
+        "Accord",
+        "CR-V",
+        "Jazz",
+        "HR-V",
+        "Type R",
+        "Pilot",
+        "Passport",
+        "Odyssey",
+        "Insight",
+        "BR-V",
+        "Amaze",
+        "Vezel"
+      ]
     },
     {
       "id": "suzuki",
       "name": "Suzuki",
-      "popularIn": ["JP", "PK", "IN", "BD", "ID", "PH", "VN", "MY", "HU", "GB", "IT"],
-      "models": ["Swift", "Alto", "Cultus", "Mehran", "Wagon R", "Vitara", "Jimny", "S-Cross", "Baleno", "Ertiga", "Ciaz", "Celerio", "Dzire", "Brezza", "XL7"]
+      "category": "hatchback",
+      "popularIn": [
+        "JP",
+        "PK",
+        "IN",
+        "BD",
+        "ID",
+        "PH",
+        "VN",
+        "MY",
+        "HU",
+        "GB",
+        "IT"
+      ],
+      "models": [
+        "Swift",
+        "Alto",
+        "Cultus",
+        "Mehran",
+        "Wagon R",
+        "Vitara",
+        "Jimny",
+        "S-Cross",
+        "Baleno",
+        "Ertiga",
+        "Ciaz",
+        "Celerio",
+        "Dzire",
+        "Brezza",
+        "XL7"
+      ]
     },
     {
       "id": "ford",
       "name": "Ford",
-      "popularIn": ["US", "CA", "AU", "GB", "ZA", "BR", "AR", "MX"],
-      "models": ["Mustang", "F-150", "F-250", "Explorer", "Focus", "Ranger", "Bronco", "Maverick", "Edge", "Escape", "Expedition", "Fiesta", "EcoSport", "Puma", "Kuga", "Transit"]
+      "category": "pickup",
+      "popularIn": [
+        "US",
+        "CA",
+        "AU",
+        "GB",
+        "ZA",
+        "BR",
+        "AR",
+        "MX"
+      ],
+      "models": [
+        "Mustang",
+        "F-150",
+        "F-250",
+        "Explorer",
+        "Focus",
+        "Ranger",
+        "Bronco",
+        "Maverick",
+        "Edge",
+        "Escape",
+        "Expedition",
+        "Fiesta",
+        "EcoSport",
+        "Puma",
+        "Kuga",
+        "Transit"
+      ]
     },
     {
       "id": "chevrolet",
       "name": "Chevrolet",
-      "popularIn": ["US", "CA", "MX", "BR", "AR", "CO", "EC", "EG", "SA"],
-      "models": ["Camaro", "Corvette", "Silverado", "Tahoe", "Suburban", "Equinox", "Traverse", "Spark", "Malibu", "Trailblazer", "Colorado", "Trax"]
+      "category": "pickup",
+      "popularIn": [
+        "US",
+        "CA",
+        "MX",
+        "BR",
+        "AR",
+        "CO",
+        "EC",
+        "EG",
+        "SA"
+      ],
+      "models": [
+        "Camaro",
+        "Corvette",
+        "Silverado",
+        "Tahoe",
+        "Suburban",
+        "Equinox",
+        "Traverse",
+        "Spark",
+        "Malibu",
+        "Trailblazer",
+        "Colorado",
+        "Trax"
+      ]
     },
     {
       "id": "bmw",
       "name": "BMW",
-      "popularIn": ["DE", "GB", "US", "AU", "CA", "AE", "SA", "KR", "JP", "CN", "IN", "ZA"],
-      "models": ["M2", "M3", "M4", "M5", "M8", "1 Series", "2 Series", "3 Series", "4 Series", "5 Series", "7 Series", "X1", "X3", "X5", "X6", "X7", "i4", "iX", "Z4"]
+      "category": "sports",
+      "popularIn": [
+        "DE",
+        "GB",
+        "US",
+        "AU",
+        "CA",
+        "AE",
+        "SA",
+        "KR",
+        "JP",
+        "CN",
+        "IN",
+        "ZA"
+      ],
+      "models": [
+        "M2",
+        "M3",
+        "M4",
+        "M5",
+        "M8",
+        "1 Series",
+        "2 Series",
+        "3 Series",
+        "4 Series",
+        "5 Series",
+        "7 Series",
+        "X1",
+        "X3",
+        "X5",
+        "X6",
+        "X7",
+        "i4",
+        "iX",
+        "Z4"
+      ]
     },
     {
       "id": "mercedes",
       "name": "Mercedes-Benz",
-      "popularIn": ["DE", "GB", "US", "AU", "CA", "AE", "SA", "KR", "JP", "CN", "IN", "ZA", "TR", "RU"],
-      "models": ["A-Class", "C-Class", "E-Class", "S-Class", "CLA", "CLS", "GLA", "GLB", "GLC", "GLE", "GLS", "G-Class", "AMG GT", "EQS", "EQE"]
+      "category": "sedan",
+      "popularIn": [
+        "DE",
+        "GB",
+        "US",
+        "AU",
+        "CA",
+        "AE",
+        "SA",
+        "KR",
+        "JP",
+        "CN",
+        "IN",
+        "ZA",
+        "TR",
+        "RU"
+      ],
+      "models": [
+        "A-Class",
+        "C-Class",
+        "E-Class",
+        "S-Class",
+        "CLA",
+        "CLS",
+        "GLA",
+        "GLB",
+        "GLC",
+        "GLE",
+        "GLS",
+        "G-Class",
+        "AMG GT",
+        "EQS",
+        "EQE"
+      ]
     },
     {
       "id": "audi",
       "name": "Audi",
-      "popularIn": ["DE", "GB", "US", "AU", "AE", "CN", "IN", "CA"],
-      "models": ["A1", "A3", "A4", "A5", "A6", "A7", "A8", "Q2", "Q3", "Q5", "Q7", "Q8", "RS3", "RS5", "RS6", "R8", "e-tron", "TT"]
+      "category": "sedan",
+      "popularIn": [
+        "DE",
+        "GB",
+        "US",
+        "AU",
+        "AE",
+        "CN",
+        "IN",
+        "CA"
+      ],
+      "models": [
+        "A1",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A7",
+        "A8",
+        "Q2",
+        "Q3",
+        "Q5",
+        "Q7",
+        "Q8",
+        "RS3",
+        "RS5",
+        "RS6",
+        "R8",
+        "e-tron",
+        "TT"
+      ]
     },
     {
       "id": "volkswagen",
       "name": "Volkswagen",
-      "popularIn": ["DE", "GB", "BR", "MX", "ZA", "AR", "CZ", "PL", "TR", "CN", "AU"],
-      "models": ["Golf", "Polo", "Passat", "Jetta", "Tiguan", "Touareg", "T-Roc", "T-Cross", "ID.3", "ID.4", "Arteon", "Atlas", "Amarok"]
+      "category": "hatchback",
+      "popularIn": [
+        "DE",
+        "GB",
+        "BR",
+        "MX",
+        "ZA",
+        "AR",
+        "CZ",
+        "PL",
+        "TR",
+        "CN",
+        "AU"
+      ],
+      "models": [
+        "Golf",
+        "Polo",
+        "Passat",
+        "Jetta",
+        "Tiguan",
+        "Touareg",
+        "T-Roc",
+        "T-Cross",
+        "ID.3",
+        "ID.4",
+        "Arteon",
+        "Atlas",
+        "Amarok"
+      ]
     },
     {
       "id": "hyundai",
       "name": "Hyundai",
-      "popularIn": ["KR", "US", "CA", "IN", "RU", "TR", "BR", "ZA", "AU", "GB", "AE"],
-      "models": ["i10", "i20", "i30", "Elantra", "Sonata", "Tucson", "Santa Fe", "Kona", "Palisade", "Creta", "Venue", "Ioniq 5", "Ioniq 6"]
+      "category": "suv",
+      "popularIn": [
+        "KR",
+        "US",
+        "CA",
+        "IN",
+        "RU",
+        "TR",
+        "BR",
+        "ZA",
+        "AU",
+        "GB",
+        "AE"
+      ],
+      "models": [
+        "i10",
+        "i20",
+        "i30",
+        "Elantra",
+        "Sonata",
+        "Tucson",
+        "Santa Fe",
+        "Kona",
+        "Palisade",
+        "Creta",
+        "Venue",
+        "Ioniq 5",
+        "Ioniq 6"
+      ]
     },
     {
       "id": "kia",
       "name": "Kia",
-      "popularIn": ["KR", "US", "CA", "PK", "IN", "RU", "TR", "ZA", "AU", "GB"],
-      "models": ["Picanto", "Rio", "Cerato", "K5", "Stinger", "Sportage", "Sorento", "Telluride", "Carnival", "Soul", "Niro", "EV6", "Seltos"]
+      "category": "suv",
+      "popularIn": [
+        "KR",
+        "US",
+        "CA",
+        "PK",
+        "IN",
+        "RU",
+        "TR",
+        "ZA",
+        "AU",
+        "GB"
+      ],
+      "models": [
+        "Picanto",
+        "Rio",
+        "Cerato",
+        "K5",
+        "Stinger",
+        "Sportage",
+        "Sorento",
+        "Telluride",
+        "Carnival",
+        "Soul",
+        "Niro",
+        "EV6",
+        "Seltos"
+      ]
     },
     {
       "id": "nissan",
       "name": "Nissan",
-      "popularIn": ["JP", "US", "CA", "MX", "AU", "GB", "RU", "ZA", "AE", "ID", "TH", "PH"],
-      "models": ["Micra", "Sentra", "Altima", "Maxima", "GT-R", "350Z", "370Z", "Z", "Juke", "Qashqai", "X-Trail", "Patrol", "Navara", "Leaf", "Ariya", "Sunny"]
+      "category": "sedan",
+      "popularIn": [
+        "JP",
+        "US",
+        "CA",
+        "MX",
+        "AU",
+        "GB",
+        "RU",
+        "ZA",
+        "AE",
+        "ID",
+        "TH",
+        "PH"
+      ],
+      "models": [
+        "Micra",
+        "Sentra",
+        "Altima",
+        "Maxima",
+        "GT-R",
+        "350Z",
+        "370Z",
+        "Z",
+        "Juke",
+        "Qashqai",
+        "X-Trail",
+        "Patrol",
+        "Navara",
+        "Leaf",
+        "Ariya",
+        "Sunny"
+      ]
     },
     {
       "id": "mazda",
       "name": "Mazda",
-      "popularIn": ["JP", "US", "CA", "AU", "MX", "RU"],
-      "models": ["Mazda2", "Mazda3", "Mazda6", "MX-5 Miata", "CX-3", "CX-30", "CX-5", "CX-9", "CX-50", "CX-60", "CX-90"]
+      "category": "sedan",
+      "popularIn": [
+        "JP",
+        "US",
+        "CA",
+        "AU",
+        "MX",
+        "RU"
+      ],
+      "models": [
+        "Mazda2",
+        "Mazda3",
+        "Mazda6",
+        "MX-5 Miata",
+        "CX-3",
+        "CX-30",
+        "CX-5",
+        "CX-9",
+        "CX-50",
+        "CX-60",
+        "CX-90"
+      ]
     },
     {
       "id": "subaru",
       "name": "Subaru",
-      "popularIn": ["JP", "US", "CA", "AU"],
-      "models": ["Impreza", "WRX", "STI", "BRZ", "Forester", "Outback", "Legacy", "Crosstrek", "Ascent", "Solterra"]
+      "category": "suv",
+      "popularIn": [
+        "JP",
+        "US",
+        "CA",
+        "AU"
+      ],
+      "models": [
+        "Impreza",
+        "WRX",
+        "STI",
+        "BRZ",
+        "Forester",
+        "Outback",
+        "Legacy",
+        "Crosstrek",
+        "Ascent",
+        "Solterra"
+      ]
     },
     {
       "id": "mitsubishi",
       "name": "Mitsubishi",
-      "popularIn": ["JP", "TH", "PH", "ID", "VN", "AU", "RU", "AE"],
-      "models": ["Mirage", "Lancer", "Lancer Evolution", "Outlander", "Eclipse Cross", "Pajero", "Triton", "ASX", "Xpander"]
+      "category": "suv",
+      "popularIn": [
+        "JP",
+        "TH",
+        "PH",
+        "ID",
+        "VN",
+        "AU",
+        "RU",
+        "AE"
+      ],
+      "models": [
+        "Mirage",
+        "Lancer",
+        "Lancer Evolution",
+        "Outlander",
+        "Eclipse Cross",
+        "Pajero",
+        "Triton",
+        "ASX",
+        "Xpander"
+      ]
     },
     {
       "id": "lexus",
       "name": "Lexus",
-      "popularIn": ["JP", "US", "CA", "AU", "AE", "SA"],
-      "models": ["IS", "ES", "LS", "RC", "RC F", "LC", "LFA", "NX", "RX", "GX", "LX", "UX"]
+      "category": "sedan",
+      "popularIn": [
+        "JP",
+        "US",
+        "CA",
+        "AU",
+        "AE",
+        "SA"
+      ],
+      "models": [
+        "IS",
+        "ES",
+        "LS",
+        "RC",
+        "RC F",
+        "LC",
+        "LFA",
+        "NX",
+        "RX",
+        "GX",
+        "LX",
+        "UX"
+      ]
     },
     {
       "id": "porsche",
       "name": "Porsche",
-      "popularIn": ["DE", "US", "GB", "AE", "CN", "JP", "AU"],
-      "models": ["911", "718 Cayman", "718 Boxster", "Cayenne", "Macan", "Panamera", "Taycan"]
+      "category": "sports",
+      "popularIn": [
+        "DE",
+        "US",
+        "GB",
+        "AE",
+        "CN",
+        "JP",
+        "AU"
+      ],
+      "models": [
+        "911",
+        "718 Cayman",
+        "718 Boxster",
+        "Cayenne",
+        "Macan",
+        "Panamera",
+        "Taycan"
+      ]
     },
     {
       "id": "tesla",
       "name": "Tesla",
-      "popularIn": ["US", "CA", "NO", "NL", "GB", "DE", "AU", "CN"],
-      "models": ["Model 3", "Model Y", "Model S", "Model X", "Cybertruck", "Roadster"]
+      "category": "sedan",
+      "popularIn": [
+        "US",
+        "CA",
+        "NO",
+        "NL",
+        "GB",
+        "DE",
+        "AU",
+        "CN"
+      ],
+      "models": [
+        "Model 3",
+        "Model Y",
+        "Model S",
+        "Model X",
+        "Cybertruck",
+        "Roadster"
+      ]
     },
     {
       "id": "jeep",
       "name": "Jeep",
-      "popularIn": ["US", "CA", "AU", "BR", "AR", "IT"],
-      "models": ["Wrangler", "Grand Cherokee", "Cherokee", "Compass", "Renegade", "Gladiator", "Wagoneer"]
+      "category": "suv",
+      "popularIn": [
+        "US",
+        "CA",
+        "AU",
+        "BR",
+        "AR",
+        "IT"
+      ],
+      "models": [
+        "Wrangler",
+        "Grand Cherokee",
+        "Cherokee",
+        "Compass",
+        "Renegade",
+        "Gladiator",
+        "Wagoneer"
+      ]
     },
     {
       "id": "ram",
       "name": "Ram",
-      "popularIn": ["US", "CA", "MX", "BR"],
-      "models": ["1500", "2500", "3500", "ProMaster", "TRX"]
+      "category": "pickup",
+      "popularIn": [
+        "US",
+        "CA",
+        "MX",
+        "BR"
+      ],
+      "models": [
+        "1500",
+        "2500",
+        "3500",
+        "ProMaster",
+        "TRX"
+      ]
     },
     {
       "id": "dodge",
       "name": "Dodge",
-      "popularIn": ["US", "CA"],
-      "models": ["Charger", "Challenger", "Durango", "Hornet"]
+      "category": "sports",
+      "popularIn": [
+        "US",
+        "CA"
+      ],
+      "models": [
+        "Charger",
+        "Challenger",
+        "Durango",
+        "Hornet"
+      ]
     },
     {
       "id": "gmc",
       "name": "GMC",
-      "popularIn": ["US", "CA", "SA", "AE"],
-      "models": ["Sierra", "Yukon", "Acadia", "Terrain", "Canyon", "Hummer EV"]
+      "category": "pickup",
+      "popularIn": [
+        "US",
+        "CA",
+        "SA",
+        "AE"
+      ],
+      "models": [
+        "Sierra",
+        "Yukon",
+        "Acadia",
+        "Terrain",
+        "Canyon",
+        "Hummer EV"
+      ]
     },
     {
       "id": "land_rover",
       "name": "Land Rover",
-      "popularIn": ["GB", "US", "AE", "SA", "AU", "ZA", "IN"],
-      "models": ["Defender", "Discovery", "Discovery Sport", "Range Rover", "Range Rover Sport", "Range Rover Velar", "Range Rover Evoque"]
+      "category": "suv",
+      "popularIn": [
+        "GB",
+        "US",
+        "AE",
+        "SA",
+        "AU",
+        "ZA",
+        "IN"
+      ],
+      "models": [
+        "Defender",
+        "Discovery",
+        "Discovery Sport",
+        "Range Rover",
+        "Range Rover Sport",
+        "Range Rover Velar",
+        "Range Rover Evoque"
+      ]
     },
     {
       "id": "jaguar",
       "name": "Jaguar",
-      "popularIn": ["GB", "US", "AE"],
-      "models": ["XE", "XF", "F-Type", "E-Pace", "F-Pace", "I-Pace"]
+      "category": "sports",
+      "popularIn": [
+        "GB",
+        "US",
+        "AE"
+      ],
+      "models": [
+        "XE",
+        "XF",
+        "F-Type",
+        "E-Pace",
+        "F-Pace",
+        "I-Pace"
+      ]
     },
     {
       "id": "volvo",
       "name": "Volvo",
-      "popularIn": ["SE", "NO", "FI", "DK", "GB", "US", "CA"],
-      "models": ["S60", "S90", "V60", "V90", "XC40", "XC60", "XC90", "EX30", "EX90"]
+      "category": "suv",
+      "popularIn": [
+        "SE",
+        "NO",
+        "FI",
+        "DK",
+        "GB",
+        "US",
+        "CA"
+      ],
+      "models": [
+        "S60",
+        "S90",
+        "V60",
+        "V90",
+        "XC40",
+        "XC60",
+        "XC90",
+        "EX30",
+        "EX90"
+      ]
     },
     {
       "id": "peugeot",
       "name": "Peugeot",
-      "popularIn": ["FR", "ES", "IT", "BE", "PT", "TR", "AR"],
-      "models": ["208", "308", "508", "2008", "3008", "5008", "Partner", "Rifter"]
+      "category": "hatchback",
+      "popularIn": [
+        "FR",
+        "ES",
+        "IT",
+        "BE",
+        "PT",
+        "TR",
+        "AR"
+      ],
+      "models": [
+        "208",
+        "308",
+        "508",
+        "2008",
+        "3008",
+        "5008",
+        "Partner",
+        "Rifter"
+      ]
     },
     {
       "id": "renault",
       "name": "Renault",
-      "popularIn": ["FR", "ES", "IT", "TR", "RU", "RO", "AR", "BR"],
-      "models": ["Clio", "Megane", "Captur", "Kadjar", "Koleos", "Duster", "Talisman", "Zoe", "Twingo"]
+      "category": "hatchback",
+      "popularIn": [
+        "FR",
+        "ES",
+        "IT",
+        "TR",
+        "RU",
+        "RO",
+        "AR",
+        "BR"
+      ],
+      "models": [
+        "Clio",
+        "Megane",
+        "Captur",
+        "Kadjar",
+        "Koleos",
+        "Duster",
+        "Talisman",
+        "Zoe",
+        "Twingo"
+      ]
     },
     {
       "id": "fiat",
       "name": "Fiat",
-      "popularIn": ["IT", "BR", "AR", "TR", "PL"],
-      "models": ["500", "Panda", "Punto", "Tipo", "500X", "500L", "Doblo"]
+      "category": "hatchback",
+      "popularIn": [
+        "IT",
+        "BR",
+        "AR",
+        "TR",
+        "PL"
+      ],
+      "models": [
+        "500",
+        "Panda",
+        "Punto",
+        "Tipo",
+        "500X",
+        "500L",
+        "Doblo"
+      ]
     },
     {
       "id": "skoda",
       "name": "Skoda",
-      "popularIn": ["CZ", "DE", "PL", "GB", "IN", "TR"],
-      "models": ["Fabia", "Octavia", "Superb", "Kamiq", "Karoq", "Kodiaq", "Enyaq"]
+      "category": "hatchback",
+      "popularIn": [
+        "CZ",
+        "DE",
+        "PL",
+        "GB",
+        "IN",
+        "TR"
+      ],
+      "models": [
+        "Fabia",
+        "Octavia",
+        "Superb",
+        "Kamiq",
+        "Karoq",
+        "Kodiaq",
+        "Enyaq"
+      ]
     },
     {
       "id": "seat",
       "name": "Seat",
-      "popularIn": ["ES", "DE", "GB", "IT"],
-      "models": ["Ibiza", "Leon", "Arona", "Ateca", "Tarraco"]
+      "category": "hatchback",
+      "popularIn": [
+        "ES",
+        "DE",
+        "GB",
+        "IT"
+      ],
+      "models": [
+        "Ibiza",
+        "Leon",
+        "Arona",
+        "Ateca",
+        "Tarraco"
+      ]
     },
     {
       "id": "mini",
       "name": "MINI",
-      "popularIn": ["GB", "DE", "US", "JP", "AU"],
-      "models": ["Cooper", "Cooper S", "John Cooper Works", "Countryman", "Clubman", "Electric"]
+      "category": "hatchback",
+      "popularIn": [
+        "GB",
+        "DE",
+        "US",
+        "JP",
+        "AU"
+      ],
+      "models": [
+        "Cooper",
+        "Cooper S",
+        "John Cooper Works",
+        "Countryman",
+        "Clubman",
+        "Electric"
+      ]
     },
     {
       "id": "alfa_romeo",
       "name": "Alfa Romeo",
-      "popularIn": ["IT", "DE", "GB", "US"],
-      "models": ["Giulia", "Stelvio", "Tonale", "4C", "Giulietta"]
+      "category": "sports",
+      "popularIn": [
+        "IT",
+        "DE",
+        "GB",
+        "US"
+      ],
+      "models": [
+        "Giulia",
+        "Stelvio",
+        "Tonale",
+        "4C",
+        "Giulietta"
+      ]
     },
     {
       "id": "mg",
       "name": "MG",
-      "popularIn": ["GB", "AU", "IN", "TH", "ID", "CN"],
-      "models": ["MG3", "MG4", "MG5", "ZS", "HS", "Astor", "Hector", "Gloster"]
+      "category": "suv",
+      "popularIn": [
+        "GB",
+        "AU",
+        "IN",
+        "TH",
+        "ID",
+        "CN"
+      ],
+      "models": [
+        "MG3",
+        "MG4",
+        "MG5",
+        "ZS",
+        "HS",
+        "Astor",
+        "Hector",
+        "Gloster"
+      ]
     },
     {
       "id": "byd",
       "name": "BYD",
-      "popularIn": ["CN", "AU", "BR", "TH", "AE"],
-      "models": ["Atto 3", "Dolphin", "Seal", "Han", "Tang", "Song", "Yuan Plus"]
+      "category": "sedan",
+      "popularIn": [
+        "CN",
+        "AU",
+        "BR",
+        "TH",
+        "AE"
+      ],
+      "models": [
+        "Atto 3",
+        "Dolphin",
+        "Seal",
+        "Han",
+        "Tang",
+        "Song",
+        "Yuan Plus"
+      ]
     },
     {
       "id": "tata",
       "name": "Tata",
-      "popularIn": ["IN", "ZA", "GB"],
-      "models": ["Tiago", "Tigor", "Altroz", "Punch", "Nexon", "Harrier", "Safari", "Curvv"]
+      "category": "hatchback",
+      "popularIn": [
+        "IN",
+        "ZA",
+        "GB"
+      ],
+      "models": [
+        "Tiago",
+        "Tigor",
+        "Altroz",
+        "Punch",
+        "Nexon",
+        "Harrier",
+        "Safari",
+        "Curvv"
+      ]
     },
     {
       "id": "mahindra",
       "name": "Mahindra",
-      "popularIn": ["IN", "ZA", "AU"],
-      "models": ["XUV300", "XUV400", "XUV700", "Thar", "Scorpio-N", "Bolero", "Marazzo"]
+      "category": "suv",
+      "popularIn": [
+        "IN",
+        "ZA",
+        "AU"
+      ],
+      "models": [
+        "XUV300",
+        "XUV400",
+        "XUV700",
+        "Thar",
+        "Scorpio-N",
+        "Bolero",
+        "Marazzo"
+      ]
     },
     {
       "id": "haval",
       "name": "Haval",
-      "popularIn": ["CN", "AU", "ZA", "RU", "TH"],
-      "models": ["Jolion", "H6", "H9", "Big Dog", "Dargo"]
+      "category": "suv",
+      "popularIn": [
+        "CN",
+        "AU",
+        "ZA",
+        "RU",
+        "TH"
+      ],
+      "models": [
+        "Jolion",
+        "H6",
+        "H9",
+        "Big Dog",
+        "Dargo"
+      ]
     }
   ]
 }
