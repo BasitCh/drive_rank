@@ -128,9 +128,11 @@ Used for: paywall pricing + entitlement checks.
    - **Google Play Store**: enter your package name `com.bytse.drive_rank`. Upload your Google service account JSON with billing scope (or follow RevenueCat's "Set up Google" prompt).
 3. **Entitlements** → Create one named exactly `pro` (lowercase). This name is referenced in code; if you rename it, also update `RevenueCatPaywallService.entitlementId`.
 4. **Products** (under each app):
-   - Create `driverank_annual` (Auto-renewable subscription, 1 year).
-   - Create `driverank_monthly` (Auto-renewable subscription, 1 month).
-   - Each product must also exist in App Store Connect / Play Console with the same identifier — RevenueCat will warn you if it can't see them.
+   - Create `driverank_pro_annual` (Auto-renewable subscription, 1 year, **$14.99 / year**).
+   - Create `driverank_pro_monthly` (Auto-renewable subscription, 1 month, **$2.99 / month**).
+   - These IDs are referenced in code (`RevenueCatPaywallService.annualProductId` / `monthlyProductId`). If you rename them in the dashboard, update those constants too.
+   - Each product must also exist in App Store Connect / Play Console with the exact same identifier — RevenueCat will warn you if it can't see them.
+   - DriveRank's annual price ($14.99) is deliberately below TripRank's ~$21/yr benchmark — keep it cheaper. RevenueCat auto-converts to local currencies, no further work needed.
 5. **Offerings** → Create an offering named `default`. Attach both products to it as packages. Mark the offering as current.
 6. **API keys**: in **Project settings → API keys**, you'll see two **public** keys (one per app). These are safe to ship in the binary — they only let the SDK talk to RevenueCat as a client. Copy:
    - Android key (looks like `goog_xxxxxxxxxx`)

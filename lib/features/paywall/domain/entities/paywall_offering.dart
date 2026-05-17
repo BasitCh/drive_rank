@@ -19,7 +19,6 @@ class PaywallPackage {
     required this.priceMicros,
     required this.currencyCode,
     this.introPriceString,
-    this.crossedOutPriceString,
     this.perWeekPriceString,
   });
 
@@ -33,16 +32,17 @@ class PaywallPackage {
 
   final String currencyCode;
 
+  /// Genuine intro-offer price from the store (e.g. "First month $0.99").
+  /// Only surfaced when RevenueCat reports one — we never synthesise it.
   final String? introPriceString;
-
-  /// Optional "was" price shown crossed-out next to [priceString]. Only set
-  /// when the offering itself defines a comparison price — never synthesised
-  /// to fake a discount.
-  final String? crossedOutPriceString;
 
   /// Optional "${price}/week" derived value the store provides for annual
   /// packages so users can compare across cadences without doing math.
   final String? perWeekPriceString;
+
+  // Note: `crossedOutPriceString` was removed — DriveRank's paywall has
+  // zero dark patterns. Real discounts surface as [introPriceString];
+  // there is no path for a fake "was" price to make it into the UI.
 }
 
 @immutable

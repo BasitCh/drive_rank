@@ -60,16 +60,18 @@ class PreviewPaywallService implements PaywallService {
     return PaywallOffering(
       identifier: 'preview_default',
       annual: PaywallPackage(
-        id: 'driverank_annual_preview',
+        id: 'driverank_pro_annual_preview',
         period: PaywallPeriod.annual,
         priceString: '${fmt(annual)}/yr',
         priceMicros: (annual * 1000000).round(),
         currencyCode: code,
-        crossedOutPriceString: '${fmt(annual * 2)}/yr',
+        // No crossed-out / "was" price — DriveRank's paywall has zero
+        // dark patterns. Don't reintroduce one in the preview impl
+        // either; the field has been dropped from the model.
         perWeekPriceString: '${fmt(perWeek)}/week',
       ),
       monthly: PaywallPackage(
-        id: 'driverank_monthly_preview',
+        id: 'driverank_pro_monthly_preview',
         period: PaywallPeriod.monthly,
         priceString: '${fmt(monthly)}/mo',
         priceMicros: (monthly * 1000000).round(),

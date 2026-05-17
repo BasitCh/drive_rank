@@ -1,4 +1,5 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
+import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
@@ -180,7 +181,7 @@ class _TripPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final speed = snapshot?.bestTopSpeedKmh ?? 0;
     final used = snapshot?.freeTripsUsed ?? 0;
-    final limit = snapshot?.freeTripLimit ?? 10;
+    final limit = snapshot?.freeTripLimit ?? AppConstants.freeTripLimit;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       decoration: BoxDecoration(
@@ -379,7 +380,10 @@ class _PlanRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final crossed = package.crossedOutPriceString;
+    // No crossed-out "was" price displayed anywhere — DriveRank's paywall
+    // is explicitly free of dark patterns (no spin wheels, no countdowns,
+    // no fake discounts). Real intro-offer prices from RevenueCat surface
+    // through `introPriceString` on the package, never as a was-now diff.
     final perWeek = package.perWeekPriceString;
     final periodLabel = package.period == PaywallPeriod.annual
         ? AppStrings.paywallPlanAnnual
@@ -441,15 +445,6 @@ class _PlanRow extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (crossed != null)
-                    Text(
-                      crossed,
-                      style: AppTextStyles.bodySmall.copyWith(
-                        fontSize: 12,
-                        color: AppColors.textTertiary,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
                   Text(
                     package.priceString,
                     style: const TextStyle(

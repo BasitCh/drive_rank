@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' show Value;
+import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/services/paywall_service.dart';
 import 'package:drive_rank/features/paywall/domain/entities/paywall_offering.dart';
@@ -192,11 +193,10 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
 
   // ---- helpers --------------------------------------------------------
 
-  /// Default free-trip limit when nothing's been configured (Session 1's
-  /// AppConstants exposes a single source of truth for this number, but
-  /// we read it indirectly via settings to keep the bloc free of that
-  /// dependency).
-  int _freeTripLimit(UserSettingsRow _) => 10;
+  /// Single source of truth for the free-trip limit — declared once in
+  /// AppConstants so changes there propagate to every screen that reads
+  /// the limit (tracking idle counter, paywall sub-copy, etc).
+  int _freeTripLimit(UserSettingsRow _) => AppConstants.freeTripLimit;
 
   /// Builds the companion that flips the user to Pro. Kept here so both
   /// purchase and restore paths can't diverge.

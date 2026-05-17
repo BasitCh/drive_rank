@@ -8,27 +8,43 @@ import 'package:purchases_flutter/purchases_flutter.dart' hide PurchaseResult;
 
 /// Production [PaywallService] backed by RevenueCat (`purchases_flutter`).
 ///
-/// Registered by `bootstrap.dart` when the appropriate platform API key is
-/// available via `--dart-define=REVENUECAT_ANDROID_KEY=...` /
-/// `REVENUECAT_IOS_KEY=...`. If neither key is present at startup the
-/// `PreviewPaywallService` stays registered and the paywall renders with
-/// locale-priced previews (no real charge).
+/// Registered by `bootstrap.dart` when the appropriate platform API key
+/// is available via `--dart-define=REVENUECAT_API_KEY_ANDROID=...` /
+/// `REVENUECAT_API_KEY_IOS=...`. If neither key is present at startup
+/// the `PreviewPaywallService` stays registered and the paywall renders
+/// with locale-priced previews (no real charge).
 ///
 /// Setup expectations (see `SETUP.md`):
 ///   - RevenueCat dashboard project with an entitlement named `pro`.
-///   - A `default` offering with `monthly` and `annual` packages attached
-///     to your store products.
-///   - Products `driverank_monthly` and `driverank_annual` configured in
-///     App Store Connect / Play Console.
+///   - A `default` offering with `monthly` and `annual` packages
+///     attached to your store products.
+///   - Products configured in App Store Connect / Play Console with
+///     the IDs declared in [annualProductId] / [monthlyProductId]
+///     and priced at $14.99 / yr and $2.99 / mo (deliberately cheaper
+///     than the TripRank ~$21/yr benchmark — DriveRank's positioning
+///     is "honest pricing, no dark patterns").
 ///
 /// The string `priceString` we return is RevenueCat's already-localised
-/// store string — we never reformat it ourselves. That's what guarantees
-/// the right currency and decimal grouping for every user's store country.
+/// store string — we never reformat it ourselves. That's what
+/// guarantees the right currency and decimal grouping for every user's
+/// store country. Never hardcode a price in the UI; always read from
+/// `package.priceString`.
 class RevenueCatPaywallService implements PaywallService {
   RevenueCatPaywallService._();
 
   /// Entitlement identifier configured in the RevenueCat dashboard.
   static const String entitlementId = 'pro';
+
+  /// Offering identifier — must match the dashboard's offering name.
+  static const String offeringId = 'default';
+
+  /// Annual product identifier (App Store Connect + Play Console must
+  /// have a product with exactly this id, priced at $14.99 / yr).
+  static const String annualProductId = 'driverank_pro_annual';
+
+  /// Monthly product identifier (App Store Connect + Play Console
+  /// must have a product with exactly this id, priced at $2.99 / mo).
+  static const String monthlyProductId = 'driverank_pro_monthly';
 
   /// Initialise the RevenueCat SDK and return a service ready to be
   /// registered in the DI container. Returns `null` if configuration is
