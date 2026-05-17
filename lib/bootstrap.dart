@@ -7,7 +7,9 @@ import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/firebase_auth_service.dart';
 import 'package:drive_rank/core/services/firebase_telemetry_service.dart';
 import 'package:drive_rank/core/services/onesignal_push_service.dart';
+import 'package:drive_rank/core/services/paywall_service.dart';
 import 'package:drive_rank/core/services/push_service.dart';
+import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
@@ -77,6 +79,7 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
 
   await _maybeInitFirebase();
   await _maybeInitOneSignal();
+  await _maybeInitRevenueCat();
 
   // Kick the sync queue. Safe to call even when the registered sink is
   // the no-op — pending trips just flip is_synced=true locally and the
@@ -166,4 +169,45 @@ Future<void> _maybeInitOneSignal() async {
       debugPrint('[bootstrap] OneSignal init failed: $e');
     }
   }
+}
+
+Future<void> _maybeInitRevenueCat() async {
+  const androidKey = String.fromEnvironment('REVENUECAT_API_KEY_ANDROID');
+  const iosKey = String.fromEnvironment('REVENUECAT_API_KEY_IOS');
+  if (androidKey.isEmpty && iosKey.isEmpty) {
+    if (kDebugMode) {
+      debugPrint(
+        '[bootstrap] RevenueCat disabled — paywall using preview prices. '
+        'Pass --dart-define=REVENUECAT_API_KEY_ANDROID=... and '
+        '--dart-define=REVENUECAT_API_KEY_IOS=... to enable purchases.',
+      );
+    }
+    return;
+  }
+  if (!Platform.isAndroid && !Platform.isIOS) return;
+
+  // Link RevenueCat's app user id to our local uid so a user's purchase
+  // sticks even if they sign in / out of their Google account later.
+  String? appUserId;
+  try {
+    appUserId = (await getIt<UserSettingsRepository>().read()).uid;
+  } catch (_) {
+    /* settings not ready yet — RC will assign an anonymous id */
+  }
+
+  final service = await RevenueCatPaywallService.init(
+    androidApiKey: androidKey,
+    iosApiKey: iosKey,
+    appUserId: appUserId,
+  );
+  if (service == null) {
+    if (kDebugMode) {
+      debugPrint(
+        '[bootstrap] RevenueCat init returned null — preview paywall stays.',
+      );
+    }
+    return;
+  }
+  await _replace<PaywallService>(() => service);
+  if (kDebugMode) debugPrint('[bootstrap] RevenueCat initialised');
 }
