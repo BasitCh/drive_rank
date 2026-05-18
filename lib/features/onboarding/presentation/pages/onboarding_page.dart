@@ -6,6 +6,7 @@ import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_bloc.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_event.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_state.dart';
+import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_car_photo_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_car_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_community_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_country_step.dart';
@@ -13,6 +14,7 @@ import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_map
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_reviews_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_safety_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_splash_step.dart';
+import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_username_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/widgets/progress_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -109,6 +111,8 @@ class _OnboardingPageBody extends StatelessWidget {
   Widget _stepWidget(OnboardingStep step) => switch (step) {
     OnboardingStep.countryAndVehicle => const OnboardingCountryStep(),
     OnboardingStep.car => const OnboardingCarStep(),
+    OnboardingStep.username => const OnboardingUsernameStep(),
+    OnboardingStep.carPhoto => const OnboardingCarPhotoStep(),
     OnboardingStep.community => const OnboardingCommunityStep(),
     OnboardingStep.mapTheme => const OnboardingMapThemeStep(),
     OnboardingStep.reviews => const OnboardingReviewsStep(),

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/features/onboarding/domain/repositories/car_repository.dart';
@@ -5,6 +8,7 @@ import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_even
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_state.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/repositories/username_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -16,8 +20,14 @@ import 'package:injectable/injectable.dart';
 /// previous answers — onboarding picks up where the user left off.
 @injectable
 class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
-  OnboardingBloc(this._cars, this._settings, this._locale, this._permissions)
-    : super(OnboardingState.initial()) {
+  OnboardingBloc(
+    this._cars,
+    this._settings,
+    this._locale,
+    this._permissions,
+    this._usernames,
+    this._auth,
+  ) : super(OnboardingState.initial()) {
     on<OnboardingStarted>(_onStarted);
     on<OnboardingStepNext>(_onNext);
     on<OnboardingStepBack>(_onBack);
@@ -25,6 +35,10 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     on<OnboardingVehicleTypeSelected>(_onVehicle);
     on<OnboardingCarMakeSelected>(_onMake);
     on<OnboardingCarModelSelected>(_onModel);
+    on<OnboardingCarPhotoSelected>(_onCarPhoto);
+    on<OnboardingCarPhotoSkipped>(_onCarPhotoSkipped);
+    on<OnboardingUsernameChanged>(_onUsernameChanged);
+    on<OnboardingUsernameCheckResolved>(_onUsernameCheckResolved);
     on<OnboardingMapThemeSelected>(_onMapTheme);
     on<OnboardingSafetyToggled>(_onSafety);
     on<OnboardingLocationPermissionRequested>(_onRequestPermission);
@@ -35,6 +49,22 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   final UserSettingsRepository _settings;
   final LocaleService _locale;
   final PermissionService _permissions;
+  final UsernameRepository _usernames;
+  final AuthService _auth;
+
+  /// Pending availability check — cancelled on every new keystroke so
+  /// the 600 ms debounce doesn't trail multiple Firestore requests.
+  Timer? _usernameDebounce;
+
+  /// Monotonic counter that lets us discard the result of a late
+  /// in-flight check when the user has typed something newer.
+  int _usernameSeq = 0;
+
+  @override
+  Future<void> close() {
+    _usernameDebounce?.cancel();
+    return super.close();
+  }
 
   Future<void> _onStarted(
     OnboardingStarted event,
@@ -73,12 +103,129 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         ? order[currentIdx + 1]
         : OnboardingStep.done;
 
+    // Atomic username reservation runs when the user advances past the
+    // username step — earliest point where we can hold the name before
+    // someone else grabs it. If reservation fails (race / network),
+    // bounce them back to the username step with an inline error.
+    if (state.step == OnboardingStep.username) {
+      final result = await _usernames.reserve(
+        raw: state.username,
+        uid: _auth.currentUser.uid,
+      );
+      if (result != UsernameReservationResult.reserved) {
+        emit(
+          state.copyWith(
+            usernameStatus: switch (result) {
+              UsernameReservationResult.raced => UsernameCheckStatus.taken,
+              UsernameReservationResult.tooShort =>
+                UsernameCheckStatus.tooShort,
+              UsernameReservationResult.invalidFormat =>
+                UsernameCheckStatus.invalidFormat,
+              _ => UsernameCheckStatus.error,
+            },
+            completionError: _reservationFailureMessage(result),
+          ),
+        );
+        return;
+      }
+      // Persist locally so the rest of the app can read it without
+      // hitting Firestore. The auth UID is what trip rows key off.
+      await _settings.setUsername(state.username.trim());
+    }
+
     if (next == OnboardingStep.done) {
       await _settings.markOnboardingComplete();
       emit(state.copyWith(step: next, completed: true));
       return;
     }
-    emit(state.copyWith(step: next));
+    emit(state.copyWith(step: next, clearCompletionError: true));
+  }
+
+  static String? _reservationFailureMessage(UsernameReservationResult r) =>
+      switch (r) {
+        UsernameReservationResult.reserved => null,
+        UsernameReservationResult.raced =>
+          'Username was just taken. Pick another.',
+        UsernameReservationResult.tooShort => 'Minimum 3 characters.',
+        UsernameReservationResult.invalidFormat =>
+          'Letters, numbers and underscore only.',
+        UsernameReservationResult.error =>
+          "Couldn't reserve username — check your connection and try again.",
+      };
+
+  Future<void> _onUsernameChanged(
+    OnboardingUsernameChanged event,
+    Emitter<OnboardingState> emit,
+  ) async {
+    final raw = event.value;
+    final seq = ++_usernameSeq;
+
+    // Synchronous validation runs immediately — no point hitting the
+    // network for "ab" or "💩".
+    final localCheck = UsernameRules.validate(raw);
+    if (localCheck == UsernameAvailability.tooShort) {
+      _usernameDebounce?.cancel();
+      emit(
+        state.copyWith(
+          username: raw,
+          usernameStatus: UsernameCheckStatus.tooShort,
+        ),
+      );
+      return;
+    }
+    if (localCheck == UsernameAvailability.invalidFormat) {
+      _usernameDebounce?.cancel();
+      emit(
+        state.copyWith(
+          username: raw,
+          usernameStatus: UsernameCheckStatus.invalidFormat,
+        ),
+      );
+      return;
+    }
+
+    // Optimistically show "checking" while the debounce window runs.
+    emit(
+      state.copyWith(
+        username: raw,
+        usernameStatus: UsernameCheckStatus.checking,
+      ),
+    );
+    _usernameDebounce?.cancel();
+    _usernameDebounce = Timer(const Duration(milliseconds: 600), () async {
+      final result = await _usernames.check(raw);
+      // Discard if a newer keystroke superseded this check.
+      if (seq != _usernameSeq) return;
+      if (isClosed) return;
+      // Re-emit via add() so the bloc handler runs on the event loop
+      // (we're outside the original handler's scope here).
+      add(OnboardingUsernameCheckResolved(
+        seq,
+        switch (result) {
+          UsernameAvailability.available => UsernameCheckOutcome.available,
+          UsernameAvailability.taken => UsernameCheckOutcome.taken,
+          UsernameAvailability.tooShort => UsernameCheckOutcome.tooShort,
+          UsernameAvailability.invalidFormat =>
+            UsernameCheckOutcome.invalidFormat,
+          UsernameAvailability.error => UsernameCheckOutcome.error,
+        },
+      ));
+    });
+  }
+
+  void _onUsernameCheckResolved(
+    OnboardingUsernameCheckResolved event,
+    Emitter<OnboardingState> emit,
+  ) {
+    if (event.seq != _usernameSeq) return;
+    final status = switch (event.status) {
+      UsernameCheckOutcome.available => UsernameCheckStatus.available,
+      UsernameCheckOutcome.taken => UsernameCheckStatus.taken,
+      UsernameCheckOutcome.tooShort => UsernameCheckStatus.tooShort,
+      UsernameCheckOutcome.invalidFormat => UsernameCheckStatus.invalidFormat,
+      UsernameCheckOutcome.error => UsernameCheckStatus.error,
+    };
+    emit(state.copyWith(usernameStatus: status));
   }
 
   Future<void> _onBack(
@@ -127,6 +274,22 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     if (make == null) return;
     await _settings.setCar(make: make.name, model: event.model);
     emit(state.copyWith(carModel: event.model));
+  }
+
+  Future<void> _onCarPhoto(
+    OnboardingCarPhotoSelected event,
+    Emitter<OnboardingState> emit,
+  ) async {
+    await _settings.setCarPhotoPath(event.path);
+    emit(state.copyWith(carPhotoPath: event.path));
+  }
+
+  Future<void> _onCarPhotoSkipped(
+    OnboardingCarPhotoSkipped event,
+    Emitter<OnboardingState> emit,
+  ) async {
+    await _settings.setCarPhotoPath(null);
+    emit(state.copyWith(clearCarPhotoPath: true));
   }
 
   Future<void> _onMapTheme(

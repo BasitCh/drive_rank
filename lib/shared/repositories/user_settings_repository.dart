@@ -94,6 +94,17 @@ class UserSettingsRepository {
     ),
   );
 
+  /// Persists the absolute filesystem path to the user's uploaded car
+  /// photo. Pass `null` to clear (e.g. user tapped Skip).
+  Future<void> setCarPhotoPath(String? path) =>
+      patch(UserSettingsCompanion(carPhotoPath: Value(path)));
+
+  /// Persists the user's chosen username locally so leaderboard /
+  /// stat-card surfaces can read it without re-hitting Firestore.
+  /// The Firestore atomic reservation lives in `UsernameRepository`.
+  Future<void> setUsername(String username) =>
+      patch(UserSettingsCompanion(username: Value(username)));
+
   Future<void> setMapTheme(MapTheme theme) =>
       patch(UserSettingsCompanion(selectedMapTheme: Value(theme.id)));
 
