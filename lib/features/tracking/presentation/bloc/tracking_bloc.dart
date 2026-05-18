@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:drive_rank/core/constants/app_constants.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/gps_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/core/services/sensor_service.dart';
@@ -10,6 +11,7 @@ import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.da
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_state.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/services/leaderboard_writer.dart';
 import 'package:drive_rank/shared/services/road_segment_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
@@ -184,6 +186,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         roadSegmentIds: [for (final s in detected) s.id],
       );
       await _settings.incrementFreeTripsUsed();
+
+      // Push the user's all-time best to the global + country boards.
+      // Only registered when Firebase is live — silently skipped in the
+      // preview build so trip recording stays local-only.
+      if (getIt.isRegistered<LeaderboardWriter>()) {
+        unawaited(getIt<LeaderboardWriter>().publishCurrentBest());
+      }
 
       final after = await _settings.read();
       final paywallDue = !after.isPro &&

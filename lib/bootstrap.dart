@@ -11,9 +11,14 @@ import 'package:drive_rank/core/services/paywall_service.dart';
 import 'package:drive_rank/core/services/push_service.dart';
 import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
+import 'package:drive_rank/shared/repositories/firestore_leaderboard_repository.dart';
+import 'package:drive_rank/shared/repositories/friends_repository.dart';
+import 'package:drive_rank/shared/repositories/leaderboard_repository.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/repositories/username_repository.dart';
 import 'package:drive_rank/shared/services/firestore_trip_sink.dart';
+import 'package:drive_rank/shared/services/leaderboard_writer.dart';
 import 'package:drive_rank/shared/services/remote_trip_sink.dart';
 import 'package:drive_rank/shared/services/sync_manager.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -128,10 +133,30 @@ Future<void> _maybeInitFirebase() async {
     final telemetry = FirebaseTelemetryService(analytics, crashlytics);
     final sink = FirestoreTripSink(firestore, getIt<TripRepository>());
 
+    // Swap the preview Firestore-shaped repos for the real ones. The
+    // friends repo doubles as the FriendUidsSource the leaderboard's
+    // Friends tab depends on — that's why it's constructed first.
+    final friends = FirestoreFriendsRepository(firestore);
+    final leaderboard = FirestoreLeaderboardRepository(
+      firestore,
+      getIt<UserSettingsRepository>(),
+      friends,
+    );
+    final usernames = FirestoreUsernameRepository(firestore);
+    final leaderboardWriter = LeaderboardWriter(
+      firestore,
+      getIt<TripRepository>(),
+      getIt<UserSettingsRepository>(),
+    );
+
     // Unregister the previews and register the real implementations.
     await _replace<AuthService>(() => auth);
     await _replace<TelemetryService>(() => telemetry);
     await _replace<RemoteTripSink>(() => sink);
+    await _replace<FriendsRepository>(() => friends);
+    await _replace<LeaderboardRepository>(() => leaderboard);
+    await _replace<UsernameRepository>(() => usernames);
+    await _replace<LeaderboardWriter>(() => leaderboardWriter);
 
     // Identify the user (anonymous local uid until they sign in).
     final settings = await getIt<UserSettingsRepository>().read();
