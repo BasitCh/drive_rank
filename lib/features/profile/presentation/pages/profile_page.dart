@@ -7,6 +7,8 @@ import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/features/friends/presentation/widgets/add_friend_sheet.dart';
+import 'package:drive_rank/features/friends/presentation/widgets/incoming_requests_section.dart';
 import 'package:drive_rank/features/monthly_report/presentation/widgets/monthly_report_card.dart';
 import 'package:drive_rank/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:drive_rank/shared/models/country.dart';
@@ -87,7 +89,17 @@ class _Loaded extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         _StatsGrid(lifetime: lifetime, locale: locale),
+        const IncomingRequestsSection(),
         const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: _ActionRow(
+            label: AppStrings.friendsAddTitle,
+            icon: Icons.person_add_alt_1_rounded,
+            onTap: () => AddFriendSheet.show(context),
+          ),
+        ),
+        const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: _ActionRow(
