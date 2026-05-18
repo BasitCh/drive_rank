@@ -12,11 +12,18 @@ import 'package:injectable/injectable.dart';
 /// own personal-best trip into the list and re-ranks. Session 5 swaps in a
 /// Firestore implementation behind the same interface — every UI layer that
 /// renders a leaderboard stays unchanged.
-// ignore: one_member_abstracts
 abstract class LeaderboardRepository {
   Future<List<LeaderboardEntry>> getEntries({
     required LeaderboardScope scope,
     int limit = 50,
+  });
+
+  /// Returns the current user's entry within the given scope along
+  /// with their exact rank, or null if they have no entry yet. Used
+  /// to render the sticky footer when the user isn't in the top-N
+  /// visible list.
+  Future<LeaderboardEntry?> getCurrentUserEntry({
+    required LeaderboardScope scope,
   });
 }
 
@@ -61,6 +68,16 @@ class MockLeaderboardRepository implements LeaderboardRepository {
       math.min(merged.length, limit),
       (i) => merged[i].copyWith(rank: i + 1),
     );
+  }
+
+  @override
+  Future<LeaderboardEntry?> getCurrentUserEntry({
+    required LeaderboardScope scope,
+  }) async {
+    // The mock always merges the user into `getEntries`, so the
+    // sticky footer never needs a separate fetch here. Returning
+    // null tells the UI to skip the footer.
+    return null;
   }
 
   /// Deterministic competitor list seeded off the scope id so the rankings

@@ -4,6 +4,7 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/features/friends/presentation/widgets/add_friend_sheet.dart';
 import 'package:drive_rank/features/leaderboard/presentation/bloc/leaderboard_bloc.dart';
 import 'package:drive_rank/features/leaderboard/presentation/widgets/leaderboard_row.dart';
 import 'package:drive_rank/features/leaderboard/presentation/widgets/podium.dart';
@@ -48,6 +49,11 @@ class _LeaderboardBody extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Expanded(child: _List(state: state, locale: locale)),
+                if (state.currentUserEntry != null)
+                  _StickyUserFooter(
+                    entry: state.currentUserEntry!,
+                    locale: locale,
+                  ),
               ],
             );
           },
@@ -253,14 +259,41 @@ class _FriendsEmpty extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xl),
             ElevatedButton(
-              onPressed: () {
-                // Wired up when Session 5 lands account/auth.
-              },
+              onPressed: () => AddFriendSheet.show(context),
               child: const Text(AppStrings.leaderboardFriendsCta),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Pinned at the bottom of the leaderboard when the user has an entry
+/// but isn't in the visible top-N. Always teal-bordered + flagged as
+/// "you" so it visually mirrors the inline row.
+class _StickyUserFooter extends StatelessWidget {
+  const _StickyUserFooter({required this.entry, required this.locale});
+
+  final LeaderboardEntry entry;
+  final LocaleService locale;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.bg,
+        border: Border(
+          top: BorderSide(color: AppColors.border),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md + 2,
+        AppSpacing.sm,
+        AppSpacing.md + 2,
+        AppSpacing.md,
+      ),
+      child: LeaderboardRow(entry: entry, locale: locale),
     );
   }
 }

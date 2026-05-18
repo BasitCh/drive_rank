@@ -30,6 +30,7 @@ class LeaderboardState {
     required this.availableScopes,
     required this.activeScope,
     required this.entries,
+    required this.currentUserEntry,
     required this.errorMessage,
   });
 
@@ -41,6 +42,7 @@ class LeaderboardState {
     ],
     activeScope: LeaderboardScopeFriends(),
     entries: <LeaderboardEntry>[],
+    currentUserEntry: null,
     errorMessage: null,
   );
 
@@ -48,6 +50,11 @@ class LeaderboardState {
   final List<LeaderboardScope> availableScopes;
   final LeaderboardScope activeScope;
   final List<LeaderboardEntry> entries;
+
+  /// Set only when the current user has a leaderboard entry but isn't
+  /// in the visible top-N — drives the sticky-footer row.
+  final LeaderboardEntry? currentUserEntry;
+
   final String? errorMessage;
 
   LeaderboardState copyWith({
@@ -55,6 +62,8 @@ class LeaderboardState {
     List<LeaderboardScope>? availableScopes,
     LeaderboardScope? activeScope,
     List<LeaderboardEntry>? entries,
+    LeaderboardEntry? currentUserEntry,
+    bool clearCurrentUserEntry = false,
     String? errorMessage,
   }) {
     return LeaderboardState(
@@ -62,6 +71,9 @@ class LeaderboardState {
       availableScopes: availableScopes ?? this.availableScopes,
       activeScope: activeScope ?? this.activeScope,
       entries: entries ?? this.entries,
+      currentUserEntry: clearCurrentUserEntry
+          ? null
+          : (currentUserEntry ?? this.currentUserEntry),
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -99,6 +111,7 @@ class LeaderboardBloc extends Bloc<LeaderboardEvent, LeaderboardState> {
     // first and Global has the most data immediately.
     const initialScope = LeaderboardScopeGlobal();
     final entries = await _repo.getEntries(scope: initialScope);
+    final stickyFooter = await _resolveSticky(initialScope, entries);
 
     emit(
       state.copyWith(
@@ -106,8 +119,21 @@ class LeaderboardBloc extends Bloc<LeaderboardEvent, LeaderboardState> {
         availableScopes: scopes,
         activeScope: initialScope,
         entries: entries,
+        currentUserEntry: stickyFooter,
+        clearCurrentUserEntry: stickyFooter == null,
       ),
     );
+  }
+
+  /// Fetches the user's own entry for the active scope only when they
+  /// aren't already in the visible list — that's what populates the
+  /// sticky footer at the bottom of the leaderboard.
+  Future<LeaderboardEntry?> _resolveSticky(
+    LeaderboardScope scope,
+    List<LeaderboardEntry> entries,
+  ) async {
+    if (entries.any((e) => e.isYou)) return null;
+    return _repo.getCurrentUserEntry(scope: scope);
   }
 
   Future<void> _onScopeSelected(
@@ -121,8 +147,14 @@ class LeaderboardBloc extends Bloc<LeaderboardEvent, LeaderboardState> {
       ),
     );
     final entries = await _repo.getEntries(scope: event.scope);
+    final stickyFooter = await _resolveSticky(event.scope, entries);
     emit(
-      state.copyWith(status: LeaderboardStatus.ready, entries: entries),
+      state.copyWith(
+        status: LeaderboardStatus.ready,
+        entries: entries,
+        currentUserEntry: stickyFooter,
+        clearCurrentUserEntry: stickyFooter == null,
+      ),
     );
   }
 
