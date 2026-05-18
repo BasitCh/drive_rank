@@ -8,7 +8,9 @@ import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_even
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_state.dart';
 import 'package:drive_rank/features/onboarding/presentation/widgets/teal_button.dart';
 import 'package:drive_rank/features/onboarding/presentation/widgets/white_select.dart';
+import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
+import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -134,24 +136,34 @@ class OnboardingCarStep extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxl),
-                  Container(
-                    width: 160,
-                    height: 160,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.teal,
-                        width: 3,
-                      ),
-                    ),
-                    child: Text(
-                      (state.vehicleType == VehicleType.motorbike
-                          ? VehicleType.motorbike
-                          : VehicleType.car).glyph,
-                      style: const TextStyle(fontSize: 64),
-                    ),
+                  // 45% of the screen's shorter side — same on a small
+                  // phone as on a tablet, scales with rotation. Keeps
+                  // the silhouette readable but never overflows.
+                  Builder(
+                    builder: (context) {
+                      final size = MediaQuery.sizeOf(context).width * 0.45;
+                      return Container(
+                        width: size,
+                        height: size,
+                        alignment: Alignment.center,
+                        padding: EdgeInsets.all(size * 0.12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.teal,
+                            width: 3,
+                          ),
+                        ),
+                        child: CarSilhouette(
+                          category: state.carMake?.category ??
+                              (state.vehicleType == VehicleType.motorbike
+                                  ? CarCategory.motorbike
+                                  : CarCategory.defaultCategory),
+                          photoPath: state.carPhotoPath,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: AppSpacing.xxl),
                   WhiteSelect(

@@ -60,62 +60,80 @@ class StatCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        // LayoutBuilder lets every internal size scale with the card's
+        // outer width — same widget renders crisply at narrow phone
+        // widths (350dp), tablets (600dp+), and the 3× exported PNG.
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final headerHeight = (w * 0.27).clamp(80.0, 140.0);
+            final bodyPadding = (w * 0.04).clamp(10.0, 18.0);
+            final blockGap = (w * 0.03).clamp(8.0, 14.0);
+            final glowSize = (w * 0.34).clamp(80.0, 160.0);
+            return Stack(
               children: [
-                RouteMapHeader(
-                  theme: theme,
-                  points: points,
-                  carTag: carTag,
-                  weatherTag: weatherTag,
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _TopSpeedHero(
-                        valueText: locale.formatSpeedValue(topSpeedKmh),
-                        unitLabel: locale.speedUnitLabel,
-                        rankBadge: rankBadge,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    RouteMapHeader(
+                      theme: theme,
+                      points: points,
+                      carTag: carTag,
+                      weatherTag: weatherTag,
+                      height: headerHeight,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        bodyPadding,
+                        bodyPadding * 0.85,
+                        bodyPadding,
+                        bodyPadding,
                       ),
-                      const SizedBox(height: 10),
-                      const _Divider(),
-                      const SizedBox(height: 10),
-                      _StatsRow(
-                        avg: locale.formatSpeed(avgSpeedKmh),
-                        distance: locale.formatDistance(distanceKm),
-                        duration: locale.formatDuration(durationSeconds),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _TopSpeedHero(
+                            valueText: locale.formatSpeedValue(topSpeedKmh),
+                            unitLabel: locale.speedUnitLabel,
+                            rankBadge: rankBadge,
+                          ),
+                          SizedBox(height: blockGap),
+                          const _Divider(),
+                          SizedBox(height: blockGap),
+                          _StatsRow(
+                            avg: locale.formatSpeed(avgSpeedKmh),
+                            distance: locale.formatDistance(distanceKm),
+                            duration: locale.formatDuration(durationSeconds),
+                          ),
+                          SizedBox(height: blockGap),
+                          _FooterRow(maxGforce: maxGforce),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      _FooterRow(maxGforce: maxGforce),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            // Subtle teal glow in the top-right corner (mirrors the mock).
-            Positioned(
-              top: -30,
-              right: -30,
-              child: IgnorePointer(
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      colors: [
-                        AppColors.teal.withValues(alpha: 0.10),
-                        Colors.transparent,
-                      ],
+                // Subtle teal glow in the top-right corner.
+                Positioned(
+                  top: -glowSize * 0.25,
+                  right: -glowSize * 0.25,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: glowSize,
+                      height: glowSize,
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          colors: [
+                            AppColors.teal.withValues(alpha: 0.10),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
