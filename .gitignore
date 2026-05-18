@@ -60,3 +60,4 @@ app.*.map.json
 .env
 .env.local
 .env.production
+.vscode/launch.json
