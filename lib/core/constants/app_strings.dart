@@ -50,6 +50,31 @@ class AppStrings {
   static const String onboardCarSub = 'Select the car you drive most';
   static const String onboardCarMissingModel = "don't see your model?";
 
+  // Onboarding — username.
+  static const String onboardUsernameTitle = 'Pick a username';
+  static const String onboardUsernameSub =
+      "It's what shows on the leaderboard. You can't change it later.";
+  static const String onboardUsernameHint = 'username';
+  static const String onboardUsernameAvailableSuffix = ' is available';
+  static const String onboardUsernameTaken = 'Username already taken';
+  static const String onboardUsernameTooShort = 'Minimum 3 characters';
+  static const String onboardUsernameInvalid =
+      'Letters, numbers and underscore only';
+  static const String onboardUsernameChecking = 'Checking availability…';
+  static const String onboardUsernameError =
+      "Couldn't check availability — try again";
+
+  // Onboarding — car photo.
+  static const String onboardCarPhotoTitle = 'Show off your ride';
+  static const String onboardCarPhotoSub =
+      'Add a photo of your car. It appears on your stat card and profile.';
+  static const String onboardCarPhotoUpload = 'Upload Photo';
+  static const String onboardCarPhotoChange = 'Change Photo';
+  static const String onboardCarPhotoSkip = 'Skip';
+  static const String onboardCarPhotoCamera = 'Take a photo';
+  static const String onboardCarPhotoGallery = 'Choose from gallery';
+  static const String onboardCarPhotoCancel = 'Cancel';
+
   // Onboarding — community.
   static const String onboardCommunityCountSuffix = 'drivers on DriveRank';
   static const String onboardCommunityShareSuffix =
@@ -195,6 +220,22 @@ class AppStrings {
   static const String leaderboardFriendsEmptyBody =
       'Invite friends to see how you stack up against them on every drive.';
   static const String leaderboardFriendsCta = 'Invite Friends';
+
+  // Friends feature (Add Friend bottom sheet + profile section).
+  static const String friendsAddTitle = 'Add Friend';
+  static const String friendsSearchHint = 'Search by username';
+  static const String friendsSearchTooShort = 'Type at least 3 characters';
+  static const String friendsSearchNoResults = 'No matches';
+  static const String friendsAddButton = 'Add';
+  static const String friendsAddedButton = 'Friend';
+  static const String friendsSentButton = 'Sent';
+  static const String friendsSendFailed = "Couldn't send the request — try again";
+  static const String friendsSectionTitle = 'Friends';
+  static const String friendsIncomingTitle = 'Friend requests';
+  static const String friendsAccept = 'Accept';
+  static const String friendsDecline = 'Decline';
+  static const String friendsRequestPrefix = '@';
+  static const String friendsRequestSuffix = ' wants to be friends';
   static const String leaderboardSubThisWeek = 'This week';
   static const String leaderboardEmpty =
       'No drives recorded here yet — be the first to set a time.';
