@@ -160,8 +160,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       return;
     }
 
-    // Skip persisting a no-distance trip — keeps history clean.
-    if (state.stats.distanceKm <= 0 || _startedAt == null) {
+    // Every Start → End cycle is recorded as a trip, even if the user
+    // tapped End within a second of Start. Tiny trips show up in the
+    // history with whatever stats they accrued (often 0 distance + a
+    // duration of a few seconds). The only thing we still guard
+    // against is _startedAt being null — that means we never entered
+    // the active phase at all (e.g. Start → permission denied).
+    if (_startedAt == null) {
       emit(
         state.copyWith(
           phase: TrackingPhase.idle,
@@ -169,7 +174,6 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
           clearCompletedTripId: true,
         ),
       );
-      _startedAt = null;
       return;
     }
 

@@ -94,6 +94,7 @@ class _IdleSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = getIt<LocaleService>();
     return StreamBuilder<UserSettingsRow>(
       stream: getIt<UserSettingsRepository>().watch(),
       builder: (context, snap) {
@@ -104,74 +105,63 @@ class _IdleSurface extends StatelessWidget {
         final remaining = (limit - used).clamp(0, limit);
         final isLast = !isPro && remaining == 1;
         final isExhausted = !isPro && remaining == 0;
+        final theme = settings != null
+            ? MapTheme.fromId(settings.selectedMapTheme)
+            : MapTheme.regular;
 
+        // Mirror the active-trip layout so the idle surface fills the
+        // full screen the same way the live page does — same header,
+        // same hero, same 6-stat grid (all placeholders), same map
+        // strip showing the selected theme, then a teal Start Trip
+        // CTA where End Trip would normally sit.
         return Column(
           children: [
             const _Header(showLiveBadge: false),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xl,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: IntrinsicHeight(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Spacer(),
-                            const Icon(
-                              Icons.directions_car_rounded,
-                              color: AppColors.teal,
-                              size: 48,
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms)
-                                .scale(begin: const Offset(0.6, 0.6)),
-                            const SizedBox(height: AppSpacing.lg),
-                            const Text(
-                              AppStrings.homeReadyToDrive,
-                              style: AppTextStyles.headingLarge,
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: AppSpacing.lg,
-                              ),
-                              child: Text(
-                                AppStrings.homeReadyToDriveSub,
-                                style: AppTextStyles.body,
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.xxl),
-                            _StartTripButton(
-                              isExhausted: isExhausted,
-                              onTap: () => _onStart(context, isExhausted),
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            _FreeTripsLabel(
-                              isPro: isPro,
-                              remaining: remaining,
-                              total: limit,
-                              isLast: isLast,
-                              isExhausted: isExhausted,
-                            ),
-                            const Spacer(),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.md,
+                AppSpacing.xl,
+                AppSpacing.xs,
+              ),
+              child: _SpeedHero(
+                speedKmh: 0,
+                locale: locale,
+                hasFix: false,
+                idleLabel: AppStrings.homeReadyToDriveTagline,
               ),
             ),
+            const Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg - 2,
+              ),
+              child: _IdleStatsGrid(),
+            ),
+            RouteStrip(theme: theme, points: const []),
+            const SizedBox(height: AppSpacing.sm),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg - 2,
+              ),
+              child: _StartTripButton(
+                isExhausted: isExhausted,
+                onTap: () => _onStart(context, isExhausted),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xl,
+              ),
+              child: _FreeTripsLabel(
+                isPro: isPro,
+                remaining: remaining,
+                total: limit,
+                isLast: isLast,
+                isExhausted: isExhausted,
+              ),
+            ),
+            const Spacer(),
           ],
         );
       },
@@ -184,6 +174,82 @@ class _IdleSurface extends StatelessWidget {
       return;
     }
     context.read<TrackingBloc>().add(const TrackingStartRequested());
+  }
+}
+
+/// The 2×3 placeholder stat grid shown on the idle surface. Same shape
+/// as the active grid so the visual jump on Start → live is zero.
+class _IdleStatsGrid extends StatelessWidget {
+  const _IdleStatsGrid();
+
+  static const String _dash = '—';
+
+  @override
+  Widget build(BuildContext context) {
+    final locale = getIt<LocaleService>();
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: Row(
+            children: [
+              Expanded(
+                child: MiniStat(
+                  value: _dash,
+                  label:
+                      '${AppStrings.trackingMaxSpeed} '
+                      '${locale.speedUnitLabel}',
+                  valueColor: AppColors.teal,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs + 2),
+              const Expanded(
+                child: MiniStat(
+                  value: _dash,
+                  label: AppStrings.trackingGForce,
+                  valueColor: AppColors.orange,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs + 2),
+              const Expanded(
+                child: MiniStat(
+                  value: _dash,
+                  label: AppStrings.trackingDistance,
+                  valueColor: AppColors.blue,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          children: [
+            const Expanded(
+              child: MiniStat(
+                value: _dash,
+                label: AppStrings.trackingDuration,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs + 2),
+            Expanded(
+              child: MiniStat(
+                value: _dash,
+                label:
+                    '${AppStrings.trackingAvgSpeed} '
+                    '${locale.speedUnitLabel}',
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs + 2),
+            const Expanded(
+              child: MiniStat(
+                value: AppStrings.trackingFuelNotConfigured,
+                label: AppStrings.trackingFuelCost,
+                valueColor: AppColors.green,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 
@@ -441,14 +507,31 @@ class _SpeedHero extends StatelessWidget {
     required this.speedKmh,
     required this.locale,
     required this.hasFix,
+    this.idleLabel,
   });
 
   final double speedKmh;
   final LocaleService locale;
   final bool hasFix;
 
+  /// When set, replaces the "KM/H — CURRENT SPEED" subtitle. Used by
+  /// the idle surface to show "READY TO DRIVE" instead — same hero
+  /// shape, different copy.
+  final String? idleLabel;
+
   @override
   Widget build(BuildContext context) {
+    final isIdle = idleLabel != null;
+    final numberText = isIdle
+        ? '0'
+        : (hasFix ? locale.formatSpeedValue(speedKmh) : '--');
+    final subtitleText = isIdle
+        ? idleLabel!
+        : (hasFix
+            ? '${locale.speedUnitLabel.toUpperCase()}'
+                '${AppStrings.trackingCurrentSpeedSuffix}'
+            : AppStrings.trackingWaitingForGps);
+
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -474,17 +557,12 @@ class _SpeedHero extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                hasFix
-                    ? locale.formatSpeedValue(speedKmh)
-                    : '--',
+                numberText,
                 style: AppTextStyles.speedDisplay,
               ),
             ),
             Text(
-              hasFix
-                  ? '${locale.speedUnitLabel.toUpperCase()}'
-                      '${AppStrings.trackingCurrentSpeedSuffix}'
-                  : AppStrings.trackingWaitingForGps,
+              subtitleText,
               style: AppTextStyles.speedUnit.copyWith(fontSize: 11),
             ),
           ],

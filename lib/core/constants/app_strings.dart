@@ -149,6 +149,9 @@ class AppStrings {
   static const String homeReadyToDrive = 'Ready to drive?';
   static const String homeReadyToDriveSub =
       'Tap below to start recording. GPS is off until you start.';
+  /// Shown under the big "0" on the idle hero — mirrors the
+  /// "KM/H — CURRENT SPEED" copy on the live screen.
+  static const String homeReadyToDriveTagline = 'READY TO DRIVE';
   static const String homeStartTrip = 'Start Trip';
   static const String homeStartTripDisabled = 'Free trips used up';
   static const String homeStartingTrip = 'Starting…';
