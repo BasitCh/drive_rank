@@ -9,6 +9,7 @@ import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_stat
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/repositories/username_repository.dart';
+import 'package:drive_rank/shared/services/public_profile_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -27,6 +28,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     this._permissions,
     this._usernames,
     this._auth,
+    this._publicProfile,
   ) : super(OnboardingState.initial()) {
     on<OnboardingStarted>(_onStarted);
     on<OnboardingStepNext>(_onNext);
@@ -51,6 +53,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   final PermissionService _permissions;
   final UsernameRepository _usernames;
   final AuthService _auth;
+  final PublicProfileService _publicProfile;
 
   /// Pending availability check — cancelled on every new keystroke so
   /// the 600 ms debounce doesn't trail multiple Firestore requests.
@@ -130,7 +133,23 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
       }
       // Persist locally so the rest of the app can read it without
       // hitting Firestore. The auth UID is what trip rows key off.
-      await _settings.setUsername(state.username.trim());
+      final cleanUsername = state.username.trim();
+      await _settings.setUsername(cleanUsername);
+
+      // Mirror to the public `/users/{uid}` document so the friend
+      // search can find this user by usernameLower prefix. No-op when
+      // Firebase isn't initialised; failures are logged and swallowed.
+      final make = state.carMake;
+      await _publicProfile.publish(
+        PublicProfilePayload(
+          uid: _auth.currentUser.uid,
+          username: cleanUsername,
+          carMake: make?.name ?? '',
+          carModel: state.carModel ?? '',
+          carYear: null,
+          countryCode: state.country?.code ?? '',
+        ),
+      );
     }
 
     if (next == OnboardingStep.done) {
