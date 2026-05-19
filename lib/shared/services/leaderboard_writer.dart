@@ -43,6 +43,17 @@ class LeaderboardWriter {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
+      final globalPath =
+          'leaderboard/global/entries/${settings.uid}';
+      final countryPath =
+          'leaderboard/$country/entries/${settings.uid}';
+      if (kDebugMode) {
+        debugPrint(
+          '[LeaderboardWriter] → $globalPath + $countryPath '
+          '(${best.topSpeedKmh.toStringAsFixed(0)} km/h, @$username)',
+        );
+      }
+
       await (_db.batch()
             ..set(
               _db
@@ -63,9 +74,16 @@ class LeaderboardWriter {
               SetOptions(merge: true),
             ))
           .commit();
-    } catch (e) {
       if (kDebugMode) {
-        debugPrint('[LeaderboardWriter] publishCurrentBest failed: $e');
+        debugPrint(
+          '[LeaderboardWriter] ✓ $globalPath + $countryPath',
+        );
+      }
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint(
+          '[LeaderboardWriter] ✗ publishCurrentBest failed: $e\n$st',
+        );
       }
     }
   }

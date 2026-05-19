@@ -231,10 +231,17 @@ class FirestoreFriendsRepository implements FriendsRepository {
     required String fromUsername,
     required String toUid,
   }) async {
+    if (kDebugMode) {
+      debugPrint(
+        '[FriendsRepository] → friend_requests/(new) '
+        'from=$fromUid to=$toUid',
+      );
+    }
     try {
       // Reject duplicate pending requests in a transaction so we don't
       // race two concurrent sends.
-      return await _db.runTransaction<FriendOperationResult>((txn) async {
+      final result =
+          await _db.runTransaction<FriendOperationResult>((txn) async {
         final existing = await _requests
             .where('fromUid', isEqualTo: fromUid)
             .where('toUid', isEqualTo: toUid)
@@ -253,8 +260,14 @@ class FirestoreFriendsRepository implements FriendsRepository {
         });
         return FriendOperationResult.ok;
       });
-    } catch (e) {
-      if (kDebugMode) debugPrint('[FriendsRepository] sendRequest: $e');
+      if (kDebugMode) {
+        debugPrint('[FriendsRepository] ✓ sendRequest → $result');
+      }
+      return result;
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[FriendsRepository] ✗ sendRequest failed: $e\n$st');
+      }
       return FriendOperationResult.failed;
     }
   }
@@ -303,6 +316,12 @@ class FirestoreFriendsRepository implements FriendsRepository {
     required String myUid,
     required String myUsername,
   }) async {
+    if (kDebugMode) {
+      debugPrint(
+        '[FriendsRepository] → accept friend_requests/$requestId '
+        'as $myUid (writes friends/$myUid + friends/<other>)',
+      );
+    }
     try {
       final requestDoc = _requests.doc(requestId);
       final snap = await requestDoc.get();
@@ -334,9 +353,14 @@ class FirestoreFriendsRepository implements FriendsRepository {
               SetOptions(merge: true),
             ))
           .commit();
+      if (kDebugMode) {
+        debugPrint('[FriendsRepository] ✓ accept $requestId');
+      }
       return FriendOperationResult.ok;
-    } catch (e) {
-      if (kDebugMode) debugPrint('[FriendsRepository] accept: $e');
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[FriendsRepository] ✗ accept failed: $e\n$st');
+      }
       return FriendOperationResult.failed;
     }
   }
@@ -346,11 +370,21 @@ class FirestoreFriendsRepository implements FriendsRepository {
     required String requestId,
     required String myUid,
   }) async {
+    if (kDebugMode) {
+      debugPrint(
+        '[FriendsRepository] → decline friend_requests/$requestId',
+      );
+    }
     try {
       await _requests.doc(requestId).update({'status': 'declined'});
+      if (kDebugMode) {
+        debugPrint('[FriendsRepository] ✓ decline $requestId');
+      }
       return FriendOperationResult.ok;
-    } catch (e) {
-      if (kDebugMode) debugPrint('[FriendsRepository] decline: $e');
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[FriendsRepository] ✗ decline failed: $e\n$st');
+      }
       return FriendOperationResult.failed;
     }
   }

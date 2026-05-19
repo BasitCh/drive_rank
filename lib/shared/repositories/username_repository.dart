@@ -168,8 +168,12 @@ class FirestoreUsernameRepository implements UsernameRepository {
       return UsernameReservationResult.invalidFormat;
     }
     final key = UsernameRules.normalise(raw);
+    if (kDebugMode) {
+      debugPrint('[UsernameRepository] → reserve usernames/$key uid=$uid');
+    }
     try {
-      return await _db.runTransaction<UsernameReservationResult>((txn) async {
+      final result =
+          await _db.runTransaction<UsernameReservationResult>((txn) async {
         final doc = _usernames.doc(key);
         final snap = await txn.get(doc);
         if (snap.exists) {
@@ -186,9 +190,15 @@ class FirestoreUsernameRepository implements UsernameRepository {
         });
         return UsernameReservationResult.reserved;
       });
-    } catch (e) {
       if (kDebugMode) {
-        debugPrint('[UsernameRepository] reserve failed: $e');
+        debugPrint('[UsernameRepository] ✓ reserve usernames/$key → $result');
+      }
+      return result;
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint(
+          '[UsernameRepository] ✗ reserve usernames/$key failed: $e\n$st',
+        );
       }
       return UsernameReservationResult.error;
     }
