@@ -92,7 +92,11 @@ android {
             )
         }
         debug {
-            applicationIdSuffix = ".debug"
+            // No applicationIdSuffix on purpose: the suffix gives debug
+            // a different package name (com.bytse.drive_rank.debug) which
+            // breaks google-services.json — flutterfire only registered
+            // the base id. Keep `-debug` in the version name so we can
+            // still tell builds apart on a tester device.
             versionNameSuffix = "-debug"
         }
     }

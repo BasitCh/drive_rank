@@ -19,6 +19,7 @@ import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/repositories/username_repository.dart';
 import 'package:drive_rank/shared/services/firestore_trip_sink.dart';
 import 'package:drive_rank/shared/services/leaderboard_writer.dart';
+import 'package:drive_rank/shared/services/public_profile_service.dart';
 import 'package:drive_rank/shared/services/remote_trip_sink.dart';
 import 'package:drive_rank/shared/services/sync_manager.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -119,6 +120,12 @@ Future<void> _maybeInitFirebase() async {
 
     // Swap preview services for the real ones now that the SDKs are live.
     final auth = FirebaseAuthService(fb.FirebaseAuth.instance);
+    // Every Firestore rule we ship requires `request.auth != null`. The
+    // spec is explicit: "On first launch sign in anonymously." Without
+    // this we'd hit `permission-denied` on every read/write and the app
+    // would feel broken. Idempotent — re-uses the cached session uid.
+    await auth.ensureSignedIn();
+
     final analytics = FirebaseAnalytics.instance;
     final crashlytics = FirebaseCrashlytics.instance;
     final firestore = FirebaseFirestore.instance
@@ -143,6 +150,7 @@ Future<void> _maybeInitFirebase() async {
       friends,
     );
     final usernames = FirestoreUsernameRepository(firestore);
+    final publicProfile = FirestorePublicProfileService(firestore);
     final leaderboardWriter = LeaderboardWriter(
       firestore,
       getIt<TripRepository>(),
@@ -156,6 +164,7 @@ Future<void> _maybeInitFirebase() async {
     await _replace<FriendsRepository>(() => friends);
     await _replace<LeaderboardRepository>(() => leaderboard);
     await _replace<UsernameRepository>(() => usernames);
+    await _replace<PublicProfileService>(() => publicProfile);
     await _replace<LeaderboardWriter>(() => leaderboardWriter);
 
     // Identify the user (anonymous local uid until they sign in).

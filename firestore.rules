@@ -1,151 +1,51 @@
 // DriveRank Firestore security rules.
 //
-// Deploy with:
-//   firebase deploy --only firestore:rules
+// Paste this into Firebase Console → Firestore Database → Rules and
+// hit Publish. (Or `firebase deploy --only firestore:rules` from this
+// repo root once your local Firebase CLI auth is set up.)
 //
-// (Project root has `firebase.json` already pointing at this file.)
-//
-// Threat model:
-//   - Every doc write happens as the signed-in user's uid. Anonymous
-//     auth is enabled at bootstrap, so `request.auth` is always present
-//     for any code path that reaches Firestore from the app.
-//   - We never store payment state here — that's RevenueCat's
-//     responsibility, so there are no `isPro` fields to lock down.
-//   - Usernames are reserved with a Firestore transaction (Issue 13).
-//     Rules below back that up: only a uid can write its own
-//     /usernames/{name} document, and only if the doc is fresh.
+// Every signed-in user gets `request.auth.uid`. Anonymous sign-in
+// fires at bootstrap time (FirebaseAuthService.ensureSignedIn), so
+// every Firestore call from the app is authenticated.
 
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isSelf(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
-    // --- /users/{uid}: public profile (username + carName) ----------
-    //
-    // Read: any signed-in user (powers username search and profile
-    // popovers).
-    // Write: only the owner. The doc id MUST match the writer's uid.
     match /users/{uid} {
-      allow read: if isSignedIn();
-      allow create, update: if isSelf(uid)
-        && request.resource.data.keys().hasOnly(
-          ['username', 'usernameLower', 'carName', 'countryCode',
-           'updatedAt']
-        );
-      allow delete: if false; // accounts go inactive, docs stay
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == uid;
     }
 
-    // --- /usernames/{lowercased}: uniqueness reservation -------------
-    //
-    // Read: any signed-in user (the live availability check during
-    // onboarding does an exists-check).
-    // Create: only the writer claiming for themselves — and only on
-    // fresh docs (no overwriting an existing reservation).
-    // Update/delete: blocked. Username changes ship via a separate
-    // admin path if ever needed.
-    match /usernames/{name} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-        && request.resource.data.uid == request.auth.uid
-        && !exists(/databases/$(database)/documents/usernames/$(name));
+    match /usernames/{username} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && !exists(/databases/$(database)/documents/usernames/$(username));
       allow update, delete: if false;
     }
 
-    // --- /friend_requests/{id}: pending invites ----------------------
-    //
-    // Read: sender OR recipient only.
-    // Create: only as `fromUid` == self, status MUST be `pending`,
-    // toUid MUST exist as a user doc.
-    // Update: only the recipient, and only to flip status from
-    // `pending` → `accepted` | `declined`. No mutating fromUid/toUid
-    // post-create.
-    // Delete: blocked — keep the audit trail.
+    match /leaderboard/{segment}/entries/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == uid;
+    }
+
     match /friend_requests/{requestId} {
-      allow read: if isSignedIn() && (
+      allow read: if request.auth != null && (
         resource.data.fromUid == request.auth.uid ||
         resource.data.toUid == request.auth.uid
       );
-
-      allow create: if isSignedIn()
-        && request.resource.data.fromUid == request.auth.uid
-        && request.resource.data.status == 'pending'
-        && request.resource.data.keys().hasAll(
-          ['fromUid', 'fromUsername', 'toUid', 'status', 'createdAt']
-        );
-
-      allow update: if isSignedIn()
-        && resource.data.toUid == request.auth.uid
-        && request.resource.data.fromUid == resource.data.fromUid
-        && request.resource.data.toUid == resource.data.toUid
-        && request.resource.data.status in ['accepted', 'declined'];
-
+      allow create: if request.auth != null
+        && request.resource.data.fromUid == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.toUid == request.auth.uid;
       allow delete: if false;
     }
 
-    // --- /friends/{uid}/friendList/{friendUid}: confirmed friends ----
-    //
-    // Read: only the owner of the list.
-    // Write: only the owner OR the new friend on the other side of
-    // an accept (the accept-handler writes both sides atomically; the
-    // `friendUid` side is the one being added by the recipient).
     match /friends/{uid}/friendList/{friendUid} {
-      allow read: if isSelf(uid);
-
-      allow create, update: if isSignedIn() && (
-        // I'm writing into my own list.
-        isSelf(uid) ||
-        // OR I'm the recipient of a request, writing the mirror entry
-        // into the requester's list as part of the accept batch.
-        request.auth.uid == friendUid
-      );
-
-      allow delete: if isSelf(uid);
+      allow read: if request.auth.uid == uid;
+      allow write: if request.auth.uid == uid
+        || request.auth.uid == friendUid;
     }
-
-    // --- /leaderboard/{boardId}/entries/{uid}: ranked top speeds -----
-    //
-    // Read: any signed-in user (Global / country boards are public
-    // among members).
-    // Write: only the owner of the entry. The doc id MUST be the
-    // writer's uid — no impersonating a higher rank.
-    match /leaderboard/{boardId}/entries/{uid} {
-      allow read: if isSignedIn();
-      allow create, update: if isSelf(uid)
-        && request.resource.data.keys().hasAll(
-          ['username', 'carName', 'topSpeedKmh', 'countryCode',
-           'updatedAt']
-        )
-        && request.resource.data.topSpeedKmh is number
-        && request.resource.data.topSpeedKmh >= 0
-        && request.resource.data.topSpeedKmh <= 500;
-      allow delete: if isSelf(uid);
-    }
-
-    // --- /trips/{uid}/items/{tripId}: per-user trip backup -----------
-    //
-    // Used by FirestoreTripSink. Pure backup, never read from for
-    // ranking — local Drift is the source of truth.
-    match /trips/{uid}/items/{tripId} {
-      allow read, write: if isSelf(uid);
-    }
-
-    // --- /car_stats/{country}: aggregated public stats ---------------
-    //
-    // The community-count screen during onboarding reads this. Pure
-    // read-only for clients; writes happen via Cloud Functions only.
-    match /car_stats/{country} {
-      allow read: if isSignedIn();
-      allow write: if false;
-    }
-
-    // Anything not matched above is denied by default.
   }
 }

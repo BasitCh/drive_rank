@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:flutter/foundation.dart';
 
 /// Production [AuthService] backed by Firebase Auth.
 ///
@@ -65,6 +66,34 @@ class FirebaseAuthService implements AuthService {
   @override
   Future<void> signOut() async {
     await _auth.signOut();
+    // After explicit sign-out we still need an authenticated principal
+    // (every Firestore rule requires it). Drop back to a fresh
+    // anonymous session — the user's local Drift data stays put.
+    await ensureSignedIn();
+  }
+
+  /// Ensures `_auth.currentUser` is non-null by signing in
+  /// anonymously if needed. Called from bootstrap right after
+  /// Firebase init — Firestore reads/writes all gate on
+  /// `request.auth != null`, so without this every call returns
+  /// `permission-denied` and the app feels broken.
+  ///
+  /// Idempotent: if a previous session is still cached on disk it
+  /// re-uses that uid; no extra anonymous account is created.
+  Future<void> ensureSignedIn() async {
+    if (_auth.currentUser != null) return;
+    try {
+      final cred = await _auth.signInAnonymously();
+      _last = _toAuthUser(cred.user) ?? _pendingAnonymous;
+      if (kDebugMode) {
+        debugPrint('[FirebaseAuth] signed in anonymously as ${_last.uid}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[FirebaseAuth] anonymous sign-in failed: $e');
+      }
+      rethrow;
+    }
   }
 
   AuthUser? _toAuthUser(fb.User? u) {
