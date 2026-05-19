@@ -62,7 +62,6 @@ class OnboardingCarStep extends StatelessWidget {
   ) async {
     final make = state.carMake;
     if (make == null) return;
-    final controller = TextEditingController(text: state.carModel ?? '');
     final result = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: AppColors.bg2,
@@ -70,38 +69,9 @@ class OnboardingCarStep extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Enter your ${make.name} model',
-                  style: AppTextStyles.headingMedium,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  decoration: const InputDecoration(hintText: 'Model name'),
-                  onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                TealButton(
-                  label: AppStrings.save,
-                  onPressed: () =>
-                      Navigator.of(context).pop(controller.text.trim()),
-                ),
-              ],
-            ),
-          ),
-        ),
+      builder: (_) => _CustomModelSheet(
+        makeName: make.name,
+        initialValue: state.carModel ?? '',
       ),
     );
     if (result != null && result.isNotEmpty && context.mounted) {
@@ -142,11 +112,18 @@ class OnboardingCarStep extends StatelessWidget {
                   Builder(
                     builder: (context) {
                       final size = MediaQuery.sizeOf(context).width * 0.45;
+                      final hasPhoto = state.carPhotoPath != null &&
+                          state.carPhotoPath!.isNotEmpty;
                       return Container(
                         width: size,
                         height: size,
                         alignment: Alignment.center,
-                        padding: EdgeInsets.all(size * 0.12),
+                        // A photo fills the whole circle (BoxFit.cover);
+                        // the SVG keeps a 12% inner breathing room so
+                        // it doesn't crowd the teal ring.
+                        padding: hasPhoto
+                            ? EdgeInsets.zero
+                            : EdgeInsets.all(size * 0.12),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
@@ -155,12 +132,15 @@ class OnboardingCarStep extends StatelessWidget {
                             width: 3,
                           ),
                         ),
-                        child: CarSilhouette(
-                          category: state.carMake?.category ??
-                              (state.vehicleType == VehicleType.motorbike
-                                  ? CarCategory.motorbike
-                                  : CarCategory.defaultCategory),
-                          photoPath: state.carPhotoPath,
+                        child: ClipOval(
+                          child: CarSilhouette(
+                            category: state.carMake?.category ??
+                                (state.vehicleType == VehicleType.motorbike
+                                    ? CarCategory.motorbike
+                                    : CarCategory.defaultCategory),
+                            photoPath: state.carPhotoPath,
+                            fit: hasPhoto ? BoxFit.cover : BoxFit.contain,
+                          ),
                         ),
                       );
                     },
@@ -360,6 +340,84 @@ class _CarModelSheet extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom-sheet for the "don't see your model?" free-text fallback.
+///
+/// Stateful (rather than constructing the controller inline in the
+/// caller) so the [TextEditingController] is owned by an element with
+/// a proper lifecycle and disposed when the sheet closes. The earlier
+/// inline form leaked a controller on every open, which Flutter
+/// surfaces as a noisy "TextEditingController … was never disposed"
+/// log line every time the sheet popped.
+class _CustomModelSheet extends StatefulWidget {
+  const _CustomModelSheet({
+    required this.makeName,
+    required this.initialValue,
+  });
+
+  final String makeName;
+  final String initialValue;
+
+  @override
+  State<_CustomModelSheet> createState() => _CustomModelSheetState();
+}
+
+class _CustomModelSheetState extends State<_CustomModelSheet> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(_controller.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Enter your ${widget.makeName} model',
+                style: AppTextStyles.headingMedium,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(hintText: 'Model name'),
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              TealButton(
+                label: AppStrings.save,
+                onPressed: _submit,
+              ),
+            ],
+          ),
         ),
       ),
     );
