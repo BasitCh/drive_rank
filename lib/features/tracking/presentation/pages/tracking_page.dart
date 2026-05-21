@@ -189,7 +189,7 @@ class _IdleStatsGrid extends StatelessWidget {
             children: [
               Expanded(
                 child: MiniStat(
-                  value: '45',
+                  value: _dash,
                   label:
                       '${AppStrings.trackingMaxSpeed} '
                       '${locale.speedUnitLabel}',

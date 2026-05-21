@@ -18,8 +18,7 @@ class LeaderboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<LeaderboardBloc>(
-      create: (_) =>
-          getIt<LeaderboardBloc>()..add(const LeaderboardStarted()),
+      create: (_) => getIt<LeaderboardBloc>()..add(const LeaderboardStarted()),
       child: const _LeaderboardBody(),
     );
   }
@@ -43,12 +42,14 @@ class _LeaderboardBody extends StatelessWidget {
                 _ScopeTabs(
                   scopes: state.availableScopes,
                   active: state.activeScope,
-                  onTap: (s) => context
-                      .read<LeaderboardBloc>()
-                      .add(LeaderboardScopeSelected(s)),
+                  onTap: (s) => context.read<LeaderboardBloc>().add(
+                    LeaderboardScopeSelected(s),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Expanded(child: _List(state: state, locale: locale)),
+                Expanded(
+                  child: _List(state: state, locale: locale),
+                ),
                 if (state.currentUserEntry != null)
                   _StickyUserFooter(
                     entry: state.currentUserEntry!,
@@ -71,8 +72,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sub = switch (activeScope) {
-      LeaderboardScopeFriends _ =>
-        AppStrings.leaderboardFriendsEmptyTitle,
+      LeaderboardScopeFriends _ => AppStrings.leaderboardFriendsEmptyTitle,
       LeaderboardScopeGlobal _ =>
         '${AppStrings.leaderboardTabGlobal} · '
             '${AppStrings.leaderboardSubThisWeek}',
@@ -118,7 +118,7 @@ class _ScopeTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 28,
+      height: 30,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -140,15 +140,13 @@ class _ScopeTabs extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: 5,
+                  vertical: 8,
                 ),
                 child: Text(
                   _label(s).toUpperCase(),
                   style: AppTextStyles.microLabel.copyWith(
-                    fontSize: 9,
-                    color: on
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
+                    fontSize: 10,
+                    color: on ? AppColors.textPrimary : AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.4,
                   ),
@@ -182,8 +180,7 @@ class _List extends StatelessWidget {
         child: CircularProgressIndicator(color: AppColors.teal),
       );
     }
-    if (state.activeScope is LeaderboardScopeFriends &&
-        state.entries.isEmpty) {
+    if (state.activeScope is LeaderboardScopeFriends && state.entries.isEmpty) {
       return const _FriendsEmpty();
     }
     if (state.entries.isEmpty) {
@@ -206,12 +203,7 @@ class _List extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 16),
       children: [
-        Podium(
-          first: first,
-          second: second,
-          third: third,
-          locale: locale,
-        ),
+        Podium(first: first, second: second, third: third, locale: locale),
         const SizedBox(height: 4),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -283,9 +275,7 @@ class _StickyUserFooter extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.bg,
-        border: Border(
-          top: BorderSide(color: AppColors.border),
-        ),
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md + 2,
