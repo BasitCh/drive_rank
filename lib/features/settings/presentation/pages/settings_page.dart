@@ -7,11 +7,16 @@ import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart' show UnitSystem;
+import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
+import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/services/car_photo_service.dart';
+import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -53,18 +58,23 @@ class _Body extends StatelessWidget {
         _Section(
           title: AppStrings.settingsCarProfile,
           children: [
+            _CarPhotoRow(settings: settings, repo: repo),
             _TextFieldRow(
               label: AppStrings.settingsCarMake,
               value: settings.carMake,
-              onChanged: (v) => repo.patch(
-                UserSettingsCompanion(carMake: Value(v)),
+              onChanged: (v) => repo.setCar(
+                make: v,
+                model: settings.carModel,
+                year: settings.carYear,
               ),
             ),
             _TextFieldRow(
               label: AppStrings.settingsCarModel,
               value: settings.carModel,
-              onChanged: (v) => repo.patch(
-                UserSettingsCompanion(carModel: Value(v)),
+              onChanged: (v) => repo.setCar(
+                make: settings.carMake,
+                model: v,
+                year: settings.carYear,
               ),
             ),
             _TextFieldRow(
@@ -734,3 +744,189 @@ class _DestructiveAction extends StatelessWidget {
     );
   }
 }
+
+/// Row at the top of the Car Profile section that lets the user swap
+/// out (or remove) the photo that appears on the stat card / profile.
+///
+/// Tapping the avatar opens the same camera/gallery bottom sheet used
+/// in onboarding. The picked file is persisted to the documents dir
+/// via `CarPhotoService` (so the OS temp-cache eviction doesn't blank
+/// it on the next boot), then the new path is written to UserSettings.
+/// Holding down on the avatar offers a Remove option.
+class _CarPhotoRow extends StatelessWidget {
+  const _CarPhotoRow({required this.settings, required this.repo});
+
+  final UserSettingsRow settings;
+  final UserSettingsRepository repo;
+
+  CarCategory get _category {
+    if (settings.vehicleType == VehicleType.motorbike.id) {
+      return CarCategory.motorbike;
+    }
+    // The "category" lookup against car_makes.json happens in the
+    // onboarding picker — here we just pick the broad fallback by
+    // vehicle type so the SVG isn't blank when no photo exists.
+    return CarCategory.defaultCategory;
+  }
+
+  Future<void> _openSourceSheet(BuildContext context) async {
+    final hasPhoto =
+        settings.carPhotoPath != null && settings.carPhotoPath!.isNotEmpty;
+    final source = await showModalBottomSheet<_PhotoSheetChoice>(
+      context: context,
+      backgroundColor: AppColors.bg2,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border2,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_camera_outlined,
+                    color: AppColors.teal,
+                  ),
+                  title: const Text(AppStrings.onboardCarPhotoCamera),
+                  onTap: () =>
+                      Navigator.of(ctx).pop(_PhotoSheetChoice.camera),
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_library_outlined,
+                    color: AppColors.teal,
+                  ),
+                  title: const Text(AppStrings.onboardCarPhotoGallery),
+                  onTap: () =>
+                      Navigator.of(ctx).pop(_PhotoSheetChoice.gallery),
+                ),
+                if (hasPhoto)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete_outline,
+                      color: AppColors.red,
+                    ),
+                    title: const Text(
+                      AppStrings.delete,
+                      style: TextStyle(color: AppColors.red),
+                    ),
+                    onTap: () =>
+                        Navigator.of(ctx).pop(_PhotoSheetChoice.remove),
+                  ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (source == null) return;
+    if (!context.mounted) return;
+
+    final photoService = getIt<CarPhotoService>();
+    if (source == _PhotoSheetChoice.remove) {
+      // Best-effort clean-up of the on-disk file too.
+      await photoService.tryDelete(settings.carPhotoPath);
+      await repo.setCarPhotoPath(null);
+      return;
+    }
+
+    final imageSource = source == _PhotoSheetChoice.camera
+        ? ImageSource.camera
+        : ImageSource.gallery;
+    final newPath = await photoService.pickAndStore(imageSource);
+    if (newPath == null) return;
+    // Best-effort: clean up the previous file once the new one is saved.
+    await photoService.tryDelete(settings.carPhotoPath);
+    await repo.setCarPhotoPath(newPath);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto =
+        settings.carPhotoPath != null && settings.carPhotoPath!.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Row(
+        children: [
+          // 88 × 88 avatar, teal-bordered, identical to the onboarding
+          // car circle just smaller. SVG fills (with breathing room),
+          // photo crops cover-fit through ClipOval.
+          GestureDetector(
+            onTap: () => _openSourceSheet(context),
+            child: Container(
+              width: 88,
+              height: 88,
+              padding: hasPhoto ? EdgeInsets.zero : const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.teal, width: 2),
+              ),
+              child: ClipOval(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: CarSilhouette(
+                    category: _category,
+                    photoPath: settings.carPhotoPath,
+                    fit: hasPhoto ? BoxFit.cover : BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hasPhoto
+                      ? AppStrings.onboardCarPhotoChange
+                      : AppStrings.onboardCarPhotoUpload,
+                  style: AppTextStyles.title,
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  AppStrings.onboardCarPhotoSub,
+                  style: AppTextStyles.bodySmall,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                OutlinedButton.icon(
+                  onPressed: () => _openSourceSheet(context),
+                  icon: Icon(
+                    hasPhoto
+                        ? Icons.swap_horiz_rounded
+                        : Icons.add_a_photo_outlined,
+                    size: 18,
+                  ),
+                  label: Text(
+                    hasPhoto
+                        ? AppStrings.onboardCarPhotoChange
+                        : AppStrings.onboardCarPhotoUpload,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _PhotoSheetChoice { camera, gallery, remove }

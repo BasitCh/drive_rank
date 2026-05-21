@@ -2,12 +2,14 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_bloc.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_event.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_state.dart';
 import 'package:drive_rank/features/onboarding/presentation/widgets/teal_button.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
+import 'package:drive_rank/shared/services/car_photo_service.dart';
 import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,26 +28,11 @@ import 'package:image_picker/image_picker.dart';
 class OnboardingCarPhotoStep extends StatelessWidget {
   const OnboardingCarPhotoStep({super.key});
 
-  static final ImagePicker _picker = ImagePicker();
-
   Future<void> _pickFrom(BuildContext context, ImageSource source) async {
-    try {
-      final picked = await _picker.pickImage(
-        source: source,
-        // 1600px keeps the photo crisp on a 3× exported stat card
-        // without blowing up storage on cheap Android devices.
-        maxWidth: 1600,
-        imageQuality: 88,
-      );
-      if (picked == null) return;
-      if (!context.mounted) return;
-      context.read<OnboardingBloc>().add(
-        OnboardingCarPhotoSelected(picked.path),
-      );
-    } catch (_) {
-      // Permission denied / cancel / IO error — silently fall back to
-      // the SVG. The user can try again or hit Skip.
-    }
+    final path = await getIt<CarPhotoService>().pickAndStore(source);
+    if (path == null) return; // user cancelled / picker errored
+    if (!context.mounted) return;
+    context.read<OnboardingBloc>().add(OnboardingCarPhotoSelected(path));
   }
 
   Future<void> _openSourceSheet(BuildContext context) async {
@@ -181,7 +168,7 @@ class OnboardingCarPhotoStep extends StatelessWidget {
                           child: ClipOval(
                             child: AspectRatio(
                               aspectRatio:
-                                  1.0, // <-- Forces the child to be a perfect square before clipping
+                                  1, // <-- Forces the child to be a perfect square before clipping
                               child: CarSilhouette(
                                 category: category,
                                 photoPath: state.carPhotoPath,
