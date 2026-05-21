@@ -43,23 +43,110 @@ class FirebaseAuthService implements AuthService {
 
   @override
   Future<SignInResult> signInWithGoogle() async {
+    // Try to upgrade the current anonymous user to a Google-backed
+    // account using `linkWithProvider` first. That preserves the uid
+    // (so all the Firestore data we've written so far — trips,
+    // leaderboard entry, friend list, public profile — stays tied to
+    // the same user). If linking fails because the Google account is
+    // already attached to another Firebase user we fall back to a
+    // straight sign-in, which swaps the uid.
     try {
-      // On a missing native config this throws a `FirebaseException` rather
-      // than silently failing. The caller surfaces a retryable toast.
       final provider = fb.GoogleAuthProvider()
         ..addScope('email')
         ..addScope('profile');
+
+      final current = _auth.currentUser;
+      if (kDebugMode) {
+        debugPrint(
+          '[FirebaseAuth] → signInWithGoogle '
+          '(current=${current?.uid ?? "<none>"}, '
+          'anon=${current?.isAnonymous ?? false})',
+        );
+      }
+
+      if (current != null && current.isAnonymous) {
+        try {
+          await current.linkWithProvider(provider);
+          if (kDebugMode) {
+            debugPrint('[FirebaseAuth] ✓ linked anonymous → Google');
+          }
+          return SignInResult.success;
+        } on fb.FirebaseAuthException catch (e) {
+          if (e.code == 'credential-already-in-use' ||
+              e.code == 'provider-already-linked' ||
+              e.code == 'email-already-in-use') {
+            // Google account already belongs to a different Firebase
+            // user — fall through and sign in straight to that one.
+            if (kDebugMode) {
+              debugPrint(
+                '[FirebaseAuth] link rejected (${e.code}) — '
+                'falling back to signInWithProvider',
+              );
+            }
+          } else {
+            rethrow;
+          }
+        }
+      }
+
       await _auth.signInWithProvider(provider);
+      if (kDebugMode) {
+        debugPrint(
+          '[FirebaseAuth] ✓ signInWithGoogle uid=${_auth.currentUser?.uid}',
+        );
+      }
       return SignInResult.success;
-    } on fb.FirebaseAuthException catch (e) {
+    } on fb.FirebaseAuthException catch (e, st) {
       if (e.code == 'web-context-cancelled' ||
           e.code == 'canceled' ||
           e.code == 'user-cancelled') {
+        if (kDebugMode) {
+          debugPrint('[FirebaseAuth] signInWithGoogle cancelled by user');
+        }
         return SignInResult.cancelled;
       }
+      if (kDebugMode) {
+        debugPrint(
+          '[FirebaseAuth] ✗ signInWithGoogle failed: ${e.code} — '
+          '${e.message}\n${_googleSignInHint(e.code)}\n$st',
+        );
+      }
       return SignInResult.failed;
-    } catch (_) {
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[FirebaseAuth] ✗ signInWithGoogle unexpected: $e\n$st');
+      }
       return SignInResult.failed;
+    }
+  }
+
+  /// Translates the most common Google-sign-in error codes into the
+  /// likely root cause + the exact fix step, printed alongside the
+  /// raw error in the debug console. Saves a round trip to Stack
+  /// Overflow when a build doesn't work end-to-end the first time.
+  static String _googleSignInHint(String code) {
+    switch (code) {
+      case 'internal-error':
+      case 'invalid-credential':
+        return 'Likely: Android SHA-1 fingerprint missing from Firebase. '
+            'Run `cd android && ./gradlew signingReport`, copy the '
+            "debug variant's SHA-1 + SHA-256, paste them under "
+            'Firebase Console → Project settings → Your apps → '
+            'Android app → Add fingerprint. Re-download google-services.json '
+            'and re-run.';
+      case 'network-request-failed':
+        return 'Device has no internet, or Firebase domains are blocked.';
+      case 'operation-not-allowed':
+        return 'Google provider not enabled in Firebase Console → '
+            'Authentication → Sign-in method.';
+      case 'api-not-available':
+        return 'Google Play Services missing or out of date on this device.';
+      case 'web-context-cancelled':
+      case 'canceled':
+      case 'user-cancelled':
+        return 'User dismissed the picker.';
+      default:
+        return 'Unrecognised code — check the message above.';
     }
   }
 
