@@ -167,7 +167,16 @@ Future<void> _maybeInitFirebase() async {
     await _replace<PublicProfileService>(() => publicProfile);
     await _replace<LeaderboardWriter>(() => leaderboardWriter);
 
-    // Identify the user (anonymous local uid until they sign in).
+    // Sync the local user-settings row's uid (and all owned trips) to
+    // the Firebase Auth uid. Until this runs every Firestore write
+    // uses the placeholder 'local' uid which the security rules
+    // (`request.auth.uid == uid`) reject with permission-denied.
+    final authUid = auth.currentUser.uid;
+    if (authUid.isNotEmpty && authUid != 'pending') {
+      await getIt<UserSettingsRepository>().syncUid(authUid);
+    }
+
+    // Identify the user for telemetry.
     final settings = await getIt<UserSettingsRepository>().read();
     await telemetry.setUser(uid: settings.uid);
   } catch (e) {
