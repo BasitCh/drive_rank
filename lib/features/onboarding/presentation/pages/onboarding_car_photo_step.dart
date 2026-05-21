@@ -39,9 +39,9 @@ class OnboardingCarPhotoStep extends StatelessWidget {
       );
       if (picked == null) return;
       if (!context.mounted) return;
-      context
-          .read<OnboardingBloc>()
-          .add(OnboardingCarPhotoSelected(picked.path));
+      context.read<OnboardingBloc>().add(
+        OnboardingCarPhotoSelected(picked.path),
+      );
     } catch (_) {
       // Permission denied / cancel / IO error — silently fall back to
       // the SVG. The user can try again or hit Skip.
@@ -129,7 +129,8 @@ class OnboardingCarPhotoStep extends StatelessWidget {
       builder: (context, state) {
         final hasPhoto =
             state.carPhotoPath != null && state.carPhotoPath!.isNotEmpty;
-        final category = state.carMake?.category ??
+        final category =
+            state.carMake?.category ??
             (state.vehicleType == VehicleType.motorbike
                 ? CarCategory.motorbike
                 : CarCategory.defaultCategory);
@@ -163,28 +164,30 @@ class OnboardingCarPhotoStep extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xxl),
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final size =
-                            MediaQuery.sizeOf(context).width * 0.45;
+                        // Better practice: Use the maximum available width from constraints
+                        // instead of reaching out to MediaQuery, defaulting to a responsive size.
+                        final size = constraints.maxWidth * 0.45;
+
                         return Container(
                           width: size,
                           height: size,
                           alignment: Alignment.center,
-                          padding: EdgeInsets.all(
-                            hasPhoto ? 0 : size * 0.12,
-                          ),
+                          padding: EdgeInsets.all(hasPhoto ? 0 : size * 0.12),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.teal,
-                              width: 3,
-                            ),
+                            border: Border.all(color: AppColors.teal, width: 3),
                           ),
                           child: ClipOval(
-                            child: CarSilhouette(
-                              category: category,
-                              photoPath: state.carPhotoPath,
-                              fit: BoxFit.cover,
+                            child: AspectRatio(
+                              aspectRatio:
+                                  1.0, // <-- Forces the child to be a perfect square before clipping
+                              child: CarSilhouette(
+                                category: category,
+                                photoPath: state.carPhotoPath,
+                                fit: BoxFit
+                                    .cover, // <-- Now this will crop without stretching
+                              ),
                             ),
                           ),
                         );
@@ -217,13 +220,11 @@ class OnboardingCarPhotoStep extends StatelessWidget {
                   : AppStrings.onboardCarPhotoSkip,
               onPressed: () {
                 if (!hasPhoto) {
-                  context
-                      .read<OnboardingBloc>()
-                      .add(const OnboardingCarPhotoSkipped());
+                  context.read<OnboardingBloc>().add(
+                    const OnboardingCarPhotoSkipped(),
+                  );
                 }
-                context
-                    .read<OnboardingBloc>()
-                    .add(const OnboardingStepNext());
+                context.read<OnboardingBloc>().add(const OnboardingStepNext());
               },
             ),
           ],

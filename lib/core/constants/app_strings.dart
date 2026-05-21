@@ -7,7 +7,7 @@ class AppStrings {
   const AppStrings._();
 
   // App identity.
-  static const String appName = 'DriveRank';
+  static const String appName = 'Drive Rank';
   static const String appTagline = 'Track your trips. Flex your stats.';
 
   // Common actions.
@@ -149,6 +149,7 @@ class AppStrings {
   static const String homeReadyToDrive = 'Ready to drive?';
   static const String homeReadyToDriveSub =
       'Tap below to start recording. GPS is off until you start.';
+
   /// Shown under the big "0" on the idle hero — mirrors the
   /// "KM/H — CURRENT SPEED" copy on the live screen.
   static const String homeReadyToDriveTagline = 'READY TO DRIVE';
@@ -232,7 +233,8 @@ class AppStrings {
   static const String friendsAddButton = 'Add';
   static const String friendsAddedButton = 'Friend';
   static const String friendsSentButton = 'Sent';
-  static const String friendsSendFailed = "Couldn't send the request — try again";
+  static const String friendsSendFailed =
+      "Couldn't send the request — try again";
   static const String friendsSectionTitle = 'Friends';
   static const String friendsIncomingTitle = 'Friend requests';
   static const String friendsAccept = 'Accept';
@@ -249,7 +251,8 @@ class AppStrings {
   static const String profileSignOut = 'Sign out';
   static const String profileSignInGoogle = 'Sign in with Google';
   static const String profileSignedInAs = 'Signed in as';
-  static const String profileSignedOut = 'Signed out — your trips are local only';
+  static const String profileSignedOut =
+      'Signed out — your trips are local only';
   static const String profileDeleteAccount = 'Delete account';
   static const String profileStatTopSpeed = 'TOP SPEED';
   static const String profileStatTotalTrips = 'TOTAL TRIPS';

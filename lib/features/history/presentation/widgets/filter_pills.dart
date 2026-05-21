@@ -7,11 +7,7 @@ import 'package:flutter/material.dart';
 /// Horizontal row of filter pills above the trip list: All | This Week |
 /// Night Drives | Personal Best.
 class FilterPills extends StatelessWidget {
-  const FilterPills({
-    required this.active,
-    required this.onChanged,
-    super.key,
-  });
+  const FilterPills({required this.active, required this.onChanged, super.key});
 
   final TripFilter active;
   final ValueChanged<TripFilter> onChanged;
@@ -47,13 +43,14 @@ class FilterPills extends StatelessWidget {
               onTap: () => onChanged(filter),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
+                  horizontal: 16,
+                  vertical: 8,
                 ),
                 child: Text(
                   label.toUpperCase(),
+                  textAlign: TextAlign.center,
                   style: AppTextStyles.microLabel.copyWith(
-                    fontSize: 10,
+                    fontSize: 12,
                     color: isOn ? AppColors.bg : AppColors.textSecondary,
                     fontWeight: isOn ? FontWeight.w700 : FontWeight.w500,
                     letterSpacing: 0.5,

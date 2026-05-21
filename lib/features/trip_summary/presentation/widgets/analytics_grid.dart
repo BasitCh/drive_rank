@@ -59,10 +59,7 @@ class AnalyticsGrid extends StatelessWidget {
               color: AppColors.green,
             ),
             const SizedBox(width: 6),
-            _Item(
-              value: rankLabel,
-              label: AppStrings.tripSummaryYourRank,
-            ),
+            _Item(value: rankLabel, label: AppStrings.tripSummaryYourRank),
           ],
         ),
       ],
@@ -81,7 +78,7 @@ class _Item extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -94,7 +91,7 @@ class _Item extends StatelessWidget {
               value,
               style: TextStyle(
                 fontFamily: 'Outfit',
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: color ?? AppColors.textPrimary,
               ),
@@ -104,7 +101,7 @@ class _Item extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               label.toUpperCase(),
-              style: AppTextStyles.microLabel.copyWith(fontSize: 8),
+              style: AppTextStyles.microLabel.copyWith(fontSize: 10),
             ),
           ],
         ),

@@ -12,11 +12,7 @@ import 'package:flutter/material.dart';
 /// the trip-summary route map in Session 3 — for the live strip, a stylised
 /// gradient is closer to the mock and noticeably faster on weak networks.
 class RouteStrip extends StatelessWidget {
-  const RouteStrip({
-    required this.theme,
-    required this.points,
-    super.key,
-  });
+  const RouteStrip({required this.theme, required this.points, super.key});
 
   final MapTheme theme;
   final List<TripPoint> points;
@@ -28,7 +24,7 @@ class RouteStrip extends StatelessWidget {
         horizontal: AppSpacing.lg - 2,
         vertical: 6,
       ),
-      height: 108,
+      height: 200,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: theme.gradient,
@@ -45,10 +41,7 @@ class RouteStrip extends StatelessWidget {
             top: 7,
             left: 8,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 3,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(20),
@@ -83,18 +76,10 @@ class _RoutePainter extends CustomPainter {
       return;
     }
 
-    final minLat = points
-        .map((p) => p.lat)
-        .reduce((a, b) => a < b ? a : b);
-    final maxLat = points
-        .map((p) => p.lat)
-        .reduce((a, b) => a > b ? a : b);
-    final minLng = points
-        .map((p) => p.lng)
-        .reduce((a, b) => a < b ? a : b);
-    final maxLng = points
-        .map((p) => p.lng)
-        .reduce((a, b) => a > b ? a : b);
+    final minLat = points.map((p) => p.lat).reduce((a, b) => a < b ? a : b);
+    final maxLat = points.map((p) => p.lat).reduce((a, b) => a > b ? a : b);
+    final minLng = points.map((p) => p.lng).reduce((a, b) => a < b ? a : b);
+    final maxLng = points.map((p) => p.lng).reduce((a, b) => a > b ? a : b);
 
     final spanLat = (maxLat - minLat) == 0 ? 1e-6 : (maxLat - minLat);
     final spanLng = (maxLng - minLng) == 0 ? 1e-6 : (maxLng - minLng);
@@ -108,7 +93,8 @@ class _RoutePainter extends CustomPainter {
       return Offset(x, y);
     }
 
-    final path = Path()..moveTo(toScreen(points.first).dx, toScreen(points.first).dy);
+    final path = Path()
+      ..moveTo(toScreen(points.first).dx, toScreen(points.first).dy);
     for (var i = 1; i < points.length; i++) {
       final o = toScreen(points[i]);
       path.lineTo(o.dx, o.dy);
@@ -126,11 +112,7 @@ class _RoutePainter extends CustomPainter {
     final start = toScreen(points.first);
     final end = toScreen(points.last);
     canvas
-      ..drawCircle(
-        start,
-        3.5,
-        Paint()..color = color.withValues(alpha: 0.5),
-      )
+      ..drawCircle(start, 3.5, Paint()..color = color.withValues(alpha: 0.5))
       ..drawCircle(end, 5, Paint()..color = AppColors.textPrimary);
   }
 

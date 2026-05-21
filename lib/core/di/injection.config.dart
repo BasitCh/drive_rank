@@ -52,6 +52,8 @@ import 'package:drive_rank/shared/repositories/user_settings_repository.dart'
     as _i727;
 import 'package:drive_rank/shared/repositories/username_repository.dart'
     as _i1003;
+import 'package:drive_rank/shared/services/public_profile_service.dart'
+    as _i364;
 import 'package:drive_rank/shared/services/remote_trip_sink.dart' as _i88;
 import 'package:drive_rank/shared/services/road_segment_service.dart' as _i928;
 import 'package:drive_rank/shared/services/sync_manager.dart' as _i830;
@@ -84,12 +86,6 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i764.FriendsRepository>(
     () => _i764.PreviewFriendsRepository(),
   );
-  gh.lazySingleton<_i727.UserSettingsRepository>(
-    () => _i727.UserSettingsRepository(
-      gh<_i425.AppDatabase>(),
-      gh<_i447.LocaleService>(),
-    ),
-  );
   gh.lazySingleton<_i46.TelemetryService>(
     () => injectionModule.consoleTelemetry(),
   );
@@ -97,19 +93,12 @@ _i174.GetIt $initGetIt(
     () => _i495.PreviewPaywallService(gh<_i447.LocaleService>()),
   );
   gh.lazySingleton<_i88.RemoteTripSink>(() => injectionModule.noopSink());
+  gh.lazySingleton<_i364.PublicProfileService>(
+    () => _i364.NoopPublicProfileService(),
+  );
   gh.lazySingleton<_i1009.AuthService>(() => injectionModule.anonymousAuth());
   gh.lazySingleton<_i721.NetworkInfo>(
     () => _i721.NetworkInfo(gh<_i895.Connectivity>()),
-  );
-  gh.factory<_i162.OnboardingBloc>(
-    () => _i162.OnboardingBloc(
-      gh<_i972.CarRepository>(),
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i447.LocaleService>(),
-      gh<_i576.PermissionService>(),
-      gh<_i1003.UsernameRepository>(),
-      gh<_i1009.AuthService>(),
-    ),
   );
   gh.singleton<_i830.SyncManager>(
     () => _i830.SyncManager(
@@ -122,14 +111,11 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i634.TripRepository>(
     () => _i634.TripRepository(gh<_i425.AppDatabase>()),
   );
-  gh.factory<_i687.TrackingBloc>(
-    () => _i687.TrackingBloc(
-      gh<_i375.GpsService>(),
-      gh<_i125.SensorService>(),
-      gh<_i576.PermissionService>(),
-      gh<_i634.TripRepository>(),
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i928.RoadSegmentService>(),
+  gh.lazySingleton<_i727.UserSettingsRepository>(
+    () => _i727.UserSettingsRepository(
+      gh<_i425.AppDatabase>(),
+      gh<_i447.LocaleService>(),
+      gh<_i364.PublicProfileService>(),
     ),
   );
   gh.factory<_i990.TripSummaryBloc>(
@@ -153,6 +139,17 @@ _i174.GetIt $initGetIt(
       gh<_i1009.AuthService>(),
     ),
   );
+  gh.factory<_i162.OnboardingBloc>(
+    () => _i162.OnboardingBloc(
+      gh<_i972.CarRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i447.LocaleService>(),
+      gh<_i576.PermissionService>(),
+      gh<_i1003.UsernameRepository>(),
+      gh<_i1009.AuthService>(),
+      gh<_i364.PublicProfileService>(),
+    ),
+  );
   gh.lazySingleton<_i67.TripStatsService>(
     () => _i67.TripStatsService(gh<_i634.TripRepository>()),
   );
@@ -166,6 +163,16 @@ _i174.GetIt $initGetIt(
     () => _i586.HistoryBloc(
       gh<_i634.TripRepository>(),
       gh<_i727.UserSettingsRepository>(),
+    ),
+  );
+  gh.factory<_i687.TrackingBloc>(
+    () => _i687.TrackingBloc(
+      gh<_i375.GpsService>(),
+      gh<_i125.SensorService>(),
+      gh<_i576.PermissionService>(),
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i928.RoadSegmentService>(),
     ),
   );
   gh.factory<_i868.ProfileBloc>(

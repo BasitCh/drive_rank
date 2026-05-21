@@ -44,22 +44,18 @@ class _HistoryBody extends StatelessWidget {
               children: [
                 const _Header(),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    14,
-                    0,
-                    14,
-                    AppSpacing.md,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, AppSpacing.md),
                   child: _MonthlyReportBanner(locale: locale),
                 ),
                 FilterPills(
                   active: state.filter,
-                  onChanged: (f) => context
-                      .read<HistoryBloc>()
-                      .add(HistoryFilterChanged(f)),
+                  onChanged: (f) =>
+                      context.read<HistoryBloc>().add(HistoryFilterChanged(f)),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Expanded(child: _Body(state: state, locale: locale)),
+                Expanded(
+                  child: _Body(state: state, locale: locale),
+                ),
               ],
             );
           },
@@ -78,10 +74,7 @@ class _Header extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(18, 10, 18, 12),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Text(
-          AppStrings.historyTitle,
-          style: AppTextStyles.sectionTitle,
-        ),
+        child: Text(AppStrings.historyTitle, style: AppTextStyles.sectionTitle),
       ),
     );
   }
@@ -171,10 +164,7 @@ class _DismissBackground extends StatelessWidget {
         color: AppColors.red.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       ),
-      child: const Icon(
-        Icons.delete_outline_rounded,
-        color: AppColors.red,
-      ),
+      child: const Icon(Icons.delete_outline_rounded, color: AppColors.red),
     );
   }
 }

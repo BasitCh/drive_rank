@@ -58,8 +58,7 @@ class OnboardingMapThemeStep extends StatelessWidget {
                           ),
                         );
                       },
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(width: 8),
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
                     ),
                   ),
                 ],
@@ -87,7 +86,7 @@ class _ThemePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 160,
+      height: 200,
       decoration: BoxDecoration(
         gradient: theme.gradient,
         borderRadius: BorderRadius.circular(14),
@@ -98,10 +97,7 @@ class _ThemePreview extends StatelessWidget {
             top: 7,
             left: 8,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 3,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(20),

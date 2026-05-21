@@ -33,7 +33,7 @@ class MiniStat extends StatelessWidget {
             value,
             style: TextStyle(
               fontFamily: 'BebasNeue',
-              fontSize: 20,
+              fontSize: 45,
               height: 1.1,
               color: valueColor ?? AppColors.textPrimary,
             ),
@@ -44,7 +44,7 @@ class MiniStat extends StatelessWidget {
           Text(
             label.toUpperCase(),
             style: AppTextStyles.microLabel.copyWith(
-              fontSize: 8,
+              fontSize: 12,
               letterSpacing: 0.5,
             ),
             maxLines: 1,

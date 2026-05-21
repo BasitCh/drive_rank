@@ -20,7 +20,7 @@ class AppTextStyles {
   /// Live tracking speed hero (96dp).
   static const TextStyle speedDisplay = TextStyle(
     fontFamily: _display,
-    fontSize: 96,
+    fontSize: 110,
     color: AppColors.textPrimary,
     letterSpacing: -1,
     height: 1,
@@ -54,7 +54,7 @@ class AppTextStyles {
   /// Logo/wordmark in the live header (22dp).
   static const TextStyle brandLogo = TextStyle(
     fontFamily: _display,
-    fontSize: 22,
+    fontSize: 26,
     color: AppColors.teal,
     letterSpacing: 1,
     height: 1,

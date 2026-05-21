@@ -50,8 +50,7 @@ class _TrackingPageBody extends StatelessWidget {
       body: SafeArea(
         child: BlocConsumer<TrackingBloc, TrackingState>(
           listenWhen: (a, b) =>
-              a.phase != b.phase ||
-              a.completedTripId != b.completedTripId,
+              a.phase != b.phase || a.completedTripId != b.completedTripId,
           listener: (context, state) async {
             // Trip saved successfully → push summary → optionally paywall.
             if (state.phase == TrackingPhase.idle &&
@@ -69,12 +68,10 @@ class _TrackingPageBody extends StatelessWidget {
           },
           builder: (context, state) {
             return switch (state.phase) {
-              TrackingPhase.permissionDenied =>
-                _PermissionGate(state: state),
+              TrackingPhase.permissionDenied => _PermissionGate(state: state),
               TrackingPhase.error => _ErrorSurface(state: state),
               TrackingPhase.starting ||
-              TrackingPhase.stopping =>
-                _TransientSurface(phase: state.phase),
+              TrackingPhase.stopping => _TransientSurface(phase: state.phase),
               TrackingPhase.active => _ActiveSurface(state: state),
               TrackingPhase.idle => const _IdleSurface(),
             };
@@ -132,11 +129,10 @@ class _IdleSurface extends StatelessWidget {
               ),
             ),
             const Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg - 2,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg - 2),
               child: _IdleStatsGrid(),
             ),
+            const SizedBox(height: AppSpacing.sm),
             RouteStrip(theme: theme, points: const []),
             const SizedBox(height: AppSpacing.sm),
             Padding(
@@ -150,9 +146,7 @@ class _IdleSurface extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xl,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
               child: _FreeTripsLabel(
                 isPro: isPro,
                 remaining: remaining,
@@ -195,7 +189,7 @@ class _IdleStatsGrid extends StatelessWidget {
             children: [
               Expanded(
                 child: MiniStat(
-                  value: _dash,
+                  value: '45',
                   label:
                       '${AppStrings.trackingMaxSpeed} '
                       '${locale.speedUnitLabel}',
@@ -224,10 +218,7 @@ class _IdleStatsGrid extends StatelessWidget {
         Row(
           children: [
             const Expanded(
-              child: MiniStat(
-                value: _dash,
-                label: AppStrings.trackingDuration,
-              ),
+              child: MiniStat(value: _dash, label: AppStrings.trackingDuration),
             ),
             const SizedBox(width: AppSpacing.xs + 2),
             Expanded(
@@ -265,36 +256,33 @@ class _StartTripButton extends StatelessWidget {
         ? AppStrings.homeUpgradeToContinue
         : AppStrings.homeStartTrip;
     return SizedBox(
-      width: double.infinity,
-      child: Material(
-        color: AppColors.teal,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  isExhausted
-                      ? Icons.lock_outline_rounded
-                      : Icons.play_arrow_rounded,
-                  color: AppColors.bg,
-                  size: 22,
+          width: double.infinity,
+          child: Material(
+            color: AppColors.teal,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isExhausted
+                          ? Icons.lock_outline_rounded
+                          : Icons.play_arrow_rounded,
+                      color: AppColors.bg,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(label, style: AppTextStyles.button),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: AppTextStyles.button,
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    )
+        )
         .animate()
         .fadeIn(duration: 300.ms, delay: 100.ms)
         .slideY(begin: 0.1, duration: 300.ms, curve: Curves.easeOutCubic);
@@ -385,7 +373,9 @@ class _ActiveSurface extends StatelessWidget {
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.xs,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -455,9 +445,7 @@ class _ActiveSurface extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.lg - 2,
               ),
-              child: _EndTripButton(
-                onPressed: () => _confirmEnd(context),
-              ),
+              child: _EndTripButton(onPressed: () => _confirmEnd(context)),
             ),
             const Spacer(),
           ],
@@ -486,8 +474,7 @@ class _ActiveSurface extends StatelessWidget {
               child: const Text(AppStrings.endTripConfirmKeepDriving),
             ),
             TextButton(
-              style:
-                  TextButton.styleFrom(foregroundColor: AppColors.red),
+              style: TextButton.styleFrom(foregroundColor: AppColors.red),
               onPressed: () => Navigator.of(ctx).pop(true),
               child: const Text(AppStrings.endTripConfirmEnd),
             ),
@@ -528,9 +515,9 @@ class _SpeedHero extends StatelessWidget {
     final subtitleText = isIdle
         ? idleLabel!
         : (hasFix
-            ? '${locale.speedUnitLabel.toUpperCase()}'
-                '${AppStrings.trackingCurrentSpeedSuffix}'
-            : AppStrings.trackingWaitingForGps);
+              ? '${locale.speedUnitLabel.toUpperCase()}'
+                    '${AppStrings.trackingCurrentSpeedSuffix}'
+              : AppStrings.trackingWaitingForGps);
 
     return Stack(
       alignment: Alignment.center,
@@ -556,14 +543,11 @@ class _SpeedHero extends StatelessWidget {
           children: [
             FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(
-                numberText,
-                style: AppTextStyles.speedDisplay,
-              ),
+              child: Text(numberText, style: AppTextStyles.speedDisplay),
             ),
             Text(
               subtitleText,
-              style: AppTextStyles.speedUnit.copyWith(fontSize: 11),
+              style: AppTextStyles.speedUnit.copyWith(fontSize: 12),
             ),
           ],
         ),
@@ -633,10 +617,7 @@ class _Header extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            AppStrings.appName,
-            style: AppTextStyles.brandLogo,
-          ),
+          const Text(AppStrings.appName, style: AppTextStyles.brandLogo),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -644,28 +625,29 @@ class _Header extends StatelessWidget {
                 const LiveBadge(),
                 const SizedBox(width: 7),
               ],
-              Container(
-                width: 28,
-                height: 28,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [AppColors.teal, AppColors.blue],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: const Text(
-                  'BA',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.bg,
-                  ),
-                ),
-              ),
+
+              // Container(
+              //   width: 28,
+              //   height: 28,
+              //   decoration: const BoxDecoration(
+              //     shape: BoxShape.circle,
+              //     gradient: LinearGradient(
+              //       colors: [AppColors.teal, AppColors.blue],
+              //       begin: Alignment.topLeft,
+              //       end: Alignment.bottomRight,
+              //     ),
+              //   ),
+              //   alignment: Alignment.center,
+              //   child: const Text(
+              //     'BA',
+              //     style: TextStyle(
+              //       fontFamily: 'Outfit',
+              //       fontSize: 10,
+              //       fontWeight: FontWeight.w700,
+              //       color: AppColors.bg,
+              //     ),
+              //   ),
+              // ),
             ],
           ),
         ],
@@ -685,8 +667,8 @@ class _PermissionGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isServicesOff = state.permissionStatus ==
-        LocationPermissionStatus.servicesDisabled;
+    final isServicesOff =
+        state.permissionStatus == LocationPermissionStatus.servicesDisabled;
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.xxl),
       child: Column(
@@ -701,18 +683,16 @@ class _PermissionGate extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           Text(
             AppStrings.trackingPermissionDenied,
-            style: AppTextStyles.body.copyWith(
-              color: AppColors.textPrimary,
-            ),
+            style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.xl),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => context
-                  .read<TrackingBloc>()
-                  .add(const TrackingPermissionRequested()),
+              onPressed: () => context.read<TrackingBloc>().add(
+                const TrackingPermissionRequested(),
+              ),
               child: Text(
                 isServicesOff
                     ? AppStrings.trackingOpenSettings
@@ -748,18 +728,16 @@ class _ErrorSurface extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           Text(
             state.errorMessage ?? AppStrings.errorUnknown,
-            style: AppTextStyles.body.copyWith(
-              color: AppColors.textPrimary,
-            ),
+            style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.xl),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => context
-                  .read<TrackingBloc>()
-                  .add(const TrackingStartRequested()),
+              onPressed: () => context.read<TrackingBloc>().add(
+                const TrackingStartRequested(),
+              ),
               child: const Text(AppStrings.homeRetry),
             ),
           ),

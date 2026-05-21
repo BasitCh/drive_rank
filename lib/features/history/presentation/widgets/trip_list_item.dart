@@ -30,7 +30,7 @@ class TripListItem extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.border),
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -47,7 +47,7 @@ class TripListItem extends StatelessWidget {
                       _tripName(trip),
                       style: const TextStyle(
                         fontFamily: 'Outfit',
-                        fontSize: 13,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),
@@ -57,7 +57,7 @@ class TripListItem extends StatelessWidget {
                       '${_relativeDate(trip.startedAt)} · '
                       '${locale.formatDistance(trip.distanceKm)}',
                       style: AppTextStyles.microLabel.copyWith(
-                        fontSize: 10,
+                        fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
                     ),
@@ -72,14 +72,14 @@ class TripListItem extends StatelessWidget {
                     locale.formatSpeedValue(trip.topSpeedKmh),
                     style: const TextStyle(
                       fontFamily: 'BebasNeue',
-                      fontSize: 24,
+                      fontSize: 25,
                       color: AppColors.textPrimary,
                       height: 1,
                     ),
                   ),
                   Text(
                     locale.speedUnitLabel,
-                    style: AppTextStyles.microLabel.copyWith(fontSize: 9),
+                    style: AppTextStyles.microLabel.copyWith(fontSize: 12),
                   ),
                 ],
               ),
@@ -125,14 +125,14 @@ class _TimeOfDayBadge extends StatelessWidget {
       _ => (Icons.nightlight_round, AppColors.blue),
     };
     return Container(
-      width: 32,
-      height: 32,
+      width: 40,
+      height: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(icon, size: 16, color: color),
+      child: Icon(icon, size: 20, color: color),
     );
   }
 }
