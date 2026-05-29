@@ -1,11 +1,11 @@
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/features/history/presentation/pages/history_page.dart';
-import 'package:drive_rank/features/leaderboard/presentation/pages/leaderboard_page.dart';
 import 'package:drive_rank/features/monthly_report/presentation/pages/monthly_report_page.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/splash_page.dart';
 import 'package:drive_rank/features/paywall/presentation/pages/paywall_page.dart';
+import 'package:drive_rank/features/personal_bests/presentation/pages/personal_bests_page.dart';
 import 'package:drive_rank/features/profile/presentation/pages/profile_page.dart';
 import 'package:drive_rank/features/settings/presentation/pages/settings_page.dart';
 import 'package:drive_rank/features/tracking/presentation/pages/tracking_page.dart';
@@ -76,9 +76,9 @@ class AppRouter {
                   const NoTransitionPage(child: HistoryPage()),
             ),
             GoRoute(
-              path: RouteNames.leaderboard,
+              path: RouteNames.personalBests,
               pageBuilder: (_, __) =>
-                  const NoTransitionPage(child: LeaderboardPage()),
+                  const NoTransitionPage(child: PersonalBestsPage()),
             ),
             GoRoute(
               path: RouteNames.profile,

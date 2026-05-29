@@ -1,24 +1,19 @@
 import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/app_database.dart';
-import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
-import 'package:drive_rank/shared/services/public_profile_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 /// Single source of truth for the *one* user-settings row.
 ///
-/// Onboarding writes here progressively; the rest of the app reads. Reactive
-/// callers should use [watch] — the live tracking screen, profile, paywall
-/// state, and the router redirect all depend on this.
+/// Onboarding writes here progressively; the rest of the app reads.
+/// Reactive callers should use [watch] — the live tracking screen,
+/// profile, paywall state, and the router redirect all depend on this.
 ///
-/// Identity: the row's `uid` field is the canonical user identity used by
-/// every Firestore write (trips/leaderboard/friends/profile). It starts
-/// life as `'local'` before Firebase Auth resolves, then `syncUid()` is
-/// called from bootstrap once anonymous sign-in completes and the column
-/// + all existing trip rows are migrated to the real Firebase Auth uid.
+/// MVP scope: no cloud sync. The row is purely local. The `uid` field
+/// is still kept for analytics attribution but isn't used as a foreign
+/// key against any remote system.
 @lazySingleton
 class UserSettingsRepository {
   UserSettingsRepository(this._db, this._locale);
@@ -26,37 +21,16 @@ class UserSettingsRepository {
   final AppDatabase _db;
   final LocaleService _locale;
 
-  /// Initial uid used before Firebase Auth has resolved. Replaced by
-  /// the Firebase uid via [syncUid] at bootstrap time.
+  /// Default uid for the local install. Stays as-is until the user
+  /// goes through Firebase Auth, at which point the analytics layer
+  /// is told the new uid (the settings row's `uid` column doesn't
+  /// gate anything any more, so we don't bother migrating it).
   static const String _initialUid = 'local';
-
-  /// Look up the [PublicProfileService] lazily via the DI container —
-  /// bootstrap swaps the preview impl for the Firestore one once
-  /// Firebase init succeeds, and we want every `_republishPublicProfile`
-  /// call (including those that fire before Firebase comes online) to
-  /// pick up the currently-registered implementation.
-  PublicProfileService get _publicProfile => getIt<PublicProfileService>();
-
-  /// Mirror the public-profile fields to Firestore. Best-effort:
-  /// failures inside the service are logged and swallowed there.
-  Future<void> _republishPublicProfile() async {
-    final row = await read();
-    await _publicProfile.publish(
-      PublicProfilePayload(
-        uid: row.uid,
-        username: row.username,
-        carMake: row.carMake,
-        carModel: row.carModel,
-        carYear: row.carYear,
-        countryCode: row.country ?? '',
-      ),
-    );
-  }
 
   /// Returns the existing row, creating one with locale-derived defaults
   /// if none exists. Safe to call repeatedly. We look up by row count
-  /// (there's only ever one) so this keeps working after [syncUid]
-  /// changes the uid column from 'local' to the Firebase uid.
+  /// (there's only ever one) rather than filtering by uid — the uid
+  /// column isn't a foreign key in the MVP, it's just a label.
   Future<UserSettingsRow> ensureExists() async {
     final existing =
         await (_db.select(_db.userSettings)..limit(1)).getSingleOrNull();
@@ -93,9 +67,9 @@ class UserSettingsRepository {
     return row?.onboardingComplete ?? false;
   }
 
-  /// Generic patcher — pass only the fields you want to change. Internally
-  /// guarantees a row exists. Filters by primary key so it keeps working
-  /// across [syncUid] uid changes.
+  /// Generic patcher — pass only the fields you want to change.
+  /// Internally guarantees a row exists. Filters by primary key so it
+  /// keeps working regardless of what the uid column is set to.
   Future<void> patch(UserSettingsCompanion patch) async {
     final row = await read();
     await (_db.update(_db.userSettings)
@@ -103,47 +77,15 @@ class UserSettingsRepository {
         .write(patch);
   }
 
-  /// Migrate the local row + all existing trips to the Firebase Auth uid.
-  /// Idempotent: no-op when [authUid] already matches the current row.
-  ///
-  /// Without this, every Firestore write that uses `settings.uid` would
-  /// use the placeholder `'local'`, and the security rules
-  /// (`request.auth.uid == uid`) would deny every request — which is
-  /// exactly what the user was hitting before this fix.
-  Future<void> syncUid(String authUid) async {
-    if (authUid.isEmpty) return;
-    final row = await read();
-    if (row.uid == authUid) return;
-    final oldUid = row.uid;
-
-    if (kDebugMode) {
-      debugPrint(
-        '[UserSettingsRepository] migrating uid: $oldUid → $authUid',
-      );
-    }
-
-    // user_settings.uid + trips.uid in a single transaction so we never
-    // end up with the row pointing at one uid and trips at another.
-    await _db.transaction(() async {
-      await (_db.update(_db.userSettings)
-            ..where((t) => t.id.equals(row.id)))
-          .write(UserSettingsCompanion(uid: Value(authUid)));
-      await (_db.update(_db.trips)
-            ..where((t) => t.uid.equals(oldUid)))
-          .write(TripsCompanion(uid: Value(authUid)));
-    });
-  }
-
-  // ---- Typed setters used by onboarding ----
+  // ---- Typed setters used by onboarding + settings ----
   //
-  // setCountry / setCar / setUsername all republish the public profile
-  // doc to Firestore — those three fields are exactly what friend
-  // search and the leaderboard read back.
+  // MVP scope: these are local-only writes. Earlier versions also
+  // mirrored country / car / username to a Firestore /users/{uid}
+  // document for friend search — that whole feature is gone now,
+  // so the setters do nothing more than patch the Drift row.
 
-  Future<void> setCountry(String countryCode) async {
-    await patch(UserSettingsCompanion(country: Value(countryCode)));
-    await _republishPublicProfile();
-  }
+  Future<void> setCountry(String countryCode) =>
+      patch(UserSettingsCompanion(country: Value(countryCode)));
 
   Future<void> setVehicleType(VehicleType type) =>
       patch(UserSettingsCompanion(vehicleType: Value(type.id)));
@@ -152,30 +94,24 @@ class UserSettingsRepository {
     required String make,
     required String model,
     int? year,
-  }) async {
-    await patch(
-      UserSettingsCompanion(
-        carMake: Value(make),
-        carModel: Value(model),
-        carYear: Value(year),
-      ),
-    );
-    await _republishPublicProfile();
-  }
+  }) => patch(
+    UserSettingsCompanion(
+      carMake: Value(make),
+      carModel: Value(model),
+      carYear: Value(year),
+    ),
+  );
 
   /// Persists the absolute filesystem path to the user's uploaded car
   /// photo. Pass `null` to clear (e.g. user tapped Skip).
   Future<void> setCarPhotoPath(String? path) =>
       patch(UserSettingsCompanion(carPhotoPath: Value(path)));
 
-  /// Persists the user's chosen username locally so leaderboard /
-  /// stat-card surfaces can read it without re-hitting Firestore.
-  /// The Firestore atomic reservation lives in `UsernameRepository`;
-  /// the public `/users/{uid}` mirror is refreshed here.
-  Future<void> setUsername(String username) async {
-    await patch(UserSettingsCompanion(username: Value(username)));
-    await _republishPublicProfile();
-  }
+  /// Persists the user's chosen username locally so the stat card,
+  /// profile, and personal-bests surfaces can read it. No cloud
+  /// uniqueness check in MVP — the field is purely cosmetic.
+  Future<void> setUsername(String username) =>
+      patch(UserSettingsCompanion(username: Value(username)));
 
   Future<void> setMapTheme(MapTheme theme) =>
       patch(UserSettingsCompanion(selectedMapTheme: Value(theme.id)));

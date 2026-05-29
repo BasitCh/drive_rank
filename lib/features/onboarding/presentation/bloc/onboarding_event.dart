@@ -65,29 +65,8 @@ class OnboardingUsernameChanged extends OnboardingEvent {
   final String value;
 }
 
-/// Internal — fired by the bloc's own debounce timer when a Firestore
-/// availability check finishes. Carries a monotonic sequence number so
-/// a late-resolving result doesn't overwrite a newer keystroke.
-class OnboardingUsernameCheckResolved extends OnboardingEvent {
-  const OnboardingUsernameCheckResolved(this.seq, this.status);
-  final int seq;
-
-  /// One of the discrete UI states defined by `UsernameCheckStatus` —
-  /// kept as a typed enum so the handler doesn't re-do the switch.
-  final UsernameCheckOutcome status;
-}
-
-/// Outcome marshalling between `UsernameRepository.check` and the
-/// bloc's internal resolver event. Mirrors `UsernameAvailability`
-/// exactly but lives in the event layer so the bloc files don't leak
-/// the repo type to widgets.
-enum UsernameCheckOutcome {
-  available,
-  taken,
-  tooShort,
-  invalidFormat,
-  error,
-}
+// (OnboardingUsernameCheckResolved + UsernameCheckOutcome removed —
+// MVP username step does local sync validation only, no async resolve.)
 
 class OnboardingMapThemeSelected extends OnboardingEvent {
   const OnboardingMapThemeSelected(this.theme);

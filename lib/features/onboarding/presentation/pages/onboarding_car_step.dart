@@ -91,13 +91,30 @@ class OnboardingCarStep extends StatelessWidget {
         return Column(
           children: [
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    AppStrings.onboardCarTitle,
-                    style: AppTextStyles.headingLarge,
-                  ),
+              // SingleChildScrollView + IntrinsicHeight pattern: the
+              // Column stays vertically centered on tall phones (because
+              // the IntrinsicHeight forces it to the viewport height
+              // and mainAxisAlignment.center kicks in), but on short
+              // phones where the contents exceed the viewport, the
+              // user can scroll instead of hitting a RenderFlex
+              // overflow. ClampingScrollPhysics avoids the iOS-style
+              // bounce that would feel out of place on this screen.
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              AppStrings.onboardCarTitle,
+                              style: AppTextStyles.headingLarge,
+                            ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     AppStrings.onboardCarSub,
@@ -176,7 +193,12 @@ class OnboardingCarStep extends StatelessWidget {
                       ),
                     ),
                   ),
-                ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             TealButton(

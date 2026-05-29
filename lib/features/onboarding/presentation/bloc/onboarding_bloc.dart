@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/features/onboarding/domain/repositories/car_repository.dart';
@@ -8,17 +5,21 @@ import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_even
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_state.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
-import 'package:drive_rank/shared/repositories/username_repository.dart';
-import 'package:drive_rank/shared/services/public_profile_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
-/// State machine for the 7-step onboarding flow.
+/// State machine for the multi-step onboarding flow.
 ///
-/// On `OnboardingStarted` we seed defaults from the device locale and load
-/// the car list sorted for the user's country. Every selection event writes
-/// progressively to `UserSettings`, so a process kill mid-flow doesn't lose
-/// previous answers — onboarding picks up where the user left off.
+/// On `OnboardingStarted` we seed defaults from the device locale and
+/// load the car list sorted for the user's country. Every selection
+/// event writes progressively to `UserSettings`, so a process kill
+/// mid-flow doesn't lose previous answers — onboarding resumes where
+/// the user left off.
+///
+/// MVP scope: username is local-only. Earlier versions reserved it in
+/// Firestore (for the now-removed friends search). The bloc still
+/// validates format synchronously so the field disables Continue
+/// until the user has typed something legal.
 @injectable
 class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   OnboardingBloc(
@@ -26,9 +27,6 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     this._settings,
     this._locale,
     this._permissions,
-    this._usernames,
-    this._auth,
-    this._publicProfile,
   ) : super(OnboardingState.initial()) {
     on<OnboardingStarted>(_onStarted);
     on<OnboardingStepNext>(_onNext);
@@ -40,7 +38,6 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     on<OnboardingCarPhotoSelected>(_onCarPhoto);
     on<OnboardingCarPhotoSkipped>(_onCarPhotoSkipped);
     on<OnboardingUsernameChanged>(_onUsernameChanged);
-    on<OnboardingUsernameCheckResolved>(_onUsernameCheckResolved);
     on<OnboardingMapThemeSelected>(_onMapTheme);
     on<OnboardingSafetyToggled>(_onSafety);
     on<OnboardingLocationPermissionRequested>(_onRequestPermission);
@@ -51,23 +48,13 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   final UserSettingsRepository _settings;
   final LocaleService _locale;
   final PermissionService _permissions;
-  final UsernameRepository _usernames;
-  final AuthService _auth;
-  final PublicProfileService _publicProfile;
 
-  /// Pending availability check — cancelled on every new keystroke so
-  /// the 600 ms debounce doesn't trail multiple Firestore requests.
-  Timer? _usernameDebounce;
-
-  /// Monotonic counter that lets us discard the result of a late
-  /// in-flight check when the user has typed something newer.
-  int _usernameSeq = 0;
-
-  @override
-  Future<void> close() {
-    _usernameDebounce?.cancel();
-    return super.close();
-  }
+  /// Local format rules used to gate the Continue button on the
+  /// username step. Mirrors what the spec calls "minimum 3 characters,
+  /// letters / numbers / underscore only".
+  static final RegExp _usernameAllowed = RegExp(r'^[A-Za-z0-9_]+$');
+  static const int _usernameMinLength = 3;
+  static const int _usernameMaxLength = 24;
 
   Future<void> _onStarted(
     OnboardingStarted event,
@@ -106,50 +93,11 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         ? order[currentIdx + 1]
         : OnboardingStep.done;
 
-    // Atomic username reservation runs when the user advances past the
-    // username step — earliest point where we can hold the name before
-    // someone else grabs it. If reservation fails (race / network),
-    // bounce them back to the username step with an inline error.
+    // MVP scope: username is local only. No Firestore reservation,
+    // no race-condition handling — we just persist the trimmed value
+    // when the user advances past the username step.
     if (state.step == OnboardingStep.username) {
-      final result = await _usernames.reserve(
-        raw: state.username,
-        uid: _auth.currentUser.uid,
-      );
-      if (result != UsernameReservationResult.reserved) {
-        emit(
-          state.copyWith(
-            usernameStatus: switch (result) {
-              UsernameReservationResult.raced => UsernameCheckStatus.taken,
-              UsernameReservationResult.tooShort =>
-                UsernameCheckStatus.tooShort,
-              UsernameReservationResult.invalidFormat =>
-                UsernameCheckStatus.invalidFormat,
-              _ => UsernameCheckStatus.error,
-            },
-            completionError: _reservationFailureMessage(result),
-          ),
-        );
-        return;
-      }
-      // Persist locally so the rest of the app can read it without
-      // hitting Firestore. The auth UID is what trip rows key off.
-      final cleanUsername = state.username.trim();
-      await _settings.setUsername(cleanUsername);
-
-      // Mirror to the public `/users/{uid}` document so the friend
-      // search can find this user by usernameLower prefix. No-op when
-      // Firebase isn't initialised; failures are logged and swallowed.
-      final make = state.carMake;
-      await _publicProfile.publish(
-        PublicProfilePayload(
-          uid: _auth.currentUser.uid,
-          username: cleanUsername,
-          carMake: make?.name ?? '',
-          carModel: state.carModel ?? '',
-          carYear: null,
-          countryCode: state.country?.code ?? '',
-        ),
-      );
+      await _settings.setUsername(state.username.trim());
     }
 
     if (next == OnboardingStep.done) {
@@ -160,91 +108,25 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     emit(state.copyWith(step: next, clearCompletionError: true));
   }
 
-  static String? _reservationFailureMessage(UsernameReservationResult r) =>
-      switch (r) {
-        UsernameReservationResult.reserved => null,
-        UsernameReservationResult.raced =>
-          'Username was just taken. Pick another.',
-        UsernameReservationResult.tooShort => 'Minimum 3 characters.',
-        UsernameReservationResult.invalidFormat =>
-          'Letters, numbers and underscore only.',
-        UsernameReservationResult.error =>
-          "Couldn't reserve username — check your connection and try again.",
-      };
-
   Future<void> _onUsernameChanged(
     OnboardingUsernameChanged event,
     Emitter<OnboardingState> emit,
   ) async {
     final raw = event.value;
-    final seq = ++_usernameSeq;
+    final trimmed = raw.trim();
 
-    // Synchronous validation runs immediately — no point hitting the
-    // network for "ab" or "💩".
-    final localCheck = UsernameRules.validate(raw);
-    if (localCheck == UsernameAvailability.tooShort) {
-      _usernameDebounce?.cancel();
-      emit(
-        state.copyWith(
-          username: raw,
-          usernameStatus: UsernameCheckStatus.tooShort,
-        ),
-      );
-      return;
+    // Synchronous local validation only — earlier versions hit
+    // Firestore for uniqueness; that path is gone in MVP.
+    final UsernameCheckStatus status;
+    if (trimmed.length < _usernameMinLength) {
+      status = UsernameCheckStatus.tooShort;
+    } else if (trimmed.length > _usernameMaxLength ||
+        !_usernameAllowed.hasMatch(trimmed)) {
+      status = UsernameCheckStatus.invalidFormat;
+    } else {
+      status = UsernameCheckStatus.available;
     }
-    if (localCheck == UsernameAvailability.invalidFormat) {
-      _usernameDebounce?.cancel();
-      emit(
-        state.copyWith(
-          username: raw,
-          usernameStatus: UsernameCheckStatus.invalidFormat,
-        ),
-      );
-      return;
-    }
-
-    // Optimistically show "checking" while the debounce window runs.
-    emit(
-      state.copyWith(
-        username: raw,
-        usernameStatus: UsernameCheckStatus.checking,
-      ),
-    );
-    _usernameDebounce?.cancel();
-    _usernameDebounce = Timer(const Duration(milliseconds: 600), () async {
-      final result = await _usernames.check(raw);
-      // Discard if a newer keystroke superseded this check.
-      if (seq != _usernameSeq) return;
-      if (isClosed) return;
-      // Re-emit via add() so the bloc handler runs on the event loop
-      // (we're outside the original handler's scope here).
-      add(OnboardingUsernameCheckResolved(
-        seq,
-        switch (result) {
-          UsernameAvailability.available => UsernameCheckOutcome.available,
-          UsernameAvailability.taken => UsernameCheckOutcome.taken,
-          UsernameAvailability.tooShort => UsernameCheckOutcome.tooShort,
-          UsernameAvailability.invalidFormat =>
-            UsernameCheckOutcome.invalidFormat,
-          UsernameAvailability.error => UsernameCheckOutcome.error,
-        },
-      ));
-    });
-  }
-
-  void _onUsernameCheckResolved(
-    OnboardingUsernameCheckResolved event,
-    Emitter<OnboardingState> emit,
-  ) {
-    if (event.seq != _usernameSeq) return;
-    final status = switch (event.status) {
-      UsernameCheckOutcome.available => UsernameCheckStatus.available,
-      UsernameCheckOutcome.taken => UsernameCheckStatus.taken,
-      UsernameCheckOutcome.tooShort => UsernameCheckStatus.tooShort,
-      UsernameCheckOutcome.invalidFormat => UsernameCheckStatus.invalidFormat,
-      UsernameCheckOutcome.error => UsernameCheckStatus.error,
-    };
-    emit(state.copyWith(usernameStatus: status));
+    emit(state.copyWith(username: raw, usernameStatus: status));
   }
 
   Future<void> _onBack(

@@ -25,6 +25,7 @@ class AppStrings {
   static const String navDrive = 'Drive';
   static const String navHistory = 'History';
   static const String navRankings = 'Rankings';
+  static const String navPersonalBests = 'Bests';
   static const String navProfile = 'Profile';
 
   // Onboarding — splash.

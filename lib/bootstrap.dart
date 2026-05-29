@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/firebase_auth_service.dart';
@@ -11,17 +10,6 @@ import 'package:drive_rank/core/services/paywall_service.dart';
 import 'package:drive_rank/core/services/push_service.dart';
 import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
-import 'package:drive_rank/shared/repositories/firestore_leaderboard_repository.dart';
-import 'package:drive_rank/shared/repositories/friends_repository.dart';
-import 'package:drive_rank/shared/repositories/leaderboard_repository.dart';
-import 'package:drive_rank/shared/repositories/trip_repository.dart';
-import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
-import 'package:drive_rank/shared/repositories/username_repository.dart';
-import 'package:drive_rank/shared/services/firestore_trip_sink.dart';
-import 'package:drive_rank/shared/services/leaderboard_writer.dart';
-import 'package:drive_rank/shared/services/public_profile_service.dart';
-import 'package:drive_rank/shared/services/remote_trip_sink.dart';
-import 'package:drive_rank/shared/services/sync_manager.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_core/firebase_core.dart';
@@ -30,20 +18,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-/// One-shot async bootstrap: binding, DI, system chrome, then the
-/// best-effort Firebase + OneSignal init.
+/// One-shot async bootstrap: binding, DI, system chrome, then a
+/// best-effort, *offline-first* init of the production SDKs we still
+/// use after the MVP scope reduction.
 ///
-/// The container is wired up with preview/no-op service implementations
-/// first (so the app always boots), then we *attempt* to initialise the
-/// real production SDKs. If Firebase init succeeds we swap in
-/// FirebaseAuthService / FirebaseTelemetryService / FirestoreTripSink.
-/// If a OneSignal app id is present we swap in OneSignalPushService.
-///
-/// Anything that fails leaves the matching preview in place — the app
-/// still works, just with the local-only versions. The user knows what
-/// to install (firebase_options.dart, GoogleService-Info.plist,
-/// google-services.json, ONESIGNAL_APP_ID env) because each `catch`
-/// debugPrints a clear hint.
+/// MVP scope: Drive Rank is offline-first. Local Drift is the source
+/// of truth for every trip; there is no cloud sync, no leaderboard,
+/// no friends, and no public profile yet. The only Firebase surfaces
+/// still wired up are Auth (anonymous) for stable per-install identity
+/// and Crashlytics/Analytics for telemetry. RevenueCat handles
+/// purchases. OneSignal handles push. Each remote init is best-effort
+/// — a missing config leaves the preview/no-op impl in place and the
+/// app still works.
 Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -63,9 +49,8 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
 
   await configureDependencies();
 
-  // Wire FlutterError so that as soon as Firebase comes online (or any
-  // future telemetry service is registered) crashes are forwarded
-  // automatically. The handler reads getIt lazily — no captured ref.
+  // Forward uncaught errors to telemetry. Handlers read getIt lazily
+  // so they work whether or not Firebase is up yet.
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     final telemetry = _safeTelemetry();
@@ -73,8 +58,6 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
       unawaited(telemetry.recordFlutterError(details));
     }
   };
-
-  // Async uncaught zone errors → telemetry too.
   PlatformDispatcher.instance.onError = (error, stack) {
     final telemetry = _safeTelemetry();
     if (telemetry != null) {
@@ -83,16 +66,23 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
     return true;
   };
 
+  // Firebase init is awaited so anonymous sign-in completes before
+  // any UI that wants `auth.currentUser.uid` for telemetry / RC user
+  // matching. The actual call is fast on a warm cache (sub-second).
   await _maybeInitFirebase();
-  await _maybeInitOneSignal();
-  await _maybeInitRevenueCat();
-
-  // Kick the sync queue. Safe to call even when the registered sink is
-  // the no-op — pending trips just flip is_synced=true locally and the
-  // queue drains in a couple of ms.
-  unawaited(getIt<SyncManager>().start());
 
   runApp(await builder());
+
+  // OneSignal and RevenueCat are independent of any first-launch
+  // screen — defer them so they don't add to time-to-first-frame.
+  unawaited(_initDeferredServices());
+}
+
+Future<void> _initDeferredServices() async {
+  await Future.wait<void>([
+    _maybeInitOneSignal(),
+    _maybeInitRevenueCat(),
+  ]);
 }
 
 TelemetryService? _safeTelemetry() {
@@ -118,67 +108,28 @@ Future<void> _maybeInitFirebase() async {
     await Firebase.initializeApp();
     if (kDebugMode) debugPrint('[bootstrap] Firebase initialised');
 
-    // Swap preview services for the real ones now that the SDKs are live.
     final auth = FirebaseAuthService(fb.FirebaseAuth.instance);
-    // Every Firestore rule we ship requires `request.auth != null`. The
-    // spec is explicit: "On first launch sign in anonymously." Without
-    // this we'd hit `permission-denied` on every read/write and the app
-    // would feel broken. Idempotent — re-uses the cached session uid.
+    // Stable per-install identity. Cheap on a warm cache (the FB SDK
+    // re-uses the persisted session uid); only round-trips on a fresh
+    // install. We use the uid for telemetry attribution + RC app user
+    // matching — no Firestore writes gate on it any more.
     await auth.ensureSignedIn();
 
     final analytics = FirebaseAnalytics.instance;
     final crashlytics = FirebaseCrashlytics.instance;
-    final firestore = FirebaseFirestore.instance
-      ..settings = const Settings(persistenceEnabled: true);
 
-    // Crashlytics: forward Flutter errors and async errors at framework level
-    // too — belt-and-braces alongside the dispatcher hooks set above.
     if (!kDebugMode) {
       await crashlytics.setCrashlyticsCollectionEnabled(true);
     }
 
     final telemetry = FirebaseTelemetryService(analytics, crashlytics);
-    final sink = FirestoreTripSink(firestore, getIt<TripRepository>());
-
-    // Swap the preview Firestore-shaped repos for the real ones. The
-    // friends repo doubles as the FriendUidsSource the leaderboard's
-    // Friends tab depends on — that's why it's constructed first.
-    final friends = FirestoreFriendsRepository(firestore);
-    final leaderboard = FirestoreLeaderboardRepository(
-      firestore,
-      getIt<UserSettingsRepository>(),
-      friends,
-    );
-    final usernames = FirestoreUsernameRepository(firestore);
-    final publicProfile = FirestorePublicProfileService(firestore);
-    final leaderboardWriter = LeaderboardWriter(
-      firestore,
-      getIt<TripRepository>(),
-      getIt<UserSettingsRepository>(),
-    );
-
-    // Unregister the previews and register the real implementations.
     await _replace<AuthService>(() => auth);
     await _replace<TelemetryService>(() => telemetry);
-    await _replace<RemoteTripSink>(() => sink);
-    await _replace<FriendsRepository>(() => friends);
-    await _replace<LeaderboardRepository>(() => leaderboard);
-    await _replace<UsernameRepository>(() => usernames);
-    await _replace<PublicProfileService>(() => publicProfile);
-    await _replace<LeaderboardWriter>(() => leaderboardWriter);
 
-    // Sync the local user-settings row's uid (and all owned trips) to
-    // the Firebase Auth uid. Until this runs every Firestore write
-    // uses the placeholder 'local' uid which the security rules
-    // (`request.auth.uid == uid`) reject with permission-denied.
     final authUid = auth.currentUser.uid;
     if (authUid.isNotEmpty && authUid != 'pending') {
-      await getIt<UserSettingsRepository>().syncUid(authUid);
+      await telemetry.setUser(uid: authUid);
     }
-
-    // Identify the user for telemetry.
-    final settings = await getIt<UserSettingsRepository>().read();
-    await telemetry.setUser(uid: settings.uid);
   } catch (e) {
     if (kDebugMode) {
       debugPrint(
@@ -200,8 +151,6 @@ Future<void> _maybeInitOneSignal() async {
     }
     return;
   }
-  // OneSignal_flutter is only supported on Android + iOS — guard so the
-  // dev tools / desktop targets still boot.
   if (!Platform.isAndroid && !Platform.isIOS) return;
   try {
     final push = OneSignalPushService(appId);
@@ -229,13 +178,14 @@ Future<void> _maybeInitRevenueCat() async {
   }
   if (!Platform.isAndroid && !Platform.isIOS) return;
 
-  // Link RevenueCat's app user id to our local uid so a user's purchase
-  // sticks even if they sign in / out of their Google account later.
+  // Use the Firebase Auth uid as the RC app user id so purchases follow
+  // the install across re-installs (when the user later restores).
   String? appUserId;
   try {
-    appUserId = (await getIt<UserSettingsRepository>().read()).uid;
+    appUserId = getIt<AuthService>().currentUser.uid;
+    if (appUserId.isEmpty || appUserId == 'pending') appUserId = null;
   } catch (_) {
-    /* settings not ready yet — RC will assign an anonymous id */
+    // Auth not ready — RC will assign an anonymous id, fine.
   }
 
   final service = await RevenueCatPaywallService.init(
