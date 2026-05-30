@@ -56,10 +56,7 @@ class OnboardingCarStep extends StatelessWidget {
     }
   }
 
-  Future<void> _customModel(
-    BuildContext context,
-    OnboardingState state,
-  ) async {
+  Future<void> _customModel(BuildContext context, OnboardingState state) async {
     final make = state.carMake;
     if (make == null) return;
     final result = await showModalBottomSheet<String>(
@@ -115,84 +112,90 @@ class OnboardingCarStep extends StatelessWidget {
                               AppStrings.onboardCarTitle,
                               style: AppTextStyles.headingLarge,
                             ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    AppStrings.onboardCarSub,
-                    style: AppTextStyles.body.copyWith(
-                      color: Colors.white.withValues(alpha: 0.45),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xxl),
-                  // 45% of the screen's shorter side — same on a small
-                  // phone as on a tablet, scales with rotation. Keeps
-                  // the silhouette readable but never overflows.
-                  Builder(
-                    builder: (context) {
-                      final size = MediaQuery.sizeOf(context).width * 0.45;
-                      final hasPhoto = state.carPhotoPath != null &&
-                          state.carPhotoPath!.isNotEmpty;
-                      return Container(
-                        width: size,
-                        height: size,
-                        alignment: Alignment.center,
-                        // A photo fills the whole circle (BoxFit.cover);
-                        // the SVG keeps a 12% inner breathing room so
-                        // it doesn't crowd the teal ring.
-                        padding: hasPhoto
-                            ? EdgeInsets.zero
-                            : EdgeInsets.all(size * 0.12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.teal,
-                            width: 3,
-                          ),
-                        ),
-                        child: ClipOval(
-                          child: CarSilhouette(
-                            category: state.carMake?.category ??
-                                (state.vehicleType == VehicleType.motorbike
-                                    ? CarCategory.motorbike
-                                    : CarCategory.defaultCategory),
-                            photoPath: state.carPhotoPath,
-                            fit: hasPhoto ? BoxFit.cover : BoxFit.contain,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.xxl),
-                  WhiteSelect(
-                    label: state.carMake?.name ?? '',
-                    hint: 'Make',
-                    onTap: () => _pickMake(context, state),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  IgnorePointer(
-                    ignoring: state.carMake == null,
-                    child: Opacity(
-                      opacity: state.carMake == null ? 0.5 : 1.0,
-                      child: WhiteSelect(
-                        label: state.carModel ?? '',
-                        hint: 'Model',
-                        onTap: () => _pickModel(context, state),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  GestureDetector(
-                    onTap: state.carMake == null
-                        ? null
-                        : () => _customModel(context, state),
-                    child: Text(
-                      AppStrings.onboardCarMissingModel,
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textTertiary,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              AppStrings.onboardCarSub,
+                              style: AppTextStyles.body.copyWith(
+                                color: Colors.white.withValues(alpha: 0.45),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.xxl),
+                            // 45% of the screen's shorter side — same on a small
+                            // phone as on a tablet, scales with rotation. Keeps
+                            // the silhouette readable but never overflows.
+                            Builder(
+                              builder: (context) {
+                                final size =
+                                    MediaQuery.sizeOf(context).width * 0.45;
+                                final hasPhoto =
+                                    state.carPhotoPath != null &&
+                                    state.carPhotoPath!.isNotEmpty;
+                                return Container(
+                                  width: size,
+                                  height: size,
+                                  alignment: Alignment.center,
+                                  // A photo fills the whole circle (BoxFit.cover);
+                                  // the SVG keeps a 12% inner breathing room so
+                                  // it doesn't crowd the teal ring.
+                                  padding: hasPhoto
+                                      ? EdgeInsets.zero
+                                      : EdgeInsets.all(size * 0.12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.teal,
+                                      width: 3,
+                                    ),
+                                  ),
+                                  child: ClipOval(
+                                    child: CarSilhouette(
+                                      category:
+                                          state.carMake?.category ??
+                                          (state.vehicleType ==
+                                                  VehicleType.motorbike
+                                              ? CarCategory.motorbike
+                                              : CarCategory.defaultCategory),
+                                      photoPath: state.carPhotoPath,
+                                      fit: hasPhoto
+                                          ? BoxFit.cover
+                                          : BoxFit.contain,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: AppSpacing.xxl),
+                            WhiteSelect(
+                              label: state.carMake?.name ?? '',
+                              hint: 'Make',
+                              onTap: () => _pickMake(context, state),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            IgnorePointer(
+                              ignoring: state.carMake == null,
+                              child: Opacity(
+                                opacity: state.carMake == null ? 0.5 : 1.0,
+                                child: WhiteSelect(
+                                  label: state.carModel ?? '',
+                                  hint: 'Model',
+                                  onTap: () => _pickModel(context, state),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            GestureDetector(
+                              onTap: state.carMake == null
+                                  ? null
+                                  : () => _customModel(context, state),
+                              child: Text(
+                                AppStrings.onboardCarMissingModel,
+                                style: AppTextStyles.body.copyWith(
+                                  color: AppColors.textTertiary,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -238,9 +241,7 @@ class _CarMakeSheetState extends State<_CarMakeSheet> {
     final filtered = _query.isEmpty
         ? widget.makes
         : widget.makes
-              .where(
-                (m) => m.name.toLowerCase().contains(_query.toLowerCase()),
-              )
+              .where((m) => m.name.toLowerCase().contains(_query.toLowerCase()))
               .toList();
     return SafeArea(
       child: SizedBox(
@@ -258,9 +259,7 @@ class _CarMakeSheetState extends State<_CarMakeSheet> {
             ),
             const SizedBox(height: AppSpacing.lg),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xl,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
               child: TextField(
                 decoration: const InputDecoration(
                   hintText: 'Search make',
@@ -288,17 +287,14 @@ class _CarMakeSheetState extends State<_CarMakeSheet> {
                       ),
                     ),
                     trailing: isSelected
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: AppColors.teal,
-                          )
+                        ? const Icon(Icons.check_rounded, color: AppColors.teal)
                         : isLocal
-                            ? const Icon(
-                                Icons.local_fire_department_rounded,
-                                color: AppColors.orange,
-                                size: 18,
-                              )
-                            : null,
+                        ? const Icon(
+                            Icons.local_fire_department_rounded,
+                            color: AppColors.orange,
+                            size: 18,
+                          )
+                        : null,
                     onTap: () => Navigator.of(context).pop(m),
                   );
                 },
@@ -351,10 +347,7 @@ class _CarModelSheet extends StatelessWidget {
                       ),
                     ),
                     trailing: isSelected
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: AppColors.teal,
-                          )
+                        ? const Icon(Icons.check_rounded, color: AppColors.teal)
                         : null,
                     onTap: () => Navigator.of(context).pop(m),
                   );
@@ -377,10 +370,7 @@ class _CarModelSheet extends StatelessWidget {
 /// surfaces as a noisy "TextEditingController … was never disposed"
 /// log line every time the sheet popped.
 class _CustomModelSheet extends StatefulWidget {
-  const _CustomModelSheet({
-    required this.makeName,
-    required this.initialValue,
-  });
+  const _CustomModelSheet({required this.makeName, required this.initialValue});
 
   final String makeName;
   final String initialValue;
@@ -411,9 +401,7 @@ class _CustomModelSheetState extends State<_CustomModelSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xl),
@@ -434,10 +422,7 @@ class _CustomModelSheetState extends State<_CustomModelSheet> {
                 onSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: AppSpacing.lg),
-              TealButton(
-                label: AppStrings.save,
-                onPressed: _submit,
-              ),
+              TealButton(label: AppStrings.save, onPressed: _submit),
             ],
           ),
         ),

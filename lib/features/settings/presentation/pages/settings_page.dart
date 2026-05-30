@@ -17,6 +17,7 @@ import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart' show NumberFormat;
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -169,15 +170,26 @@ class _Body extends StatelessWidget {
                 ),
               ),
             ),
-            _TextFieldRow(
-              label: AppStrings.settingsFuelCurrency,
-              value: settings.currencyCode ?? '',
-              hint: 'USD',
-              onChanged: (v) => repo.patch(
-                UserSettingsCompanion(
-                  currencyCode: Value(v.isEmpty ? null : v.toUpperCase()),
-                ),
-              ),
+            Builder(
+              builder: (context) {
+                final code = settings.currencyCode ?? '';
+                final entry = _kCurrencies.firstWhere(
+                  (c) => c.code == code,
+                  orElse: () => const _Currency(
+                    code: '',
+                    name: 'Pick a currency',
+                    symbol: '',
+                  ),
+                );
+                return _PickerRow(
+                  label: AppStrings.settingsFuelCurrency,
+                  leading: entry.symbol.isEmpty ? null : entry.symbol,
+                  valueText: entry.code.isEmpty
+                      ? entry.name
+                      : '${entry.code} · ${entry.name}',
+                  onTap: () => _pickCurrency(context, repo, entry.code),
+                );
+              },
             ),
           ],
         ),
@@ -930,3 +942,230 @@ class _CarPhotoRow extends StatelessWidget {
 }
 
 enum _PhotoSheetChoice { camera, gallery, remove }
+
+/// Open the searchable currency picker and patch the user's settings
+/// row to the chosen ISO 4217 code. Defined as a top-level fn rather
+/// than a method on `_Body` so the `Builder` row can dispatch to it
+/// without threading the repo through extra constructor params.
+Future<void> _pickCurrency(
+  BuildContext context,
+  UserSettingsRepository repo,
+  String currentCode,
+) async {
+  final picked = await showModalBottomSheet<_Currency>(
+    context: context,
+    backgroundColor: AppColors.bg2,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _CurrencyPickerSheet(selectedCode: currentCode),
+  );
+  if (picked == null) return;
+  await repo.patch(
+    UserSettingsCompanion(currencyCode: Value(picked.code)),
+  );
+}
+
+/// One ISO 4217 entry shown in the currency picker.
+class _Currency {
+  const _Currency({
+    required this.code,
+    required this.name,
+    required this.symbol,
+  });
+
+  final String code;
+  final String name;
+  final String symbol;
+}
+
+/// Curated list of ~40 ISO 4217 currencies covering >99% of likely
+/// users. Symbols come from `intl.NumberFormat.simpleCurrency` when
+/// available so they match what RevenueCat / paywall prices render
+/// elsewhere in the app. Sorted alphabetically by code.
+final List<_Currency> _kCurrencies = () {
+  String symbolFor(String code, String fallback) {
+    try {
+      final s = NumberFormat.simpleCurrency(name: code).currencySymbol;
+      // `simpleCurrency` sometimes returns the code itself when ICU
+      // doesn't have a glyph. Prefer our handwritten fallback in that
+      // case so the leading slot doesn't look noisy.
+      return s == code ? fallback : s;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  const entries = <(String, String, String)>[
+    ('AED', 'UAE Dirham', 'د.إ'),
+    ('ARS', 'Argentine Peso', r'$'),
+    ('AUD', 'Australian Dollar', r'A$'),
+    ('BDT', 'Bangladeshi Taka', '৳'),
+    ('BRL', 'Brazilian Real', r'R$'),
+    ('CAD', 'Canadian Dollar', r'C$'),
+    ('CHF', 'Swiss Franc', 'CHF'),
+    ('CLP', 'Chilean Peso', r'$'),
+    ('CNY', 'Chinese Yuan', '¥'),
+    ('COP', 'Colombian Peso', r'$'),
+    ('CZK', 'Czech Koruna', 'Kč'),
+    ('DKK', 'Danish Krone', 'kr'),
+    ('EGP', 'Egyptian Pound', 'E£'),
+    ('EUR', 'Euro', '€'),
+    ('GBP', 'British Pound', '£'),
+    ('HKD', 'Hong Kong Dollar', r'HK$'),
+    ('HUF', 'Hungarian Forint', 'Ft'),
+    ('IDR', 'Indonesian Rupiah', 'Rp'),
+    ('ILS', 'Israeli Shekel', '₪'),
+    ('INR', 'Indian Rupee', '₹'),
+    ('JPY', 'Japanese Yen', '¥'),
+    ('KES', 'Kenyan Shilling', 'KSh'),
+    ('KRW', 'South Korean Won', '₩'),
+    ('LKR', 'Sri Lankan Rupee', 'Rs'),
+    ('MAD', 'Moroccan Dirham', 'د.م.'),
+    ('MXN', 'Mexican Peso', r'$'),
+    ('MYR', 'Malaysian Ringgit', 'RM'),
+    ('NGN', 'Nigerian Naira', '₦'),
+    ('NOK', 'Norwegian Krone', 'kr'),
+    ('NZD', 'New Zealand Dollar', r'NZ$'),
+    ('PHP', 'Philippine Peso', '₱'),
+    ('PKR', 'Pakistani Rupee', '₨'),
+    ('PLN', 'Polish Złoty', 'zł'),
+    ('RON', 'Romanian Leu', 'lei'),
+    ('RUB', 'Russian Ruble', '₽'),
+    ('SAR', 'Saudi Riyal', '﷼'),
+    ('SEK', 'Swedish Krona', 'kr'),
+    ('SGD', 'Singapore Dollar', r'S$'),
+    ('THB', 'Thai Baht', '฿'),
+    ('TRY', 'Turkish Lira', '₺'),
+    ('TWD', 'New Taiwan Dollar', r'NT$'),
+    ('UAH', 'Ukrainian Hryvnia', '₴'),
+    ('USD', 'US Dollar', r'$'),
+    ('VND', 'Vietnamese Dong', '₫'),
+    ('ZAR', 'South African Rand', 'R'),
+  ];
+  return [
+    for (final e in entries)
+      _Currency(code: e.$1, name: e.$2, symbol: symbolFor(e.$1, e.$3)),
+  ];
+}();
+
+/// Bottom-sheet picker for [_kCurrencies]. Stateful because of the
+/// search field; the TextEditingController lifecycle is owned here so
+/// it disposes cleanly when the sheet closes.
+class _CurrencyPickerSheet extends StatefulWidget {
+  const _CurrencyPickerSheet({required this.selectedCode});
+
+  final String selectedCode;
+
+  @override
+  State<_CurrencyPickerSheet> createState() => _CurrencyPickerSheetState();
+}
+
+class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
+  late final TextEditingController _query;
+
+  @override
+  void initState() {
+    super.initState();
+    _query = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  List<_Currency> get _filtered {
+    final q = _query.text.trim().toLowerCase();
+    if (q.isEmpty) return _kCurrencies;
+    return _kCurrencies.where((c) {
+      return c.code.toLowerCase().contains(q) ||
+          c.name.toLowerCase().contains(q);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height * 0.7;
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: height,
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border2,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xl,
+                ),
+                child: TextField(
+                  controller: _query,
+                  autofocus: false,
+                  decoration: const InputDecoration(
+                    hintText: 'Search currency',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _filtered.length,
+                  itemBuilder: (_, i) {
+                    final c = _filtered[i];
+                    final isSelected = c.code == widget.selectedCode;
+                    return ListTile(
+                      leading: SizedBox(
+                        width: 32,
+                        child: Text(
+                          c.symbol,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: AppColors.textPrimary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      title: Text(
+                        '${c.code} · ${c.name}',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(
+                              Icons.check_rounded,
+                              color: AppColors.teal,
+                            )
+                          : null,
+                      onTap: () => Navigator.of(context).pop(c),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

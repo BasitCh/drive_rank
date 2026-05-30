@@ -173,7 +173,7 @@ class OnboardingCarPhotoStep extends StatelessWidget {
                                 category: category,
                                 photoPath: state.carPhotoPath,
                                 fit: BoxFit
-                                    .cover, // <-- Now this will crop without stretching
+                                    .contain, // <-- Now this will crop without stretching
                               ),
                             ),
                           ),

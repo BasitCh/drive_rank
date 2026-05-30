@@ -9,8 +9,11 @@ import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/monthly_report/presentation/widgets/monthly_report_card.dart';
 import 'package:drive_rank/features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/monthly_report.dart';
+import 'package:drive_rank/shared/models/vehicle_type.dart';
+import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -98,11 +101,11 @@ class _Loaded extends StatelessWidget {
             onTap: () => context.push(RouteNames.settings),
           ),
         ),
-        const SizedBox(height: 10),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14),
-          child: _AuthRow(),
-        ),
+        // const SizedBox(height: 10),
+        // const Padding(
+        //   padding: EdgeInsets.symmetric(horizontal: 14),
+        //   child: _AuthRow(),
+        // ),
       ],
     );
   }
@@ -125,7 +128,8 @@ class _AuthRow extends StatelessWidget {
           children: [
             if (isSignedIn) ...[
               _ActionRow(
-                label: '${AppStrings.profileSignedInAs} '
+                label:
+                    '${AppStrings.profileSignedInAs} '
                     '${user.displayName ?? user.email ?? user.uid}',
                 icon: Icons.verified_user_rounded,
                 onTap: () {},
@@ -183,6 +187,9 @@ class _Header extends StatelessWidget {
       if (carLabel.isNotEmpty) carLabel,
     ].join(' · ');
 
+    final hasPhoto =
+        settings.carPhotoPath != null && settings.carPhotoPath!.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
       child: Row(
@@ -196,7 +203,18 @@ class _Header extends StatelessWidget {
               border: Border.all(color: AppColors.teal, width: 2),
             ),
             alignment: Alignment.center,
-            child: const Text('🚗', style: TextStyle(fontSize: 24)),
+            child: hasPhoto
+                ? ClipOval(
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: CarSilhouette(
+                        category: _category,
+                        photoPath: settings.carPhotoPath,
+                        fit: hasPhoto ? BoxFit.cover : BoxFit.contain,
+                      ),
+                    ),
+                  )
+                : const Text('🚗', style: TextStyle(fontSize: 24)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -225,6 +243,16 @@ class _Header extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  CarCategory get _category {
+    if (settings.vehicleType == VehicleType.motorbike.id) {
+      return CarCategory.motorbike;
+    }
+    // The "category" lookup against car_makes.json happens in the
+    // onboarding picker — here we just pick the broad fallback by
+    // vehicle type so the SVG isn't blank when no photo exists.
+    return CarCategory.defaultCategory;
   }
 }
 
@@ -343,10 +371,7 @@ class _StatCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 2),
-          Text(
-            label,
-            style: AppTextStyles.microLabel.copyWith(fontSize: 9),
-          ),
+          Text(label, style: AppTextStyles.microLabel.copyWith(fontSize: 9)),
         ],
       ),
     );
