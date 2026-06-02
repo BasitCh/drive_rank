@@ -66,6 +66,7 @@ dependencies:
   flutter_svg: ^2.0.10+1
   flutter_animate: ^4.5.0
   uuid: ^4.4.0
+  audioplayers: ^6.1.0
 
   # System
   permission_handler: ^11.3.0
@@ -96,6 +97,7 @@ flutter:
     - assets/images/
     - assets/images/cars/
     - assets/data/
+    - assets/sound/
 
   fonts:
     - family: BebasNeue

@@ -2,6 +2,7 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/app_router.dart';
 import 'package:drive_rank/main.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -16,7 +17,12 @@ void main() {
     await tester.pumpWidget(const DriveRankApp());
     await tester.pump();
 
-    expect(find.text(AppStrings.appName), findsOneWidget);
+    // Splash uppercases the wordmark for the animated entrance.
+    expect(find.text(AppStrings.appName.toUpperCase()), findsOneWidget);
+
+    // Tear down the splash so its route timer + flutter_animate's internal
+    // timers are cancelled before the framework's leak check runs.
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   test('router is registered as a singleton', () {
