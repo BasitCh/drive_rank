@@ -38,10 +38,15 @@ class _SplashPageState extends State<SplashPage> {
 
   Future<void> _playStartupSound() async {
     try {
+      debugPrint('Splash audio starting');
+
       await _player.setReleaseMode(ReleaseMode.stop);
-      await _player.play(AssetSource('sound/car_starting_sound.wav'));
-    } catch (_) {
-      // Sound is non-essential — never block the splash on audio failure.
+
+      await _player.play(AssetSource('sound/sound.mp3'));
+
+      debugPrint('Splash audio started');
+    } catch (e) {
+      debugPrint('Splash audio error: $e');
     }
   }
 
@@ -65,11 +70,7 @@ class _SplashPageState extends State<SplashPage> {
         child: Center(
           child: Stack(
             alignment: Alignment.center,
-            children: [
-              _RadialGlow(),
-              _PulseRing(),
-              _WordmarkAndTagline(),
-            ],
+            children: [_RadialGlow(), _PulseRing(), _WordmarkAndTagline()],
           ),
         ),
       ),
@@ -90,11 +91,7 @@ class _RadialGlow extends StatelessWidget {
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
             gradient: RadialGradient(
-              colors: [
-                Color(0x553ECFBF),
-                Color(0x223ECFBF),
-                Color(0x00050508),
-              ],
+              colors: [Color(0x553ECFBF), Color(0x223ECFBF), Color(0x00050508)],
               stops: [0.0, 0.45, 1.0],
             ),
           ),
@@ -178,16 +175,16 @@ class _WordmarkAndTagline extends StatelessWidget {
             .fadeIn(duration: 300.ms, delay: 950.ms),
         const SizedBox(height: 14),
         const Text(
-          AppStrings.appTagline,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textSecondary,
-            letterSpacing: 0.3,
-          ),
-        )
+              AppStrings.appTagline,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.3,
+              ),
+            )
             .animate()
             .fadeIn(duration: 500.ms, delay: 1200.ms)
             .moveY(
