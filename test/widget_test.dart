@@ -16,12 +16,15 @@ void main() {
   ) async {
     await tester.pumpWidget(const DriveRankApp());
     await tester.pump();
+    // flutter_animate schedules a zero-duration Timer in initState — pump
+    // once more so it fires (and converts into Tickers that don't leak).
+    await tester.pump(const Duration(milliseconds: 1));
 
     // Splash uppercases the wordmark for the animated entrance.
     expect(find.text(AppStrings.appName.toUpperCase()), findsOneWidget);
 
     // Tear down the splash so its route timer + flutter_animate's internal
-    // timers are cancelled before the framework's leak check runs.
+    // tickers are cancelled before the framework's leak check runs.
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
