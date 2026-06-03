@@ -25,6 +25,19 @@ class TrackingPermissionRequested extends TrackingEvent {
   const TrackingPermissionRequested();
 }
 
+/// User tapped Pause during an active trip. Stops GPS + sensor streams
+/// and freezes the ticker — the trip stays in progress until End.
+class TrackingPauseRequested extends TrackingEvent {
+  const TrackingPauseRequested();
+}
+
+/// User tapped Resume from a paused trip. Re-spins up streams and
+/// shifts `_startedAt` so the duration ticker resumes from where it
+/// stopped (paused time is not counted).
+class TrackingResumeRequested extends TrackingEvent {
+  const TrackingResumeRequested();
+}
+
 /// Internal — a new Kalman-filtered point arrived from `GpsService`.
 class TrackingPointReceived extends TrackingEvent {
   const TrackingPointReceived(this.point);

@@ -3,6 +3,7 @@ import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/router/route_names.dart';
+import 'package:drive_rank/core/services/app_update_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,11 +13,27 @@ import 'package:go_router/go_router.dart';
 /// MVP scope: the previous "Rankings" tab (global leaderboard +
 /// friends) is gone. Its slot is now Personal Bests — local-only
 /// rollups that don't depend on any cloud feature.
-class MainShell extends StatelessWidget {
+class MainShell extends StatefulWidget {
   const MainShell({required this.child, required this.location, super.key});
 
   final Widget child;
   final String location;
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  @override
+  void initState() {
+    super.initState();
+    // Fire the Play Store in-app update check once per session, after
+    // the first frame so it doesn't compete with the shell's initial
+    // build. iOS / non-Play devices are a no-op inside the service.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      const AppUpdateService().promptIfAvailable();
+    });
+  }
 
   static const List<_Tab> _tabs = [
     _Tab(
@@ -43,7 +60,7 @@ class MainShell extends StatelessWidget {
 
   int get _activeIndex {
     for (var i = 0; i < _tabs.length; i++) {
-      if (location.startsWith(_tabs[i].path)) return i;
+      if (widget.location.startsWith(_tabs[i].path)) return i;
     }
     return 0;
   }
@@ -53,7 +70,7 @@ class MainShell extends StatelessWidget {
     final active = _activeIndex;
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: child,
+      body: widget.child,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: AppColors.bg,

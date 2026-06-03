@@ -42,6 +42,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   ) : super(TrackingState.initial()) {
     on<TrackingStartRequested>(_onStartRequested);
     on<TrackingStopRequested>(_onStopRequested);
+    on<TrackingPauseRequested>(_onPauseRequested);
+    on<TrackingResumeRequested>(_onResumeRequested);
     on<TrackingPermissionRequested>(_onPermissionRequested);
     on<TrackingPointReceived>(_onPoint);
     on<TrackingGforceReceived>(_onGforce);
@@ -60,6 +62,11 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   StreamSubscription<double>? _gforceSub;
   Timer? _ticker;
   DateTime? _startedAt;
+  // Set when the user resumes from pause so the very first post-resume
+  // GPS point doesn't add a teleport distance from the pre-pause
+  // `lastPoint` (the user may have walked / parked / driven elsewhere
+  // while paused). Consumed on the next `_onPoint`.
+  bool _skipNextDistanceDelta = false;
 
   // ---------- user-initiated transitions ----------
 
@@ -107,6 +114,54 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     }
   }
 
+  Future<void> _onPauseRequested(
+    TrackingPauseRequested event,
+    Emitter<TrackingState> emit,
+  ) async {
+    if (state.phase != TrackingPhase.active) return;
+    // Tear down GPS + sensors so the device sleeps; the trip itself is
+    // still in-progress — only End ever persists the row to Drift.
+    await _teardown();
+    emit(state.copyWith(phase: TrackingPhase.paused));
+  }
+
+  Future<void> _onResumeRequested(
+    TrackingResumeRequested event,
+    Emitter<TrackingState> emit,
+  ) async {
+    if (state.phase != TrackingPhase.paused) return;
+    try {
+      // Shift _startedAt back by the already-accrued duration so the
+      // tick formula (`now - _startedAt`) picks up exactly where it
+      // left off — the paused interval is excluded automatically.
+      _startedAt = DateTime.now().subtract(
+        Duration(seconds: state.stats.durationSeconds),
+      );
+      _skipNextDistanceDelta = true;
+      await _gps.start();
+      await _sensors.start();
+      _pointSub = _gps.points.listen(
+        (p) => add(TrackingPointReceived(p)),
+      );
+      _gforceSub = _sensors.gforce.listen(
+        (g) => add(TrackingGforceReceived(g)),
+      );
+      _ticker = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => add(const TrackingTicked()),
+      );
+      emit(state.copyWith(phase: TrackingPhase.active));
+    } catch (e) {
+      await _teardown();
+      emit(
+        state.copyWith(
+          phase: TrackingPhase.error,
+          errorMessage: 'Could not resume tracking: $e',
+        ),
+      );
+    }
+  }
+
   Future<void> _onPermissionRequested(
     TrackingPermissionRequested event,
     Emitter<TrackingState> emit,
@@ -141,7 +196,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     Emitter<TrackingState> emit,
   ) async {
     if (state.phase != TrackingPhase.active &&
-        state.phase != TrackingPhase.starting) {
+        state.phase != TrackingPhase.starting &&
+        state.phase != TrackingPhase.paused) {
       return;
     }
     emit(state.copyWith(phase: TrackingPhase.stopping));
@@ -234,8 +290,16 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     final p = event.point;
     final prev = state.stats;
     final wasFirstFix = prev.lastPoint == null;
+    // After a resume, drop the very first distance delta — the user
+    // may have travelled / parked / moved while paused, so the gap
+    // from the pre-pause `lastPoint` to this point would be a
+    // teleport. Subsequent points compute normally.
+    final isFirstFixAfterResume = _skipNextDistanceDelta;
+    if (isFirstFixAfterResume) {
+      _skipNextDistanceDelta = false;
+    }
 
-    final newDistance = wasFirstFix
+    final newDistance = (wasFirstFix || isFirstFixAfterResume)
         ? prev.distanceKm
         : prev.distanceKm + _gps.distanceMeters(prev.lastPoint!, p) / 1000.0;
 

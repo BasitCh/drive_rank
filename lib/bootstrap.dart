@@ -10,6 +10,7 @@ import 'package:drive_rank/core/services/paywall_service.dart';
 import 'package:drive_rank/core/services/push_service.dart';
 import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
+import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_core/firebase_core.dart';
@@ -82,7 +83,21 @@ Future<void> _initDeferredServices() async {
   await Future.wait<void>([
     _maybeInitOneSignal(),
     _maybeInitRevenueCat(),
+    _maybeSyncFreeTripCounter(),
   ]);
+}
+
+/// Reconciles the local free-trip counter with the cloud value keyed
+/// on this device's hashed ID. Runs deferred (post-runApp) so the
+/// network round-trip doesn't delay first paint. The repo no-ops on
+/// any failure, so this is safe to fire-and-forget.
+Future<void> _maybeSyncFreeTripCounter() async {
+  try {
+    await getIt<UserSettingsRepository>().syncFreeTripsWithCloud();
+    if (kDebugMode) debugPrint('[bootstrap] free-trip counter synced');
+  } catch (e) {
+    if (kDebugMode) debugPrint('[bootstrap] trip counter sync failed: $e');
+  }
 }
 
 TelemetryService? _safeTelemetry() {

@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 
 /// Discrete phases of the live tracking screen.
 ///
-/// The lifecycle is strictly:
-///   idle → starting → active → stopping → idle
+/// The lifecycle is:
+///   idle → starting → active ⇄ paused → stopping → idle
 /// with `permissionDenied` and `error` as terminal branches that loop
 /// back to `idle` once the user resolves them.
 enum TrackingPhase {
@@ -21,6 +21,12 @@ enum TrackingPhase {
   /// A trip is recording. The hero number is live, the map strip is
   /// drawing the polyline, the End Trip button is visible.
   active,
+
+  /// User tapped Pause. GPS + sensors are stopped, the duration ticker
+  /// is frozen — but the trip is NOT ended: accumulated stats stay on
+  /// screen and the user can Resume or End from here. Counts as the
+  /// same trip when finally ended.
+  paused,
 
   /// User tapped End Trip. Tearing down streams, persisting the trip
   /// row + waypoints to Drift. Brief — usually <500ms.
@@ -73,7 +79,8 @@ class TrackingState {
   /// Human-readable error copy shown in the error-state gate.
   final String? errorMessage;
 
-  bool get isRecording => phase == TrackingPhase.active;
+  bool get isRecording =>
+      phase == TrackingPhase.active || phase == TrackingPhase.paused;
 
   TrackingState copyWith({
     TrackingPhase? phase,

@@ -16,6 +16,9 @@ import 'package:drive_rank/core/network/network_info.dart' as _i721;
 import 'package:drive_rank/core/router/app_router.dart' as _i901;
 import 'package:drive_rank/core/services/auth_service.dart' as _i1009;
 import 'package:drive_rank/core/services/card_export_service.dart' as _i261;
+import 'package:drive_rank/core/services/device_identity_service.dart' as _i529;
+import 'package:drive_rank/core/services/free_trip_counter_service.dart'
+    as _i1058;
 import 'package:drive_rank/core/services/gps_service.dart' as _i375;
 import 'package:drive_rank/core/services/locale_service.dart' as _i447;
 import 'package:drive_rank/core/services/paywall_service.dart' as _i495;
@@ -65,25 +68,32 @@ _i174.GetIt $initGetIt(
   gh.singleton<_i375.GpsService>(() => _i375.GpsService());
   gh.singleton<_i125.SensorService>(() => _i125.SensorService());
   gh.lazySingleton<_i261.CardExportService>(() => _i261.CardExportService());
+  gh.lazySingleton<_i529.DeviceIdentityService>(
+    () => _i529.DeviceIdentityService(),
+  );
   gh.lazySingleton<_i447.LocaleService>(() => _i447.LocaleService());
   gh.lazySingleton<_i576.PermissionService>(() => _i576.PermissionService());
   gh.lazySingleton<_i405.CarPhotoService>(() => _i405.CarPhotoService());
   gh.lazySingleton<_i928.RoadSegmentService>(() => _i928.RoadSegmentService());
   gh.lazySingleton<_i972.CarRepository>(() => _i639.AssetCarRepository());
   gh.lazySingleton<_i488.PushService>(() => injectionModule.noopPush());
-  gh.lazySingleton<_i727.UserSettingsRepository>(
-    () => _i727.UserSettingsRepository(
-      gh<_i425.AppDatabase>(),
-      gh<_i447.LocaleService>(),
-    ),
-  );
   gh.lazySingleton<_i46.TelemetryService>(
     () => injectionModule.consoleTelemetry(),
   );
   gh.lazySingleton<_i495.PaywallService>(
     () => _i495.PreviewPaywallService(gh<_i447.LocaleService>()),
   );
+  gh.lazySingleton<_i1058.FreeTripCounterService>(
+    () => _i1058.FreeTripCounterService(gh<_i529.DeviceIdentityService>()),
+  );
   gh.lazySingleton<_i1009.AuthService>(() => injectionModule.anonymousAuth());
+  gh.lazySingleton<_i727.UserSettingsRepository>(
+    () => _i727.UserSettingsRepository(
+      gh<_i425.AppDatabase>(),
+      gh<_i447.LocaleService>(),
+      gh<_i1058.FreeTripCounterService>(),
+    ),
+  );
   gh.lazySingleton<_i721.NetworkInfo>(
     () => _i721.NetworkInfo(gh<_i895.Connectivity>()),
   );

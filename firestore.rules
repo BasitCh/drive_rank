@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// =============================================================================
+// DriveRank Firestore security rules
+// =============================================================================
+//
+// Single collection in MVP scope: `device_trials/{hash}` — the anti-abuse
+// free-trip counter, keyed by a sha256 hash of the device's ANDROID_ID
+// (Android) or identifierForVendor (iOS). See [device_identity_service.dart]
+// and [free_trip_counter_service.dart].
+//
+// Threat model and what these rules guarantee:
+//   - Reads/writes require Firebase Auth (anonymous is fine — bootstrap
+//     ensures a signed-in user before any cloud call).
+//   - Doc IDs are sha256 hex strings; clients cannot guess another
+//     install's hash without the raw device ID, which is per-device-
+//     private. So in practice a malicious authenticated user cannot
+//     write to a *specific* other user's counter, even though our
+//     rules don't bind the doc id to the auth uid.
+//   - The counter is monotonically increasing (anti-abuse), enforced
+//     server-side: a write is only valid if `freeTripsUsed` is >= the
+//     existing value. A malicious client cannot reset its own counter
+//     to 0 to refresh the trial.
+//
+// What these rules deliberately do NOT do:
+//   - No PII is ever stored, so there's no need to bind to uid.
+//   - No rate limiting in rules — App Check is the right tool for that
+//     and is out of scope for v1.
+//
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /device_trials/{deviceHash} {
+      // Anyone signed in (including anonymous) can read their own
+      // counter. They can read others' too, but doc ids are unguessable.
+      allow read: if request.auth != null
+                  && deviceHash.matches('^[a-f0-9]{64}$');
+
+      // Create: first write for this device. Must start at >= 0 and
+      // include a freeTripsUsed field of type int.
+      allow create: if request.auth != null
+                    && deviceHash.matches('^[a-f0-9]{64}$')
+                    && request.resource.data.keys().hasOnly(
+                         ['freeTripsUsed', 'updatedAt'])
+                    && request.resource.data.freeTripsUsed is int
+                    && request.resource.data.freeTripsUsed >= 0;
+
+      // Update: monotonically increasing only. A client cannot lower
+      // its own counter — that's the whole point of the anti-abuse
+      // gate. Also keep the schema closed (no other fields written).
+      allow update: if request.auth != null
+                    && deviceHash.matches('^[a-f0-9]{64}$')
+                    && request.resource.data.keys().hasOnly(
+                         ['freeTripsUsed', 'updatedAt'])
+                    && request.resource.data.freeTripsUsed is int
+                    && request.resource.data.freeTripsUsed
+                         >= resource.data.freeTripsUsed;
+
+      // Deletes are never allowed.
+      allow delete: if false;
+    }
+
+    // Anything else: locked.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

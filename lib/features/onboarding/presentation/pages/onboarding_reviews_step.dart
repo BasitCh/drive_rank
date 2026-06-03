@@ -2,15 +2,39 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
+import 'package:drive_rank/features/onboarding/data/seed_reviews.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_bloc.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_event.dart';
+import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_state.dart';
 import 'package:drive_rank/features/onboarding/presentation/widgets/teal_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Step 6 — 4.8 star rating display + two seed review cards.
+/// Step 6 — 4.8 star rating display + two country-aware review cards.
+///
+/// Reviewer names are pulled from a country-specific pool keyed off
+/// `OnboardingState.country` so a user from Pakistan sees Pakistani
+/// names, a user from Brazil sees Brazilian names, etc. Texts stay in
+/// English (translating each per country is out of scope for v1).
 class OnboardingReviewsStep extends StatelessWidget {
   const OnboardingReviewsStep({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<OnboardingBloc, OnboardingState>(
+      buildWhen: (a, b) => a.country?.code != b.country?.code,
+      builder: (context, state) {
+        final reviews = pickReviewsForCountry(state.country);
+        return _ReviewsContent(reviews: reviews);
+      },
+    );
+  }
+}
+
+class _ReviewsContent extends StatelessWidget {
+  const _ReviewsContent({required this.reviews});
+
+  final List<SeedReview> reviews;
 
   @override
   Widget build(BuildContext context) {
@@ -87,16 +111,16 @@ class OnboardingReviewsStep extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                const _ReviewCard(
-                  avatar: '🚗',
-                  name: AppStrings.reviewerOneName,
-                  text: AppStrings.reviewerOneText,
+                _ReviewCard(
+                  avatar: reviews[0].avatar,
+                  name: reviews[0].name,
+                  text: reviews[0].text,
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                const _ReviewCard(
-                  avatar: '🏎️',
-                  name: AppStrings.reviewerTwoName,
-                  text: AppStrings.reviewerTwoText,
+                _ReviewCard(
+                  avatar: reviews[1].avatar,
+                  name: reviews[1].name,
+                  text: reviews[1].text,
                 ),
               ],
             ),

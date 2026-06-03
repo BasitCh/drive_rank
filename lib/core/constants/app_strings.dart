@@ -129,7 +129,11 @@ class AppStrings {
 
   // Tracking screen.
   static const String trackingLive = 'LIVE';
+  static const String trackingPausedBadge = 'PAUSED';
   static const String trackingEndTrip = 'End Trip';
+  static const String trackingPause = 'Pause';
+  static const String trackingResume = 'Resume';
+  static const String trackingPausedSpeedLabel = 'TRIP PAUSED';
   static const String trackingCurrentSpeedSuffix = ' — CURRENT SPEED';
   static const String trackingTopSpeed = 'TOP SPEED';
   static const String trackingAvgSpeed = 'AVG';

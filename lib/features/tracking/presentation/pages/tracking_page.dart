@@ -72,7 +72,8 @@ class _TrackingPageBody extends StatelessWidget {
               TrackingPhase.error => _ErrorSurface(state: state),
               TrackingPhase.starting ||
               TrackingPhase.stopping => _TransientSurface(phase: state.phase),
-              TrackingPhase.active => _ActiveSurface(state: state),
+              TrackingPhase.active ||
+              TrackingPhase.paused => _ActiveSurface(state: state),
               TrackingPhase.idle => const _IdleSurface(),
             };
           },
@@ -350,9 +351,13 @@ class _ActiveSurface extends StatelessWidget {
         final stats = state.stats;
         final hasFix = stats.lastPoint != null;
 
+        final isPaused = state.phase == TrackingPhase.paused;
         return Column(
           children: [
-            const _Header(showLiveBadge: true),
+            _Header(
+              showLiveBadge: !isPaused,
+              showPausedBadge: isPaused,
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.xl,
@@ -364,6 +369,7 @@ class _ActiveSurface extends StatelessWidget {
                 speedKmh: stats.currentSpeedKmh,
                 locale: locale,
                 hasFix: hasFix,
+                idleLabel: isPaused ? AppStrings.trackingPausedSpeedLabel : null,
               ),
             ),
             Padding(
@@ -445,7 +451,16 @@ class _ActiveSurface extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.lg - 2,
               ),
-              child: _EndTripButton(onPressed: () => _confirmEnd(context)),
+              child: _TripControls(
+                isPaused: isPaused,
+                onPause: () => context.read<TrackingBloc>().add(
+                  const TrackingPauseRequested(),
+                ),
+                onResume: () => context.read<TrackingBloc>().add(
+                  const TrackingResumeRequested(),
+                ),
+                onEnd: () => _confirmEnd(context),
+              ),
             ),
             const Spacer(),
           ],
@@ -509,9 +524,6 @@ class _SpeedHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIdle = idleLabel != null;
-    final numberText = isIdle
-        ? '0'
-        : (hasFix ? locale.formatSpeedValue(speedKmh) : '--');
     final subtitleText = isIdle
         ? idleLabel!
         : (hasFix
@@ -543,7 +555,12 @@ class _SpeedHero extends StatelessWidget {
           children: [
             FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(numberText, style: AppTextStyles.speedDisplay),
+              child: _SmoothedSpeedNumber(
+                speedKmh: speedKmh,
+                isIdle: isIdle,
+                hasFix: hasFix,
+                locale: locale,
+              ),
             ),
             Text(
               subtitleText,
@@ -556,40 +573,158 @@ class _SpeedHero extends StatelessWidget {
   }
 }
 
-class _EndTripButton extends StatelessWidget {
-  const _EndTripButton({required this.onPressed});
+/// Eases the displayed speed between successive GPS readings (~1Hz) so
+/// the number sweeps like a real analogue speedometer instead of stepping.
+/// Falls back to literal '0' / '--' for the idle and no-fix states where
+/// there's no meaningful value to interpolate to.
+class _SmoothedSpeedNumber extends StatelessWidget {
+  const _SmoothedSpeedNumber({
+    required this.speedKmh,
+    required this.isIdle,
+    required this.hasFix,
+    required this.locale,
+  });
 
+  final double speedKmh;
+  final bool isIdle;
+  final bool hasFix;
+  final LocaleService locale;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isIdle) {
+      return const Text('0', style: AppTextStyles.speedDisplay);
+    }
+    if (!hasFix) {
+      return const Text('--', style: AppTextStyles.speedDisplay);
+    }
+    return TweenAnimationBuilder<double>(
+      // TweenAnimationBuilder remembers the previous `end` and tweens from
+      // it to the new one — driving the smooth sweep on every reading.
+      tween: Tween<double>(end: speedKmh),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+      builder: (_, value, _) {
+        return Text(
+          locale.formatSpeedValue(value),
+          style: AppTextStyles.speedDisplay,
+        );
+      },
+    );
+  }
+}
+
+/// Pause / Resume / End controls. Pause and Resume are mutually exclusive
+/// (switched on `isPaused`); End is always visible. Both share the rounded-
+/// pill shape with End in red and the toggle in card grey so destructive
+/// vs reversible actions are visually distinct.
+class _TripControls extends StatelessWidget {
+  const _TripControls({
+    required this.isPaused,
+    required this.onPause,
+    required this.onResume,
+    required this.onEnd,
+  });
+
+  final bool isPaused;
+  final VoidCallback onPause;
+  final VoidCallback onResume;
+  final VoidCallback onEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _PillButton(
+            color: AppColors.card2,
+            icon: isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+            label: isPaused ? AppStrings.trackingResume : AppStrings.trackingPause,
+            onPressed: isPaused ? onResume : onPause,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PillButton(
+            color: AppColors.red,
+            icon: Icons.stop_rounded,
+            label: AppStrings.trackingEndTrip,
+            onPressed: onEnd,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PillButton extends StatelessWidget {
+  const _PillButton({
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String label;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: Material(
-        color: AppColors.red,
+    return Material(
+      color: color,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      child: InkWell(
         borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-          onTap: onPressed,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.stop_rounded, color: Colors.white, size: 18),
-                SizedBox(width: 6),
-                Text(
-                  AppStrings.trackingEndTrip,
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: Colors.white,
-                  ),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: Colors.white,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PausedBadge extends StatelessWidget {
+  const _PausedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.orange.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+        border: Border.all(
+          color: AppColors.orange.withValues(alpha: 0.45),
+          width: 1,
+        ),
+      ),
+      child: const Text(
+        AppStrings.trackingPausedBadge,
+        style: TextStyle(
+          fontFamily: 'JetBrainsMono',
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          color: AppColors.orange,
+          letterSpacing: 1.2,
         ),
       ),
     );
@@ -601,9 +736,13 @@ class _EndTripButton extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _Header extends StatelessWidget {
-  const _Header({required this.showLiveBadge});
+  const _Header({
+    required this.showLiveBadge,
+    this.showPausedBadge = false,
+  });
 
   final bool showLiveBadge;
+  final bool showPausedBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -623,6 +762,10 @@ class _Header extends StatelessWidget {
             children: [
               if (showLiveBadge) ...[
                 const LiveBadge(),
+                const SizedBox(width: 7),
+              ],
+              if (showPausedBadge) ...[
+                const _PausedBadge(),
                 const SizedBox(width: 7),
               ],
 

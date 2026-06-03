@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/core/services/free_trip_counter_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
@@ -16,10 +17,11 @@ import 'package:injectable/injectable.dart';
 /// key against any remote system.
 @lazySingleton
 class UserSettingsRepository {
-  UserSettingsRepository(this._db, this._locale);
+  UserSettingsRepository(this._db, this._locale, this._freeTripCounter);
 
   final AppDatabase _db;
   final LocaleService _locale;
+  final FreeTripCounterService _freeTripCounter;
 
   /// Default uid for the local install. Stays as-is until the user
   /// goes through Firebase Auth, at which point the analytics layer
@@ -129,8 +131,33 @@ class UserSettingsRepository {
 
   Future<void> incrementFreeTripsUsed() async {
     final row = await read();
-    await patch(
-      UserSettingsCompanion(freeTripsUsed: Value(row.freeTripsUsed + 1)),
-    );
+    final next = row.freeTripsUsed + 1;
+    await patch(UserSettingsCompanion(freeTripsUsed: Value(next)));
+    // Write-through to Firestore so the counter survives uninstall +
+    // reinstall on the same device. Best-effort — the service swallows
+    // network / auth / Firebase-not-ready failures and we still hold
+    // the right value locally for this install.
+    await _freeTripCounter.setRemote(next);
+  }
+
+  /// Reconciles local Drift counter with the cloud counter for this
+  /// device. Picks the larger of the two and ensures both sides match
+  /// it — anti-abuse counter is monotonically increasing, so we never
+  /// downgrade.
+  ///
+  /// Called from bootstrap after Firebase + anonymous auth are ready.
+  /// Safe to call repeatedly; safe to call when Firebase isn't ready
+  /// (the service no-ops on any error).
+  Future<void> syncFreeTripsWithCloud() async {
+    final remote = await _freeTripCounter.pullRemoteUsed();
+    if (remote == null) return; // offline / unsupported device — keep local
+    final row = await read();
+    final max = remote > row.freeTripsUsed ? remote : row.freeTripsUsed;
+    if (max > row.freeTripsUsed) {
+      await patch(UserSettingsCompanion(freeTripsUsed: Value(max)));
+    }
+    if (max > remote) {
+      await _freeTripCounter.setRemote(max);
+    }
   }
 }
