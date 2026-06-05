@@ -40,8 +40,36 @@ class TrackingPage extends StatelessWidget {
   }
 }
 
-class _TrackingPageBody extends StatelessWidget {
+class _TrackingPageBody extends StatefulWidget {
   const _TrackingPageBody();
+
+  @override
+  State<_TrackingPageBody> createState() => _TrackingPageBodyState();
+}
+
+class _TrackingPageBodyState extends State<_TrackingPageBody>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When the user returns from system Settings (e.g. after flipping
+    // location on), passively re-read the OS state so the gate steps
+    // aside without requiring another tap.
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<TrackingBloc>().add(const TrackingPermissionRechecked());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -812,6 +840,8 @@ class _PermissionGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final isServicesOff =
         state.permissionStatus == LocationPermissionStatus.servicesDisabled;
+    final isPermDeniedForever =
+        state.permissionStatus == LocationPermissionStatus.deniedForever;
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.xxl),
       child: Column(
@@ -833,8 +863,10 @@ class _PermissionGate extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => context.read<TrackingBloc>().add(
-                const TrackingPermissionRequested(),
+              onPressed: () => _onTap(
+                context,
+                isServicesOff: isServicesOff,
+                isPermDeniedForever: isPermDeniedForever,
               ),
               child: Text(
                 isServicesOff
@@ -847,6 +879,30 @@ class _PermissionGate extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Routes the gate's tap to the right system surface:
+  /// - Services off → system Location Settings (so the user can flip
+  ///   the GPS toggle). Just re-prompting permission would do nothing;
+  ///   the OS keeps returning `servicesDisabled` until the toggle is on.
+  /// - Denied forever → App Settings (the OS won't accept any more
+  ///   in-app prompts; only Settings can lift this state).
+  /// - Otherwise → re-fire the in-app permission prompt.
+  Future<void> _onTap(
+    BuildContext context, {
+    required bool isServicesOff,
+    required bool isPermDeniedForever,
+  }) async {
+    if (isServicesOff) {
+      await getIt<PermissionService>().openLocationSettings();
+      return;
+    }
+    if (isPermDeniedForever) {
+      await getIt<PermissionService>().openSettings();
+      return;
+    }
+    if (!context.mounted) return;
+    context.read<TrackingBloc>().add(const TrackingPermissionRequested());
   }
 }
 

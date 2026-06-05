@@ -45,6 +45,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     on<TrackingPauseRequested>(_onPauseRequested);
     on<TrackingResumeRequested>(_onResumeRequested);
     on<TrackingPermissionRequested>(_onPermissionRequested);
+    on<TrackingPermissionRechecked>(_onPermissionRechecked);
     on<TrackingPointReceived>(_onPoint);
     on<TrackingGforceReceived>(_onGforce);
     on<TrackingTicked>(_onTick);
@@ -112,6 +113,28 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         ),
       );
     }
+  }
+
+  /// Triggered by the page when the app resumes from background — used
+  /// after the user returns from Settings. We passively read the OS
+  /// state (no prompt) and drop the gate if location is now usable.
+  /// Never auto-starts a trip; the user must still tap Start.
+  Future<void> _onPermissionRechecked(
+    TrackingPermissionRechecked event,
+    Emitter<TrackingState> emit,
+  ) async {
+    if (state.phase != TrackingPhase.permissionDenied) return;
+    final status = await _permissions.currentLocationStatus();
+    if (_isGranted(status)) {
+      emit(state.copyWith(
+        phase: TrackingPhase.idle,
+        permissionStatus: status,
+      ));
+      return;
+    }
+    // Still bad — surface the new status so the gate's button label
+    // (servicesDisabled → Open Settings, etc.) reflects reality.
+    emit(state.copyWith(permissionStatus: status));
   }
 
   Future<void> _onPauseRequested(

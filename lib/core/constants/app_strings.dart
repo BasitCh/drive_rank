@@ -299,7 +299,6 @@ class AppStrings {
   static const String paywallFeature3Title = '🏆 Global + Friend Leaderboards';
   static const String paywallFeature3Body =
       'Compete on famous driving roads\n'
-      'Beat your friends on local segments\n'
       'Weekly + all-time rankings';
   static const String paywallFeature4Title = '⛽ Fuel Cost Tracking';
   static const String paywallFeature4Body =

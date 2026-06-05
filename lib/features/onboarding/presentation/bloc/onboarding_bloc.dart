@@ -1,9 +1,12 @@
+import 'package:drive_rank/core/constants/app_constants.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/features/onboarding/domain/repositories/car_repository.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_event.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_state.dart';
 import 'package:drive_rank/shared/models/country.dart';
+import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
@@ -67,14 +70,20 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         countryFromCode(row.country ?? _locale.countryCode) ??
         countryFromCode(_locale.countryCode);
 
+    // Use the persisted vehicle type so a user returning to onboarding
+    // sees motorbikes if that's what they had selected previously, not
+    // the bloc's default (car).
+    final persistedType = VehicleType.fromId(row.vehicleType);
     final makes = await _cars.getMakes(
       countryCode: detectedCountry?.code ?? _locale.countryCode,
+      vehicleType: persistedType,
     );
 
     emit(
       state.copyWith(
         isLoading: false,
         country: detectedCountry,
+        vehicleType: persistedType,
         availableMakes: makes,
       ),
     );
@@ -144,7 +153,27 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     Emitter<OnboardingState> emit,
   ) async {
     await _settings.setCountry(event.country.code);
-    final makes = await _cars.getMakes(countryCode: event.country.code);
+
+    // Derive units from the picked country so a Pakistani user on an
+    // English-US-locale phone gets km/h after picking Pakistan, etc.
+    // We persist to Drift AND swap the registered LocaleService so the
+    // UI rebuild in this same session picks up the new units — without
+    // the swap, the change wouldn't show until the next launch.
+    final newUnit =
+        AppConstants.imperialCountryCodes.contains(event.country.code)
+            ? UnitSystem.imperial
+            : UnitSystem.metric;
+    await _settings.setUnitSystem(newUnit);
+    final swapped = getIt<LocaleService>().withOverride(newUnit);
+    if (getIt.isRegistered<LocaleService>()) {
+      await getIt.unregister<LocaleService>();
+    }
+    getIt.registerLazySingleton<LocaleService>(() => swapped);
+
+    final makes = await _cars.getMakes(
+      countryCode: event.country.code,
+      vehicleType: state.vehicleType,
+    );
     // If the user changes country and their previously-selected make is no
     // longer in the list (shouldn't happen — the list is global), keep the
     // make as-is; we only re-rank.
@@ -156,7 +185,24 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     Emitter<OnboardingState> emit,
   ) async {
     await _settings.setVehicleType(event.vehicleType);
-    emit(state.copyWith(vehicleType: event.vehicleType));
+    // Swapping vehicle types invalidates the picker list (and any
+    // previously selected make/model — a Toyota Corolla isn't a
+    // motorbike). Reload makes for the new type from the country we
+    // already detected, and clear the now-stale make + model so the
+    // picker step is forced to re-select.
+    final countryCode = state.country?.code ?? _locale.countryCode;
+    final makes = await _cars.getMakes(
+      countryCode: countryCode,
+      vehicleType: event.vehicleType,
+    );
+    emit(
+      state.copyWith(
+        vehicleType: event.vehicleType,
+        availableMakes: makes,
+        clearCarMake: true,
+        clearCarModel: true,
+      ),
+    );
   }
 
   Future<void> _onMake(

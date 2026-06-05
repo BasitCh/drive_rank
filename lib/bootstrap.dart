@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:drift/drift.dart' show Value;
+import 'package:drive_rank/core/database/app_database.dart' show UserSettingsCompanion;
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/firebase_auth_service.dart';
 import 'package:drive_rank/core/services/firebase_telemetry_service.dart';
+import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/onesignal_push_service.dart';
 import 'package:drive_rank/core/services/paywall_service.dart';
 import 'package:drive_rank/core/services/push_service.dart';
@@ -72,11 +75,40 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   // matching. The actual call is fast on a warm cache (sub-second).
   await _maybeInitFirebase();
 
+  // Honour the persisted unit override before we ever paint a frame —
+  // otherwise the LocaleService starts as the platform default and the
+  // user's previously-saved metric/imperial choice wouldn't take effect
+  // until the next restart.
+  await _applyPersistedUnitOverride();
+
   runApp(await builder());
 
   // OneSignal and RevenueCat are independent of any first-launch
   // screen — defer them so they don't add to time-to-first-frame.
   unawaited(_initDeferredServices());
+}
+
+/// Reads the persisted `unitSystem` from Drift and, if it differs from the
+/// platform-locale default, re-registers [LocaleService] with the right
+/// override. Runs before runApp so the very first paint shows the user's
+/// previously-saved unit (km/h vs mph) instead of the OS guess.
+Future<void> _applyPersistedUnitOverride() async {
+  try {
+    final repo = getIt<UserSettingsRepository>();
+    final row = await repo.ensureExists();
+    final stored = row.unitSystem == 'imperial'
+        ? UnitSystem.imperial
+        : UnitSystem.metric;
+    final current = getIt<LocaleService>();
+    if (current.unitSystem == stored) return;
+    final swapped = current.withOverride(stored);
+    if (getIt.isRegistered<LocaleService>()) {
+      await getIt.unregister<LocaleService>();
+    }
+    getIt.registerLazySingleton<LocaleService>(() => swapped);
+  } catch (e) {
+    if (kDebugMode) debugPrint('[bootstrap] unit override skipped: $e');
+  }
 }
 
 Future<void> _initDeferredServices() async {
@@ -218,4 +250,25 @@ Future<void> _maybeInitRevenueCat() async {
   }
   await _replace<PaywallService>(() => service);
   if (kDebugMode) debugPrint('[bootstrap] RevenueCat initialised');
+
+  // Restore entitlement automatically after a reinstall. Google Play
+  // remembers the active subscription against the user's Google account,
+  // so this round-trip resolves to `true` even though Drift's local
+  // `isPro` flag is fresh. Only flips Drift on success — we never
+  // downgrade a locally-pro user just because the remote check failed.
+  try {
+    final restored = await service.restorePurchases();
+    if (restored) {
+      await getIt<UserSettingsRepository>().patch(
+        const UserSettingsCompanion(isPro: Value(true)),
+      );
+      if (kDebugMode) {
+        debugPrint('[bootstrap] RC restorePurchases → pro restored');
+      }
+    } else if (kDebugMode) {
+      debugPrint('[bootstrap] RC restorePurchases → no active entitlement');
+    }
+  } catch (e) {
+    if (kDebugMode) debugPrint('[bootstrap] RC restore failed: $e');
+  }
 }

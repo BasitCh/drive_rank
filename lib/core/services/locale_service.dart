@@ -39,12 +39,21 @@ class LocaleService {
   /// ISO 3166-1 alpha-2 country code from the device. Falls back to `US`.
   String get countryCode => _locale.countryCode ?? 'US';
 
-  /// The active unit system: user override if set, else derived from country.
-  UnitSystem get unitSystem =>
-      _overrideUnitSystem ??
-      (AppConstants.imperialCountryCodes.contains(countryCode)
-          ? UnitSystem.imperial
-          : UnitSystem.metric);
+  /// The active unit system: user override if set, else derived from
+  /// country. When the device locale doesn't include a country code at
+  /// all (common for English without a region), default to metric — most
+  /// of the world is metric and an imperial fallback shows mph to users
+  /// who would never expect it. The four imperial-system countries
+  /// (US, GB, MM, LR) all set their country in the locale string.
+  UnitSystem get unitSystem {
+    final override = _overrideUnitSystem;
+    if (override != null) return override;
+    final rawCountry = _locale.countryCode;
+    if (rawCountry == null || rawCountry.isEmpty) return UnitSystem.metric;
+    return AppConstants.imperialCountryCodes.contains(rawCountry)
+        ? UnitSystem.imperial
+        : UnitSystem.metric;
+  }
 
   /// "km/h" or "mph" — for labels that don't include the number.
   String get speedUnitLabel =>

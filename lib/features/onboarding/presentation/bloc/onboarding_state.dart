@@ -143,6 +143,7 @@ class OnboardingState {
     Country? country,
     VehicleType? vehicleType,
     CarMake? carMake,
+    bool clearCarMake = false,
     String? carModel,
     bool clearCarModel = false,
     String? carPhotoPath,
@@ -163,7 +164,7 @@ class OnboardingState {
       isLoading: isLoading ?? this.isLoading,
       country: country ?? this.country,
       vehicleType: vehicleType ?? this.vehicleType,
-      carMake: carMake ?? this.carMake,
+      carMake: clearCarMake ? null : (carMake ?? this.carMake),
       carModel: clearCarModel ? null : (carModel ?? this.carModel),
       carPhotoPath:
           clearCarPhotoPath ? null : (carPhotoPath ?? this.carPhotoPath),

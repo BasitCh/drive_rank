@@ -25,6 +25,15 @@ class TrackingPermissionRequested extends TrackingEvent {
   const TrackingPermissionRequested();
 }
 
+/// App resumed from background — passively re-read the OS location
+/// status. Unlike [TrackingPermissionRequested] this never prompts;
+/// it just reflects what the OS already grants. Used after the user
+/// returns from Settings so the permission gate drops back to idle if
+/// they flipped the toggle on.
+class TrackingPermissionRechecked extends TrackingEvent {
+  const TrackingPermissionRechecked();
+}
+
 /// User tapped Pause during an active trip. Stops GPS + sensor streams
 /// and freezes the ticker — the trip stays in progress until End.
 class TrackingPauseRequested extends TrackingEvent {

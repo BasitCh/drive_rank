@@ -28,7 +28,7 @@ class _PaywallBody extends StatelessWidget {
 
   static const _features = <(String, String)>[
     (AppStrings.paywallFeature1Title, AppStrings.paywallFeature1Body),
-    (AppStrings.paywallFeature2Title, AppStrings.paywallFeature2Body),
+    // (AppStrings.paywallFeature2Title, AppStrings.paywallFeature2Body),
     (AppStrings.paywallFeature3Title, AppStrings.paywallFeature3Body),
     (AppStrings.paywallFeature4Title, AppStrings.paywallFeature4Body),
   ];
@@ -51,9 +51,9 @@ class _PaywallBody extends StatelessWidget {
             }
             if (state.status == PaywallStatus.error &&
                 state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.errorMessage!)),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
             }
           },
           builder: (context, state) {
@@ -106,6 +106,7 @@ class _Loaded extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const _CloseBar(),
         _TripPreview(snapshot: state.snapshot, locale: locale),
         Expanded(
           child: SingleChildScrollView(
@@ -116,9 +117,9 @@ class _Loaded extends StatelessWidget {
                 _FeatureSwiper(
                   features: features,
                   activeIndex: state.featureIndex,
-                  onIndex: (i) => context
-                      .read<PaywallBloc>()
-                      .add(PaywallFeatureScrolled(i)),
+                  onIndex: (i) => context.read<PaywallBloc>().add(
+                    PaywallFeatureScrolled(i),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 _PlanRow(
@@ -141,9 +142,9 @@ class _Loaded extends StatelessWidget {
                 const SizedBox(height: AppSpacing.lg),
                 _ContinueButton(
                   isLoading: state.status == PaywallStatus.purchasing,
-                  onTap: () => context
-                      .read<PaywallBloc>()
-                      .add(const PaywallPurchaseRequested()),
+                  onTap: () => context.read<PaywallBloc>().add(
+                    const PaywallPurchaseRequested(),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Center(
@@ -156,9 +157,9 @@ class _Loaded extends StatelessWidget {
                 const SizedBox(height: 6),
                 Center(
                   child: TextButton(
-                    onPressed: () => context
-                        .read<PaywallBloc>()
-                        .add(const PaywallRestoreRequested()),
+                    onPressed: () => context.read<PaywallBloc>().add(
+                      const PaywallRestoreRequested(),
+                    ),
                     child: const Text(AppStrings.paywallRestore),
                   ),
                 ),
@@ -188,14 +189,9 @@ class _TripPreview extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            AppColors.teal.withValues(alpha: 0.05),
-            Colors.transparent,
-          ],
+          colors: [AppColors.teal.withValues(alpha: 0.05), Colors.transparent],
         ),
-        border: const Border(
-          bottom: BorderSide(color: AppColors.border),
-        ),
+        border: const Border(bottom: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,9 +303,7 @@ class _FeatureSwiperState extends State<_FeatureSwiper> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppColors.card,
-                    borderRadius: BorderRadius.circular(
-                      AppSpacing.radiusLg,
-                    ),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,6 +518,44 @@ class _ContinueButton extends StatelessWidget {
                   ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Top-of-paywall row with a close button. Lets the user dismiss the
+/// paywall without scrolling for the system back gesture — important
+/// because the page is presented on top of the trip summary route and
+/// not all users discover the swipe-back gesture on Android.
+///
+/// Routes the close to `context.pop()` when there's a back stack, and
+/// falls back to `/home` when the paywall was reached as a deep link.
+class _CloseBar extends StatelessWidget {
+  const _CloseBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/home');
+              }
+            },
+            tooltip: AppStrings.cancel,
+            icon: const Icon(
+              Icons.close_rounded,
+              color: AppColors.textSecondary,
+              size: 24,
+            ),
+          ),
+          const Spacer(),
+        ],
       ),
     );
   }

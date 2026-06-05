@@ -8,9 +8,9 @@ class AppConstants {
 
   // ---- Free tier ----
   /// Free trips before the paywall is shown. DriveRank's free tier is
-  /// deliberately smaller than TripRank's so users see the value of pro
-  /// faster — the spec calls for 5.
-  static const int freeTripLimit = 5;
+  /// deliberately tight so users see the value of pro fast — three free
+  /// trips is enough to taste the tracker + see one personal best.
+  static const int freeTripLimit = 3;
 
   // ---- Speed noise filter (Issue 7) ----
   /// Speeds below this (km/h) are clamped to zero — under it, GPS drift

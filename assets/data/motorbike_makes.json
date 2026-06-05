@@ -1,0 +1,230 @@
+{
+  "$comment": "Global motorbike makes. Same shape as car_makes.json so AssetCarRepository can parse both with the same CarMake.fromJson. Category is 'motorbike' for every entry — the SVG silhouette fallback uses it. popularIn lists ISO 3166-1 alpha-2 country codes where the brand is in the top sellers. Ids are suffixed with _moto where a car brand has the same display name (e.g. Honda) so we never collide with car_makes.json.",
+  "makes": [
+    {
+      "id": "honda_moto",
+      "name": "Honda",
+      "category": "motorbike",
+      "popularIn": [
+        "JP", "US", "GB", "DE", "FR", "IT", "ES", "BR", "MX", "AR",
+        "PK", "IN", "BD", "ID", "TH", "VN", "MY", "PH", "AU", "NG",
+        "ZA", "KE", "EG", "TR", "AE", "SA"
+      ],
+      "models": [
+        "CBR1000RR", "CBR650R", "CBR500R", "CBR300R", "CB300R", "CB500X",
+        "CB650R", "Africa Twin", "Rebel 500", "Goldwing", "Hornet",
+        "PCX 150", "Activa", "Shine", "CD 70", "CG 125", "Dio"
+      ]
+    },
+    {
+      "id": "yamaha_moto",
+      "name": "Yamaha",
+      "category": "motorbike",
+      "popularIn": [
+        "JP", "US", "GB", "DE", "FR", "IT", "ES", "BR", "MX", "PK",
+        "IN", "BD", "ID", "TH", "VN", "MY", "PH", "AU", "NG", "TR",
+        "AE", "SA", "ZA"
+      ],
+      "models": [
+        "YZF-R1", "YZF-R6", "YZF-R3", "YZF-R15", "MT-09", "MT-07",
+        "MT-15", "MT-03", "Tenere 700", "FZ-S", "FZ-25", "Fascino",
+        "Aerox 155", "NMAX 155", "TMAX", "V-Star"
+      ]
+    },
+    {
+      "id": "suzuki_moto",
+      "name": "Suzuki",
+      "category": "motorbike",
+      "popularIn": [
+        "JP", "US", "GB", "DE", "IT", "ES", "BR", "MX", "PK", "IN",
+        "BD", "ID", "TH", "PH", "AU", "TR", "ZA"
+      ],
+      "models": [
+        "GSX-R1000", "GSX-R750", "GSX-R600", "GSX-R150", "Hayabusa",
+        "Gixxer 250", "Gixxer SF", "V-Strom 650", "V-Strom 1050",
+        "GSX-S750", "Burgman", "Access", "GS150"
+      ]
+    },
+    {
+      "id": "kawasaki_moto",
+      "name": "Kawasaki",
+      "category": "motorbike",
+      "popularIn": [
+        "JP", "US", "GB", "DE", "FR", "IT", "ES", "BR", "AU", "TH",
+        "ID", "PH", "MY", "PK", "IN", "ZA"
+      ],
+      "models": [
+        "Ninja H2", "Ninja ZX-10R", "Ninja ZX-6R", "Ninja 1000",
+        "Ninja 650", "Ninja 400", "Ninja 300", "Z900", "Z650", "Z400",
+        "Versys 650", "Versys 1000", "Vulcan S", "KX450"
+      ]
+    },
+    {
+      "id": "bajaj_moto",
+      "name": "Bajaj",
+      "category": "motorbike",
+      "popularIn": ["IN", "PK", "BD", "LK", "NG", "EG", "KE", "ZA", "PH", "ID"],
+      "models": [
+        "Pulsar 220F", "Pulsar NS200", "Pulsar NS160", "Pulsar 150",
+        "Pulsar 125", "Avenger Cruise 220", "Avenger Street 160",
+        "Dominar 400", "Dominar 250", "CT 110", "Platina 110",
+        "Chetak Electric"
+      ]
+    },
+    {
+      "id": "hero_moto",
+      "name": "Hero MotoCorp",
+      "category": "motorbike",
+      "popularIn": ["IN", "BD", "NP", "LK", "PK", "NG"],
+      "models": [
+        "Splendor Plus", "Splendor iSmart", "Passion Pro", "Glamour 125",
+        "HF Deluxe", "Xtreme 160R", "Xtreme 200S", "Xpulse 200",
+        "Karizma XMR 210", "Destini 125", "Pleasure Plus", "Maestro Edge"
+      ]
+    },
+    {
+      "id": "tvs_moto",
+      "name": "TVS",
+      "category": "motorbike",
+      "popularIn": ["IN", "PK", "BD", "LK", "NP", "NG", "KE", "PH", "ID"],
+      "models": [
+        "Apache RTR 310", "Apache RTR 200 4V", "Apache RTR 160 4V",
+        "Apache RR 310", "Raider 125", "Sport", "Star City Plus",
+        "Radeon", "Jupiter 125", "Ntorq 125", "Scooty Pep+", "iQube"
+      ]
+    },
+    {
+      "id": "royal_enfield_moto",
+      "name": "Royal Enfield",
+      "category": "motorbike",
+      "popularIn": [
+        "IN", "GB", "US", "PK", "BD", "AU", "FR", "DE", "IT", "ES",
+        "BR", "MX", "TH", "ID"
+      ],
+      "models": [
+        "Classic 350", "Hunter 350", "Meteor 350", "Bullet 350",
+        "Himalayan 450", "Scram 411", "Continental GT 650",
+        "Interceptor 650", "Super Meteor 650", "Shotgun 650"
+      ]
+    },
+    {
+      "id": "harley_davidson_moto",
+      "name": "Harley-Davidson",
+      "category": "motorbike",
+      "popularIn": [
+        "US", "CA", "AU", "GB", "DE", "FR", "IT", "ES", "JP", "BR",
+        "MX", "AE", "ZA"
+      ],
+      "models": [
+        "Iron 883", "Forty-Eight", "Street 750", "Sportster S",
+        "Nightster", "Fat Boy", "Heritage Classic", "Road King",
+        "Street Glide", "Road Glide", "Fat Bob", "Low Rider S",
+        "Pan America 1250"
+      ]
+    },
+    {
+      "id": "ducati_moto",
+      "name": "Ducati",
+      "category": "motorbike",
+      "popularIn": [
+        "IT", "DE", "FR", "ES", "GB", "US", "JP", "AU", "BR", "MX",
+        "AE", "SA"
+      ],
+      "models": [
+        "Panigale V4", "Panigale V2", "Streetfighter V4", "Streetfighter V2",
+        "Monster", "Monster SP", "Diavel V4", "XDiavel",
+        "Multistrada V4", "Multistrada V2", "Hypermotard 950",
+        "Scrambler Icon", "DesertX"
+      ]
+    },
+    {
+      "id": "bmw_moto",
+      "name": "BMW Motorrad",
+      "category": "motorbike",
+      "popularIn": [
+        "DE", "GB", "FR", "IT", "ES", "US", "JP", "AU", "BR", "MX",
+        "AE", "ZA", "IN"
+      ],
+      "models": [
+        "S 1000 RR", "S 1000 R", "M 1000 RR", "R 1250 GS", "R 1300 GS",
+        "R 1250 RT", "F 900 R", "F 900 XR", "F 850 GS", "F 750 GS",
+        "G 310 R", "G 310 GS", "R nineT", "CE 04"
+      ]
+    },
+    {
+      "id": "ktm_moto",
+      "name": "KTM",
+      "category": "motorbike",
+      "popularIn": [
+        "AT", "DE", "FR", "IT", "ES", "GB", "US", "AU", "BR", "MX",
+        "IN", "PK", "ZA"
+      ],
+      "models": [
+        "Duke 125", "Duke 200", "Duke 250", "Duke 390", "Duke 790",
+        "Duke 890", "Duke 990", "Duke 1390 R", "RC 200", "RC 390",
+        "RC 8C", "Adventure 250", "Adventure 390", "Adventure 890",
+        "Adventure 1290"
+      ]
+    },
+    {
+      "id": "triumph_moto",
+      "name": "Triumph",
+      "category": "motorbike",
+      "popularIn": [
+        "GB", "US", "DE", "FR", "IT", "ES", "AU", "JP", "BR", "IN",
+        "ZA", "AE"
+      ],
+      "models": [
+        "Street Triple 765", "Speed Triple 1200", "Daytona 660",
+        "Trident 660", "Tiger 660 Sport", "Tiger 900", "Tiger 1200",
+        "Bonneville T100", "Bonneville T120", "Speed Twin 900",
+        "Speed Twin 1200", "Scrambler 1200", "Rocket 3"
+      ]
+    },
+    {
+      "id": "vespa_moto",
+      "name": "Vespa",
+      "category": "motorbike",
+      "popularIn": [
+        "IT", "FR", "ES", "DE", "GB", "US", "IN", "ID", "TH", "VN",
+        "PH", "BR", "MX"
+      ],
+      "models": [
+        "Primavera 50", "Primavera 125", "Primavera 150", "Sprint 150",
+        "GTS 300", "GTV 300", "Elettrica 70", "PX 150", "LX 125"
+      ]
+    },
+    {
+      "id": "benelli_moto",
+      "name": "Benelli",
+      "category": "motorbike",
+      "popularIn": ["IT", "CN", "PK", "TR", "RU", "BR", "MX", "ID"],
+      "models": [
+        "TRK 502", "TRK 502 X", "TNT 600i", "TNT 300", "TNT 150",
+        "Leoncino 500", "Leoncino 250", "302 S", "Imperiale 400",
+        "502 C", "180 S"
+      ]
+    },
+    {
+      "id": "cfmoto_moto",
+      "name": "CFMoto",
+      "category": "motorbike",
+      "popularIn": ["CN", "PK", "RU", "DE", "FR", "ES", "BR", "MX", "ID"],
+      "models": [
+        "300SR", "650NK", "650MT", "700CL-X", "800MT", "450NK", "450SR",
+        "300NK", "Papio", "250CL-X", "250SR"
+      ]
+    },
+    {
+      "id": "aprilia_moto",
+      "name": "Aprilia",
+      "category": "motorbike",
+      "popularIn": ["IT", "DE", "FR", "ES", "GB", "US", "BR", "IN", "JP"],
+      "models": [
+        "RSV4", "RS 660", "Tuono V4", "Tuono 660", "RS 457",
+        "Tuareg 660", "SX 125", "RX 125", "SR 150", "Storm 125",
+        "SR GT 200"
+      ]
+    }
+  ]
+}

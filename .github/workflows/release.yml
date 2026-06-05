@@ -1,0 +1,111 @@
+name: Release to Play closed testing
+
+# Triggered when you push a semantic-version tag, e.g.
+#   git tag v1.0.1 && git push --tags
+# Manual `workflow_dispatch` is kept as an escape hatch.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-upload:
+    name: Build, sign and ship AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      # versionCode = 100 + workflow run number — monotonically increasing
+      # and isolated from the local +1/+2 codes you've already shipped.
+      # versionName is whatever's in pubspec.yaml at the tagged commit.
+      VERSION_CODE: ${{ 100 + github.run_number }}
+
+    steps:
+      - name: Checkout source at tagged commit
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 (required by AGP 8+)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter 3.41.9 stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.9'
+          cache: true
+
+      - name: Show toolchain
+        run: |
+          flutter --version
+
+      - name: Restore upload keystore + key.properties from secrets
+        # Both files are written into the runner's checkout but are
+        # ignored by .gitignore. They're scrubbed in the final cleanup
+        # step, but even without that the runner is destroyed after the
+        # job, so secrets never persist.
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Regenerate codegen (DI + Drift)
+        # Generated files are committed but regenerating defends against
+        # the case where a contributor forgets to commit the .g.dart /
+        # injection.config.dart updates after editing annotations.
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Static analysis
+        run: flutter analyze --no-pub
+
+      - name: Build release App Bundle
+        env:
+          REVENUECAT_API_KEY_ANDROID: ${{ secrets.REVENUECAT_API_KEY_ANDROID }}
+          ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+        # --build-number overrides the +N from pubspec.yaml so the CI
+        # always wins. dart-defines are passed inline; the runtime
+        # `String.fromEnvironment` reads them at build time.
+        run: |
+          flutter build appbundle --release \
+            --build-number=${{ env.VERSION_CODE }} \
+            --dart-define=REVENUECAT_API_KEY_ANDROID=$REVENUECAT_API_KEY_ANDROID \
+            --dart-define=ONESIGNAL_APP_ID=$ONESIGNAL_APP_ID
+
+      - name: Upload AAB to Play (closed testing, Draft)
+        # Status: draft means the AAB lands in Play Console but isn't
+        # promoted to testers until you click Publish. That's the human
+        # review gate you wanted. Change to `completed` later if you
+        # decide to auto-publish.
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.bytse.drive_rank
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: alpha
+          status: draft
+          # Use the tag name (e.g. v1.0.1) as the release name in Play
+          # Console so you can correlate Play history with git tags.
+          releaseName: ${{ github.ref_name }}
+
+      - name: Scrub signing material
+        if: always()
+        run: |
+          rm -f android/app/upload-keystore.jks android/key.properties
