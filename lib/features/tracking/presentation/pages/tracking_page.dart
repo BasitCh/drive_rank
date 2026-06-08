@@ -627,10 +627,13 @@ class _SmoothedSpeedNumber extends StatelessWidget {
       return const Text('--', style: AppTextStyles.speedDisplay);
     }
     return TweenAnimationBuilder<double>(
-      // TweenAnimationBuilder remembers the previous `end` and tweens from
-      // it to the new one — driving the smooth sweep on every reading.
+      // TweenAnimationBuilder remembers the previous `end` and tweens
+      // from it to the new one — driving the smooth sweep on every
+      // reading. 220ms is short enough that with the new 1Hz Android
+      // sample interval the dial reaches its target ~800ms before the
+      // next reading lands, so decel feels reactive instead of soggy.
       tween: Tween<double>(end: speedKmh),
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       builder: (_, value, _) {
         return Text(

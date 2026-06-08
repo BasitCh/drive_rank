@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
@@ -28,10 +29,18 @@ class GpsService {
   final StreamController<TripPoint> _controller =
       StreamController<TripPoint>.broadcast();
 
-  /// Tracked for the Issue-7 spike filter — a sample whose speed differs
-  /// from this by more than [AppConstants.maxSpeedDeltaPerSampleKmh] is a
-  /// GPS glitch and is discarded. Reset on every [start].
+  /// Tracked for the spike filter — a sample whose speed differs from this
+  /// by more than [AppConstants.maxSpeedDeltaPerSampleKmh] is a GPS glitch
+  /// and is discarded. Reset on every [start].
   double _previousSpeedKmh = 0;
+
+  /// Number of consecutive spike-filter rejections. If we stay rejected for
+  /// [_spikeFilterRecoveryAfter] samples in a row, the filter trusts the
+  /// next candidate even if it would otherwise be flagged as a spike —
+  /// otherwise a low first-fix permanently anchors the filter at e.g.
+  /// 5 km/h while real driving is at 60+ km/h.
+  int _stuckRejectionStreak = 0;
+  static const int _spikeFilterRecoveryAfter = 3;
 
   /// Live point stream — null until [start] is called.
   Stream<TripPoint> get points => _controller.stream;
@@ -43,19 +52,62 @@ class GpsService {
     if (_sub != null) return;
     _filter.reset();
     _previousSpeedKmh = 0;
+    _stuckRejectionStreak = 0;
 
-    const settings = LocationSettings(
-      accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: 0,
-    );
-
-    _sub = Geolocator.getPositionStream(locationSettings: settings).listen(
+    _sub = Geolocator.getPositionStream(
+      locationSettings: _platformSettings(),
+    ).listen(
       _onPosition,
       onError: (Object e, StackTrace st) {
         if (kDebugMode) {
           debugPrint('GpsService stream error: $e');
         }
       },
+    );
+  }
+
+  /// Build platform-specific location settings.
+  ///
+  /// **Android**: promote the location stream to a foreground service via
+  /// [ForegroundNotificationConfig]. Without this, Android's battery
+  /// manager throttles or kills the stream after ~10 min of sustained use,
+  /// which is the "speed becomes zero after a while" bug users report.
+  /// `intervalDuration: 1s` pins the sample rate so the live speedometer
+  /// stays responsive instead of inheriting the OS's variable cadence
+  /// (often 2–3s on bestForNavigation when not pinned).
+  ///
+  /// **iOS**: `automotiveNavigation` activity type tells CoreLocation we're
+  /// in a car — biases the GPS/INS fusion for vehicle speeds and prevents
+  /// the OS from auto-pausing updates when motion looks "vehicular".
+  LocationSettings _platformSettings() {
+    if (Platform.isAndroid) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 0,
+        intervalDuration: const Duration(seconds: 1),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'DriveRank',
+          notificationText: 'Tracking your trip',
+          enableWakeLock: true,
+          notificationIcon: AndroidResource(
+            name: 'ic_launcher',
+            defType: 'mipmap',
+          ),
+        ),
+      );
+    }
+    if (Platform.isIOS) {
+      return AppleSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        activityType: ActivityType.automotiveNavigation,
+        distanceFilter: 0,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: false,
+      );
+    }
+    return const LocationSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 0,
     );
   }
 
@@ -113,6 +165,7 @@ class GpsService {
     // Geolocator can report NaN or negative speeds on cold-start fixes.
     if (rawSpeedMetresPerSecond.isNaN || rawSpeedMetresPerSecond < 0) {
       _previousSpeedKmh = 0;
+      _stuckRejectionStreak = 0;
       return 0;
     }
     final candidate = rawSpeedMetresPerSecond * 3.6;
@@ -121,16 +174,27 @@ class GpsService {
     if (candidate < AppConstants.minReliableSpeedKmh ||
         accuracyMeters > AppConstants.maxReliableAccuracyMeters) {
       _previousSpeedKmh = 0;
+      _stuckRejectionStreak = 0;
       return 0;
     }
 
-    // Spike filter — only applies once we have a previous reading.
+    // Spike filter with recovery — a single big jump is treated as a GPS
+    // glitch (keep the previous reading), but if we'd otherwise reject
+    // [_spikeFilterRecoveryAfter] candidates in a row, the next one is
+    // accepted on the assumption that the previous reading was the
+    // stale one (e.g. an anchored low first fix). This is what unsticks
+    // a trip that was anchored at 5 km/h while the user accelerated.
     if (_previousSpeedKmh > 0 &&
         (candidate - _previousSpeedKmh).abs() >
             AppConstants.maxSpeedDeltaPerSampleKmh) {
-      return _previousSpeedKmh;
+      _stuckRejectionStreak += 1;
+      if (_stuckRejectionStreak <= _spikeFilterRecoveryAfter) {
+        return _previousSpeedKmh;
+      }
+      // Fall through — sustained "spike" is actually the new truth.
     }
 
+    _stuckRejectionStreak = 0;
     _previousSpeedKmh = candidate;
     return candidate;
   }

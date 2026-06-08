@@ -23,8 +23,12 @@ class AppConstants {
   static const double maxReliableAccuracyMeters = 20;
 
   /// A speed delta greater than this (km/h) between consecutive samples
-  /// is a GPS glitch — discard and keep the previous reading.
-  static const double maxSpeedDeltaPerSampleKmh = 50;
+  /// is a GPS glitch — discard and keep the previous reading. 100 km/h
+  /// per second covers fast cars (0–60 mph in 2s ≈ 48 km/h/s) and hard
+  /// braking (~36 km/h/s peak) with margin. The spike filter also
+  /// auto-recovers after 3 consecutive rejections — see
+  /// `GpsService._denoiseSpeed`.
+  static const double maxSpeedDeltaPerSampleKmh = 100;
 
   // ---- Auto trip detection ----
   /// Speed threshold (km/h) above which a candidate trip start is registered.
