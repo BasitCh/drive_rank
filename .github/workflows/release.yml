@@ -48,6 +48,19 @@ jobs:
         run: |
           flutter --version
 
+      # build.gradle.kts pins NDK 29.0.13599879 (locally we did this to
+      # dodge a corrupted 28.x install). The GitHub Actions Ubuntu image
+      # doesn't ship that specific NDK, so Gradle errors out with
+      # "LicenceNotAcceptedException" when it tries to configure :app.
+      # Accept all SDK licences (idempotent) and install just the pinned
+      # NDK — no Android Studio install needed.
+      - name: Install pinned Android NDK 29.0.13599879
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null
+          "$SDKMANAGER" "ndk;29.0.13599879"
+
       - name: Restore upload keystore + key.properties from secrets
         # Both files are written into the runner's checkout but are
         # ignored by .gitignore. They're scrubbed in the final cleanup
