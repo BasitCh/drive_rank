@@ -31,6 +31,8 @@ void main() {
     distanceKm: distanceKm,
     durationSeconds: durationSeconds,
     maxGforce: maxG,
+    hardCornersCount: 0,
+    hardBrakesCount: 0,
     lastPoint: null,
     points: const <TripPoint>[],
   );

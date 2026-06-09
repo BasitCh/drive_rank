@@ -30,6 +30,18 @@ class AppConstants {
   /// `GpsService._denoiseSpeed`.
   static const double maxSpeedDeltaPerSampleKmh = 100;
 
+  // ---- Driving-event thresholds (hard brake / hard corner) ----
+  /// Speed drop (km/h) between consecutive samples that counts as a
+  /// hard brake. At the new 1Hz Android sample rate this maps to ~0.4 g
+  /// of deceleration — well into "harsh" territory. One increment per
+  /// braking event (the counter only steps on the transition).
+  static const double hardBrakeDropKmh = 15;
+
+  /// g-force magnitude above which we count a hard cornering event.
+  /// Spirited driving stays under 0.4g; > 0.45g is "leaning on it."
+  /// One increment per cornering event (debounced by transition).
+  static const double hardCornerG = 0.45;
+
   // ---- Auto trip detection ----
   /// Speed threshold (km/h) above which a candidate trip start is registered.
   static const double tripStartSpeedKmh = 15;

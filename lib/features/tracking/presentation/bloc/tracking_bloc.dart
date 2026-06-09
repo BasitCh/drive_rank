@@ -69,6 +69,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   // while paused). Consumed on the next `_onPoint`.
   bool _skipNextDistanceDelta = false;
 
+  // "Currently inside an event" flags for the hard-brake / hard-corner
+  // detectors. The counters only step on the transition from false→true,
+  // so a single 5-sample-long hard brake increments hardBrakesCount once.
+  // Reset on Start and Pause so the next driving leg counts fresh.
+  bool _inHardBrake = false;
+  bool _inHardCorner = false;
+
   // ---------- user-initiated transitions ----------
 
   Future<void> _onStartRequested(
@@ -81,6 +88,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         state.phase == TrackingPhase.stopping) {
       return;
     }
+    _inHardBrake = false;
+    _inHardCorner = false;
     emit(
       state.copyWith(
         phase: TrackingPhase.starting,
@@ -145,6 +154,10 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     // Tear down GPS + sensors so the device sleeps; the trip itself is
     // still in-progress — only End ever persists the row to Drift.
     await _teardown();
+    // Reset in-event flags so the post-resume leg counts its own
+    // brakes / corners cleanly, even if we paused mid-event.
+    _inHardBrake = false;
+    _inHardCorner = false;
     emit(state.copyWith(phase: TrackingPhase.paused));
   }
 
@@ -312,6 +325,37 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     if (state.phase != TrackingPhase.active) return;
     final p = event.point;
     final prev = state.stats;
+
+    // Hard-brake detection — a drop ≥ hardBrakeDropKmh between two
+    // consecutive moving samples counts. Counter only steps on the
+    // transition (false→true), so one sustained brake = +1, not +N.
+    var hardBrakes = prev.hardBrakesCount;
+    final brakeDrop = prev.currentSpeedKmh - p.speedKmh;
+    if (prev.currentSpeedKmh > 0 &&
+        brakeDrop >= AppConstants.hardBrakeDropKmh) {
+      if (!_inHardBrake) {
+        hardBrakes += 1;
+        _inHardBrake = true;
+      }
+    } else {
+      _inHardBrake = false;
+    }
+
+    // Stationary case — keep the speedometer at 0 and the new brake
+    // count, but DON'T touch the polyline / distance / lastPoint. GPS
+    // drift around a parked car shouldn't pile up as fake travel.
+    if (p.speedKmh == 0) {
+      emit(
+        state.copyWith(
+          stats: prev.copyWith(
+            currentSpeedKmh: 0,
+            hardBrakesCount: hardBrakes,
+          ),
+        ),
+      );
+      return;
+    }
+
     final wasFirstFix = prev.lastPoint == null;
     // After a resume, drop the very first distance delta — the user
     // may have travelled / parked / moved while paused, so the gap
@@ -346,6 +390,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
           durationSeconds: durationSeconds,
           lastPoint: p,
           points: [...prev.points, p],
+          hardBrakesCount: hardBrakes,
         ),
       ),
     );
@@ -356,8 +401,34 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     Emitter<TrackingState> emit,
   ) {
     if (state.phase != TrackingPhase.active) return;
-    if (event.gforce <= state.stats.maxGforce) return;
-    emit(state.copyWith(stats: state.stats.copyWith(maxGforce: event.gforce)));
+    final g = event.gforce;
+    final prev = state.stats;
+
+    // Hard-corner detection — same transition pattern as hard brakes:
+    // counter only steps when we cross from below threshold to above,
+    // so a single 1.5s 0.6g sweeping turn = +1, not many.
+    var hardCorners = prev.hardCornersCount;
+    if (g >= AppConstants.hardCornerG) {
+      if (!_inHardCorner) {
+        hardCorners += 1;
+        _inHardCorner = true;
+      }
+    } else {
+      _inHardCorner = false;
+    }
+
+    final newMax = g > prev.maxGforce ? g : prev.maxGforce;
+    if (newMax == prev.maxGforce && hardCorners == prev.hardCornersCount) {
+      return; // nothing changed; avoid a redundant emit per tick
+    }
+    emit(
+      state.copyWith(
+        stats: prev.copyWith(
+          maxGforce: newMax,
+          hardCornersCount: hardCorners,
+        ),
+      ),
+    );
   }
 
   void _onTick(TrackingTicked event, Emitter<TrackingState> emit) {

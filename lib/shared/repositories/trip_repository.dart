@@ -46,6 +46,8 @@ class TripRepository {
               distanceKm: stats.distanceKm,
               durationSeconds: stats.durationSeconds,
               maxGforce: Value(stats.maxGforce),
+              hardCornersCount: Value(stats.hardCornersCount),
+              hardBrakesCount: Value(stats.hardBrakesCount),
               fuelCostLocal: Value(fuelCostLocal),
               localCurrencyCode: Value(localCurrencyCode),
               weatherCondition: Value(weatherCondition),

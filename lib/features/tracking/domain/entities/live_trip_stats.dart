@@ -14,6 +14,8 @@ class LiveTripStats {
     required this.distanceKm,
     required this.durationSeconds,
     required this.maxGforce,
+    required this.hardCornersCount,
+    required this.hardBrakesCount,
     required this.lastPoint,
     required this.points,
   });
@@ -25,6 +27,8 @@ class LiveTripStats {
     distanceKm: 0,
     durationSeconds: 0,
     maxGforce: 0,
+    hardCornersCount: 0,
+    hardBrakesCount: 0,
     lastPoint: null,
     points: <TripPoint>[],
   );
@@ -35,6 +39,8 @@ class LiveTripStats {
   final double distanceKm;
   final int durationSeconds;
   final double maxGforce;
+  final int hardCornersCount;
+  final int hardBrakesCount;
   final TripPoint? lastPoint;
   final List<TripPoint> points;
 
@@ -45,6 +51,8 @@ class LiveTripStats {
     double? distanceKm,
     int? durationSeconds,
     double? maxGforce,
+    int? hardCornersCount,
+    int? hardBrakesCount,
     TripPoint? lastPoint,
     List<TripPoint>? points,
   }) {
@@ -55,6 +63,8 @@ class LiveTripStats {
       distanceKm: distanceKm ?? this.distanceKm,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       maxGforce: maxGforce ?? this.maxGforce,
+      hardCornersCount: hardCornersCount ?? this.hardCornersCount,
+      hardBrakesCount: hardBrakesCount ?? this.hardBrakesCount,
       lastPoint: lastPoint ?? this.lastPoint,
       points: points ?? this.points,
     );
