@@ -6,7 +6,7 @@ name: Release to Play closed testing
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   workflow_dispatch: {}
 
 permissions:
@@ -32,13 +32,13 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Set up Flutter 3.41.9 stable
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.41.9'
+          flutter-version: "3.41.9"
           cache: true
 
       - name: Show toolchain
