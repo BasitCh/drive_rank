@@ -65,11 +65,12 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null
           "$SDKMANAGER" "ndk;29.0.13599879"
 
-      - name: Restore upload keystore + key.properties from secrets
-        # Both files are written into the runner's checkout but are
+      - name: Restore upload keystore + key.properties + google-services.json from secrets
+        # All three files are written into the runner's checkout but are
         # ignored by .gitignore. They're scrubbed in the final cleanup
         # step, but even without that the runner is destroyed after the
-        # job, so secrets never persist.
+        # job so secrets never persist. `printf '%s'` (not `echo`) is
+        # used for the JSON so braces / quotes pass through untouched.
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
           cat > android/key.properties <<EOF
@@ -78,11 +79,13 @@ jobs:
           keyAlias=$KEY_ALIAS
           storeFile=upload-keystore.jks
           EOF
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
 
       - name: Install Flutter dependencies
         run: flutter pub get
@@ -128,4 +131,6 @@ jobs:
       - name: Scrub signing material
         if: always()
         run: |
-          rm -f android/app/upload-keystore.jks android/key.properties
+          rm -f android/app/upload-keystore.jks \
+                android/key.properties \
+                android/app/google-services.json
