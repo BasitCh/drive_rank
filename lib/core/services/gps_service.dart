@@ -64,6 +64,36 @@ class GpsService {
         }
       },
     );
+
+    // Skip the cold-start wait by emitting a TripPoint built from the
+    // device's last known position right away — the live stream will
+    // overwrite within a second or two. Without this, the user stares
+    // at "Waiting for GPS…" for 5-30s on a cold chip.
+    // Best-effort: returns null on devices with no recent fix.
+    unawaited(_emitCachedFix());
+  }
+
+  Future<void> _emitCachedFix() async {
+    try {
+      final cached = await Geolocator.getLastKnownPosition();
+      if (cached == null || _sub == null || _controller.isClosed) return;
+      // Force speed to 0 — the cached position's speed may be from a
+      // previous session (e.g. last Maps trip an hour ago). Surfacing
+      // a stale "you're at 60 km/h" reading here would anchor maxSpeed
+      // and avg before the live stream even starts.
+      _controller.add(
+        TripPoint(
+          lat: cached.latitude,
+          lng: cached.longitude,
+          speedKmh: 0,
+          accuracyMeters: cached.accuracy,
+          timestamp: cached.timestamp,
+        ),
+      );
+    } catch (_) {
+      // Permission edge cases / no-fix devices — swallow; the live
+      // stream is still wired up and will fire when it gets a fix.
+    }
   }
 
   /// Build platform-specific location settings.

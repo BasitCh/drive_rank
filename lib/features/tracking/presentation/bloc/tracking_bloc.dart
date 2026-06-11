@@ -370,8 +370,15 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         ? prev.distanceKm
         : prev.distanceKm + _gps.distanceMeters(prev.lastPoint!, p) / 1000.0;
 
+    // maxSpeedKmh only steps when we have *sustained* motion — i.e. both
+    // this sample and the previous one report > 0 km/h. A single noisy
+    // sample slipping past the denoiser can't anchor the saved
+    // `topSpeedKmh` any more.
+    final isSustainedMotion = prev.currentSpeedKmh > 0 && p.speedKmh > 0;
     final newMaxSpeed =
-        p.speedKmh > prev.maxSpeedKmh ? p.speedKmh : prev.maxSpeedKmh;
+        (isSustainedMotion && p.speedKmh > prev.maxSpeedKmh)
+            ? p.speedKmh
+            : prev.maxSpeedKmh;
 
     final durationSeconds = _startedAt == null
         ? prev.durationSeconds
@@ -406,9 +413,14 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
     // Hard-corner detection — same transition pattern as hard brakes:
     // counter only steps when we cross from below threshold to above,
-    // so a single 1.5s 0.6g sweeping turn = +1, not many.
+    // so a single 1.5s 0.6g sweeping turn = +1, not many. Also gated
+    // on the vehicle actually moving — picking up the phone while
+    // sitting still easily produces > 0.45 g spikes and was anchoring
+    // phantom corner counts on idle tests.
     var hardCorners = prev.hardCornersCount;
-    if (g >= AppConstants.hardCornerG) {
+    final movingFastEnoughToCorner =
+        prev.currentSpeedKmh >= AppConstants.hardCornerMinSpeedKmh;
+    if (movingFastEnoughToCorner && g >= AppConstants.hardCornerG) {
       if (!_inHardCorner) {
         hardCorners += 1;
         _inHardCorner = true;

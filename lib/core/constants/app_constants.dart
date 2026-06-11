@@ -14,8 +14,12 @@ class AppConstants {
 
   // ---- Speed noise filter (Issue 7) ----
   /// Speeds below this (km/h) are clamped to zero — under it, GPS drift
-  /// dominates the real motion signal.
-  static const double minReliableSpeedKmh = 3;
+  /// dominates the real motion signal. Set to 6 (just above brisk
+  /// walking pace) because users reported phantom 5 km/h readings
+  /// anchoring `topSpeedKmh` on stationary tests. Real driving spends
+  /// effectively no time in the 0–6 km/h band outside of parking
+  /// maneuvers, so the loss is minimal.
+  static const double minReliableSpeedKmh = 6;
 
   /// Reported GPS accuracy worse than this (m) → ignore the speed
   /// reading and clamp to zero. 20m is around the threshold where car
@@ -41,6 +45,13 @@ class AppConstants {
   /// Spirited driving stays under 0.4g; > 0.45g is "leaning on it."
   /// One increment per cornering event (debounced by transition).
   static const double hardCornerG = 0.45;
+
+  /// Minimum vehicle speed (km/h) required for a g-force spike to be
+  /// counted as a hard corner. Below this, the spike is almost
+  /// certainly the user handling the phone — picking it up to check
+  /// the speedometer, dropping it in a cup holder, etc — and was the
+  /// source of phantom hard-corner counts on stationary tests.
+  static const double hardCornerMinSpeedKmh = 10;
 
   // ---- Auto trip detection ----
   /// Speed threshold (km/h) above which a candidate trip start is registered.
