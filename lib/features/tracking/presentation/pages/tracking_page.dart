@@ -552,12 +552,15 @@ class _SpeedHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIdle = idleLabel != null;
+    // We deliberately stopped surfacing a "Waiting for GPS" gate — it
+    // confused users with a "broken" feeling on cold-start while the
+    // hardware was still warming up. The dial now reads 0 with the
+    // normal unit subtitle from the first frame; the cached-fix emit
+    // in GpsService.start() drops the gap to ~50 ms anyway.
     final subtitleText = isIdle
         ? idleLabel!
-        : (hasFix
-              ? '${locale.speedUnitLabel.toUpperCase()}'
-                    '${AppStrings.trackingCurrentSpeedSuffix}'
-              : AppStrings.trackingWaitingForGps);
+        : '${locale.speedUnitLabel.toUpperCase()}'
+              '${AppStrings.trackingCurrentSpeedSuffix}';
 
     return Stack(
       alignment: Alignment.center,
@@ -603,8 +606,9 @@ class _SpeedHero extends StatelessWidget {
 
 /// Eases the displayed speed between successive GPS readings (~1Hz) so
 /// the number sweeps like a real analogue speedometer instead of stepping.
-/// Falls back to literal '0' / '--' for the idle and no-fix states where
-/// there's no meaningful value to interpolate to.
+/// Falls back to a literal '0' for the idle and pre-fix states — we no
+/// longer surface the legacy '--' placeholder because it implied the
+/// app was broken while GPS was warming up.
 class _SmoothedSpeedNumber extends StatelessWidget {
   const _SmoothedSpeedNumber({
     required this.speedKmh,
@@ -620,11 +624,8 @@ class _SmoothedSpeedNumber extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isIdle) {
+    if (isIdle || !hasFix) {
       return const Text('0', style: AppTextStyles.speedDisplay);
-    }
-    if (!hasFix) {
-      return const Text('--', style: AppTextStyles.speedDisplay);
     }
     return TweenAnimationBuilder<double>(
       // TweenAnimationBuilder remembers the previous `end` and tweens

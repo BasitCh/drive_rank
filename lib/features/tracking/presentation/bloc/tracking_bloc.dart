@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:drive_rank/core/constants/app_constants.dart';
+import 'package:drive_rank/core/services/active_trip_store.dart';
 import 'package:drive_rank/core/services/gps_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/core/services/sensor_service.dart';
@@ -39,6 +40,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     this._trips,
     this._settings,
     this._segments,
+    this._activeTrip,
   ) : super(TrackingState.initial()) {
     on<TrackingStartRequested>(_onStartRequested);
     on<TrackingStopRequested>(_onStopRequested);
@@ -50,6 +52,12 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     on<TrackingGforceReceived>(_onGforce);
     on<TrackingTicked>(_onTick);
     on<TrackingReset>(_onReset);
+    on<TrackingRestoreFromCrash>(_onRestoreFromCrash);
+    // Probe the persistent store right away — if a previous session
+    // was interrupted (process killed, phone rebooted, force-stop),
+    // bring the stats back so the user can resume instead of starting
+    // a fresh trip.
+    add(const TrackingRestoreFromCrash());
   }
 
   final GpsService _gps;
@@ -58,6 +66,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   final TripRepository _trips;
   final UserSettingsRepository _settings;
   final RoadSegmentService _segments;
+  final ActiveTripStore _activeTrip;
 
   StreamSubscription<TripPoint>? _pointSub;
   StreamSubscription<double>? _gforceSub;
@@ -76,6 +85,56 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   bool _inHardBrake = false;
   bool _inHardCorner = false;
 
+  // ---------- crash-recovery ----------
+
+  /// Fired once at bloc construction. If the [ActiveTripStore] holds a
+  /// snapshot from a previous (interrupted) session, restore those
+  /// stats into a `paused` phase so the user can tap Resume — the
+  /// trip never silently disappears just because the OS killed us.
+  Future<void> _onRestoreFromCrash(
+    TrackingRestoreFromCrash event,
+    Emitter<TrackingState> emit,
+  ) async {
+    // Only meaningful on the very first frame after launch.
+    if (state.phase != TrackingPhase.idle) return;
+    final snap = await _activeTrip.load();
+    if (snap == null) return;
+    _startedAt = snap.startedAt;
+    _inHardBrake = false;
+    _inHardCorner = false;
+    // After a process kill the GPS stream is dead — we must not pretend
+    // we're still streaming. Restore as `paused` so the surface shows
+    // accumulated stats + a Resume button. The first post-resume point
+    // skips its distance delta (handled in _onPoint) so the gap from
+    // the pre-crash lastPoint to the new fix doesn't get counted.
+    _skipNextDistanceDelta = true;
+    emit(
+      state.copyWith(
+        phase: TrackingPhase.paused,
+        stats: snap.stats,
+      ),
+    );
+  }
+
+  /// Fire-and-forget — push the latest in-bloc snapshot to the
+  /// [ActiveTripStore]. Called after every meaningful state change
+  /// while a trip is live (point received, tick, g-force, pause /
+  /// resume). The store coalesces rapid writes internally so this is
+  /// safe to call from the 1Hz hot path.
+  void _persistActive({bool wasPaused = false}) {
+    final startedAt = _startedAt;
+    if (startedAt == null) return;
+    unawaited(
+      _activeTrip.save(
+        ActiveTripSnapshot(
+          startedAt: startedAt,
+          stats: state.stats,
+          wasPaused: wasPaused,
+        ),
+      ),
+    );
+  }
+
   // ---------- user-initiated transitions ----------
 
   Future<void> _onStartRequested(
@@ -90,6 +149,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     }
     _inHardBrake = false;
     _inHardCorner = false;
+    // A fresh trip means any leftover crash-recovery snapshot from a
+    // prior session is stale — wipe it before we begin streaming.
+    unawaited(_activeTrip.clear());
     emit(
       state.copyWith(
         phase: TrackingPhase.starting,
@@ -113,6 +175,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     try {
       await _spinUp();
       emit(state.copyWith(phase: TrackingPhase.active));
+      _persistActive();
     } catch (e) {
       await _teardown();
       emit(
@@ -159,6 +222,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _inHardBrake = false;
     _inHardCorner = false;
     emit(state.copyWith(phase: TrackingPhase.paused));
+    _persistActive(wasPaused: true);
   }
 
   Future<void> _onResumeRequested(
@@ -187,6 +251,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         (_) => add(const TrackingTicked()),
       );
       emit(state.copyWith(phase: TrackingPhase.active));
+      _persistActive();
     } catch (e) {
       await _teardown();
       emit(
@@ -289,6 +354,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
           after.freeTripsUsed >= AppConstants.freeTripLimit;
 
       _startedAt = null;
+      // Trip durably saved to Drift — wipe the crash-recovery snapshot
+      // so a later cold start doesn't try to "restore" a finished trip.
+      unawaited(_activeTrip.clear());
       emit(
         state.copyWith(
           phase: TrackingPhase.idle,
@@ -313,6 +381,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   ) async {
     await _teardown();
     _startedAt = null;
+    unawaited(_activeTrip.clear());
     emit(TrackingState.initial());
   }
 
@@ -353,6 +422,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
           ),
         ),
       );
+      _persistActive();
       return;
     }
 
@@ -401,6 +471,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         ),
       ),
     );
+    _persistActive();
   }
 
   void _onGforce(
@@ -441,6 +512,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         ),
       ),
     );
+    _persistActive();
   }
 
   void _onTick(TrackingTicked event, Emitter<TrackingState> emit) {
@@ -451,6 +523,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     emit(
       state.copyWith(stats: state.stats.copyWith(durationSeconds: seconds)),
     );
+    _persistActive();
   }
 
   // ---------- helpers ----------

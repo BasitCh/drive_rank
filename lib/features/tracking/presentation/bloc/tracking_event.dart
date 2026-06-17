@@ -70,3 +70,11 @@ class TrackingTicked extends TrackingEvent {
 class TrackingReset extends TrackingEvent {
   const TrackingReset();
 }
+
+/// Internal — fired by the bloc constructor on every cold start. If
+/// the `ActiveTripStore` holds a snapshot from a previous (interrupted)
+/// session, the bloc restores those stats into a `paused` state so the
+/// user can tap Resume to continue tracking instead of losing the trip.
+class TrackingRestoreFromCrash extends TrackingEvent {
+  const TrackingRestoreFromCrash();
+}

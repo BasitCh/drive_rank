@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/services/free_trip_counter_service.dart';
@@ -134,10 +136,17 @@ class UserSettingsRepository {
     final next = row.freeTripsUsed + 1;
     await patch(UserSettingsCompanion(freeTripsUsed: Value(next)));
     // Write-through to Firestore so the counter survives uninstall +
-    // reinstall on the same device. Best-effort — the service swallows
-    // network / auth / Firebase-not-ready failures and we still hold
-    // the right value locally for this install.
-    await _freeTripCounter.setRemote(next);
+    // reinstall on the same device. Fire-and-forget on purpose: the
+    // local write above is the canonical signal for any paywall logic,
+    // and the Firestore SDK's offline persistence layer can stall the
+    // outer Future for tens of seconds on flaky-or-no connectivity —
+    // which was hanging the "Saving trip…" gate end-of-trip. A 3s
+    // timeout caps the worst case for the background settle as well.
+    unawaited(
+      _freeTripCounter
+          .setRemote(next)
+          .timeout(const Duration(seconds: 3), onTimeout: () => false),
+    );
   }
 
   /// Reconciles local Drift counter with the cloud counter for this
