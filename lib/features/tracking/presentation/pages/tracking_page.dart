@@ -80,7 +80,7 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
 
   /// Fires the [OemBatteryAdviceSheet] iff this device is on a known
   /// battery-killer OEM list AND we haven't shown the sheet before.
-  /// Marks the persisted [UserSettings.oemAdviceShown] flag after a
+  /// Marks the persisted `UserSettings.oemAdviceShown` flag after a
   /// successful show so the prompt never repeats.
   Future<void> _maybeShowOemAdvice(BuildContext context) async {
     if (_oemAdviceCheckedThisSession) return;
@@ -1044,16 +1044,16 @@ class _InterruptionBanner extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       ),
-      child: Row(
+      child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.warning_amber_rounded,
             color: AppColors.orange,
             size: 18,
           ),
-          const SizedBox(width: AppSpacing.sm),
-          const Expanded(
+          SizedBox(width: AppSpacing.sm),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

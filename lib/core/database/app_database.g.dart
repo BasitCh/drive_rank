@@ -3220,7 +3220,7 @@ class $LiveTripsTable extends LiveTrips
 class LiveTripRow extends DataClass implements Insertable<LiveTripRow> {
   final int id;
 
-  /// User id this trip belongs to. Mirrors [Trips.uid] so completed
+  /// User id this trip belongs to. Mirrors `Trips.uid` so completed
   /// trips inherit ownership cleanly.
   final String uid;
 

@@ -14,6 +14,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
+    <!-- Lets the user grant DriveRank an exemption from battery
+         optimizations so OEM doze / standby buckets don't kill the
+         foreground service mid-trip. Required for the in-app
+         "Request" CTA to surface the system whitelist sheet. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+
     <!-- Network — Firestore sync, weather API, GlobalPetrolPrices. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>

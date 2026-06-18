@@ -56,6 +56,17 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     on<TrackingTicked>(_onTick);
     on<TrackingReset>(_onReset);
     on<TrackingRestoreFromCrash>(_onRestoreFromCrash);
+    // Bridge the lock-screen notification → bloc. When the user
+    // completes the tap-twice End Trip confirmation on the live
+    // notification, the service emits on this stream and we dispatch
+    // the same TrackingStopRequested event the in-app End button uses.
+    // Subscription is cancelled in close().
+    _notificationEndSub = _notification.endTripRequested.listen((_) {
+      if (state.phase == TrackingPhase.active ||
+          state.phase == TrackingPhase.paused) {
+        add(const TrackingStopRequested());
+      }
+    });
     // Probe the persistent store right away — if a previous session
     // was interrupted (process killed, phone rebooted, force-stop),
     // bring the stats back so the user can resume instead of starting
@@ -74,6 +85,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
   StreamSubscription<TripPoint>? _pointSub;
   StreamSubscription<double>? _gforceSub;
+  StreamSubscription<void>? _notificationEndSub;
   Timer? _ticker;
   DateTime? _startedAt;
   // Set when the user resumes from pause so the very first post-resume
@@ -619,6 +631,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
   @override
   Future<void> close() async {
+    await _notificationEndSub?.cancel();
+    _notificationEndSub = null;
     await _teardown();
     return super.close();
   }

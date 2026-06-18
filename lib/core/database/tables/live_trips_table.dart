@@ -36,7 +36,7 @@ enum TripStatusEnum {
 /// The single source of truth for an in-progress trip.
 ///
 /// One row at most (enforced by the bloc), updated every ~30s with
-/// rolled-up stats while waypoints append to [LiveWaypoints] at the
+/// rolled-up stats while waypoints append to `LiveWaypoints` at the
 /// 1Hz tick rate. The bloc / service writes to both atomically so a
 /// process kill at any moment leaves the database in a consistent
 /// state.
@@ -44,7 +44,7 @@ enum TripStatusEnum {
 class LiveTrips extends Table {
   IntColumn get id => integer().autoIncrement()();
 
-  /// User id this trip belongs to. Mirrors [Trips.uid] so completed
+  /// User id this trip belongs to. Mirrors `Trips.uid` so completed
   /// trips inherit ownership cleanly.
   TextColumn get uid => text()();
 

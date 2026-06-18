@@ -207,7 +207,7 @@ class ActiveTripStore {
   }
 
   /// Deletes the live row and all of its waypoints in one transaction.
-  /// Called after the trip is durably saved to [Trips] / [Waypoints]
+  /// Called after the trip is durably saved to `Trips` / `Waypoints`
   /// and after an explicit reset.
   Future<void> clear() async {
     try {

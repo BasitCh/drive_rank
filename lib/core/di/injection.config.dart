@@ -17,6 +17,8 @@ import 'package:drive_rank/core/network/network_info.dart' as _i721;
 import 'package:drive_rank/core/router/app_router.dart' as _i901;
 import 'package:drive_rank/core/services/active_trip_store.dart' as _i766;
 import 'package:drive_rank/core/services/auth_service.dart' as _i1009;
+import 'package:drive_rank/core/services/battery_optimization_service.dart'
+    as _i595;
 import 'package:drive_rank/core/services/card_export_service.dart' as _i261;
 import 'package:drive_rank/core/services/device_identity_service.dart' as _i529;
 import 'package:drive_rank/core/services/free_trip_counter_service.dart'
@@ -72,6 +74,9 @@ _i174.GetIt $initGetIt(
   gh.singleton<_i901.AppRouter>(() => _i901.AppRouter());
   gh.singleton<_i375.GpsService>(() => _i375.GpsService());
   gh.singleton<_i125.SensorService>(() => _i125.SensorService());
+  gh.lazySingleton<_i595.BatteryOptimizationService>(
+    () => const _i595.BatteryOptimizationService(),
+  );
   gh.lazySingleton<_i261.CardExportService>(() => _i261.CardExportService());
   gh.lazySingleton<_i529.DeviceIdentityService>(
     () => _i529.DeviceIdentityService(),
@@ -87,6 +92,7 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i488.PushService>(() => injectionModule.noopPush());
   gh.lazySingleton<_i201.LiveTripNotificationService>(
     () => _i201.LiveTripNotificationService(gh<_i447.LocaleService>()),
+    dispose: (i) => i.dispose(),
   );
   gh.lazySingleton<_i46.TelemetryService>(
     () => injectionModule.consoleTelemetry(),

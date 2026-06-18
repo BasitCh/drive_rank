@@ -1,6 +1,7 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/di/injection.dart';
+import 'package:drive_rank/core/services/battery_optimization_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:flutter/material.dart';
 
@@ -75,7 +76,7 @@ class OemBatteryAdviceSheet extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             const Text(
-              'Your phone\'s battery saver can close DriveRank while the '
+              "Your phone's battery saver can close DriveRank while the "
               'screen is off — that ends long trips early. Set DriveRank '
               'to "no restrictions" or "allow background activity" so '
               'every drive is recorded fully.',
@@ -109,11 +110,21 @@ class OemBatteryAdviceSheet extends StatelessWidget {
                   ),
                 ),
                 onPressed: () async {
-                  await getIt<PermissionService>().openSettings();
+                  // Try the dedicated battery-optimization whitelist
+                  // sheet first — on Android 6+ this drops the user
+                  // directly on the "Don't optimize" dialog for
+                  // DriveRank. If the system rejects it (or the user
+                  // declines), fall back to opening app settings so
+                  // they can navigate to Battery manually.
+                  final granted = await const BatteryOptimizationService()
+                      .requestIgnoreOptimizations();
+                  if (!granted) {
+                    await getIt<PermissionService>().openSettings();
+                  }
                   if (context.mounted) Navigator.of(context).pop();
                 },
                 child: const Text(
-                  'Open Settings',
+                  'Allow background',
                   style: TextStyle(
                     fontFamily: 'Outfit',
                     fontSize: 14,
@@ -128,7 +139,7 @@ class OemBatteryAdviceSheet extends StatelessWidget {
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text(
-                  'I\'ll do this later',
+                  "I'll do this later",
                   style: TextStyle(
                     fontFamily: 'Outfit',
                     fontSize: 13,
