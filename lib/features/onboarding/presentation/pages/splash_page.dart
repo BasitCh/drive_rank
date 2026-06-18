@@ -4,9 +4,12 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/router/route_names.dart';
+import 'package:drive_rank/core/services/app_update_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Cold-start splash. Plays the engine-start sound, runs a sequenced
 /// scale/glow animation on the brand wordmark, then routes to onboarding.
@@ -27,6 +30,13 @@ class _SplashPageState extends State<SplashPage> {
   final AudioPlayer _player = AudioPlayer();
   Timer? _routeTimer;
 
+  /// Set to true if the Play Store reports an update is available AND
+  /// the user declined the immediate-update prompt (or it failed).
+  /// While true, the splash renders [_UpdateGate] instead of the
+  /// animation and the route timer is cancelled — the user can't reach
+  /// onboarding/home without updating.
+  bool _blockedByUpdate = false;
+
   @override
   void initState() {
     super.initState();
@@ -34,21 +44,60 @@ class _SplashPageState extends State<SplashPage> {
     // Stored on a field so dispose() can cancel it — otherwise widget tests
     // (and any teardown before the timer fires) leak a pending timer.
     _routeTimer = Timer(_routeDelay, _goNext);
+    // Fire the update check in parallel with the splash animation. If
+    // an update is available and the user takes the immediate flow,
+    // Play Store covers the screen and the route timer becomes moot;
+    // if they decline, we cancel the timer and show the gate.
+    unawaited(_checkForRequiredUpdate());
   }
 
   Future<void> _playStartupSound() async {
     try {
       debugPrint('Splash audio starting');
-
       await _player.setReleaseMode(ReleaseMode.stop);
-
       await _player.play(AssetSource('sound/sound.mp3'));
-
       debugPrint('Splash audio started');
     } catch (e) {
       debugPrint('Splash audio error: $e');
     }
   }
+
+  Future<void> _checkForRequiredUpdate() async {
+    final outcome = await const AppUpdateService().promptIfAvailable();
+    if (!mounted) return;
+    if (outcome == AppUpdateOutcome.blocked) {
+      _routeTimer?.cancel();
+      setState(() => _blockedByUpdate = true);
+    }
+  }
+
+  Future<void> _retryUpdate() async {
+    final outcome = await const AppUpdateService().retryImmediate();
+    if (!mounted) return;
+    if (outcome == AppUpdateOutcome.notRequired) {
+      // Play Services just told us no update is needed any more —
+      // probably the user updated out-of-band via Play Store. Let them
+      // through to the app.
+      setState(() => _blockedByUpdate = false);
+      _goNext();
+    }
+    // Anything else: stay on the gate. blocked → user declined again;
+    // updated → app will be relaunched by Play and we won't see it.
+  }
+
+  Future<void> _openPlayStoreListing() async {
+    // market:// opens the Play Store app directly; the https fallback
+    // covers devices without the Play Store app installed (web Play).
+    const pkg = 'com.bytse.drive_rank';
+    final marketUri = Uri.parse('market://details?id=$pkg');
+    final webUri = Uri.parse('https://play.google.com/store/apps/details?id=$pkg');
+    final ok = await launchUrl(marketUri, mode: LaunchMode.externalApplication);
+    if (!ok) {
+      await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _exitApp() => SystemNavigator.pop();
 
   void _goNext() {
     if (!mounted) return;
@@ -64,15 +113,140 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
-        child: Center(
-          child: Stack(
-            alignment: Alignment.center,
-            children: [_RadialGlow(), _PulseRing(), _WordmarkAndTagline()],
+        child: _blockedByUpdate
+            ? _UpdateGate(
+                onUpdate: _retryUpdate,
+                onOpenPlayStore: _openPlayStoreListing,
+                onExit: _exitApp,
+              )
+            : const Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    _RadialGlow(),
+                    _PulseRing(),
+                    _WordmarkAndTagline(),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+/// Blocking surface shown when an update is available and the user
+/// declined / Play Services errored. No path forward except updating
+/// or exiting the app — there's no "Skip for now" by design.
+class _UpdateGate extends StatelessWidget {
+  const _UpdateGate({
+    required this.onUpdate,
+    required this.onOpenPlayStore,
+    required this.onExit,
+  });
+
+  final VoidCallback onUpdate;
+  final VoidCallback onOpenPlayStore;
+  final VoidCallback onExit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+      child: Column(
+        children: [
+          const Spacer(),
+          const Icon(
+            Icons.system_update_alt_rounded,
+            size: 56,
+            color: AppColors.teal,
           ),
-        ),
+          const SizedBox(height: 18),
+          const Text(
+            'Update required',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'BebasNeue',
+              fontSize: 34,
+              color: Colors.white,
+              letterSpacing: 2,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'A new version of DriveRank is available. Update to keep '
+            'your trips safe — older builds may lose data.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: onUpdate,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.teal,
+                foregroundColor: AppColors.bg,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              child: const Text(
+                'Update now',
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onOpenPlayStore,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: AppColors.border2),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              child: const Text(
+                'Open in Play Store',
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          TextButton(
+            onPressed: onExit,
+            child: const Text(
+              'Exit app',
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 13,
+                color: AppColors.textTertiary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
