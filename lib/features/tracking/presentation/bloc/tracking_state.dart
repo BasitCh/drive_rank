@@ -42,6 +42,22 @@ enum TrackingPhase {
   error,
 }
 
+/// Origin story of the current `paused` state — drives the recovery
+/// banner copy on the tracking page.
+enum TripRecoveryStatus {
+  /// No recovery happened; trip is fresh (also the default for any
+  /// non-paused state).
+  fresh,
+
+  /// The user paused the trip explicitly. Standard pause/resume UX.
+  userPaused,
+
+  /// The bloc detected on cold start that a prior session's last
+  /// snapshot was stale — the OS killed us mid-trip. The recovery
+  /// banner explains and offers Resume / Save / Discard.
+  interruptedByOs,
+}
+
 @immutable
 class TrackingState {
   const TrackingState({
@@ -51,6 +67,7 @@ class TrackingState {
     required this.completedTripId,
     required this.shouldShowPaywall,
     required this.errorMessage,
+    required this.recoveryStatus,
   });
 
   factory TrackingState.initial() => TrackingState(
@@ -60,6 +77,7 @@ class TrackingState {
     completedTripId: null,
     shouldShowPaywall: false,
     errorMessage: null,
+    recoveryStatus: TripRecoveryStatus.fresh,
   );
 
   final TrackingPhase phase;
@@ -79,6 +97,11 @@ class TrackingState {
   /// Human-readable error copy shown in the error-state gate.
   final String? errorMessage;
 
+  /// Why we're in `paused` — used by the page to decide between the
+  /// normal pause UI and the "your trip was interrupted" recovery
+  /// banner.
+  final TripRecoveryStatus recoveryStatus;
+
   bool get isRecording =>
       phase == TrackingPhase.active || phase == TrackingPhase.paused;
 
@@ -89,6 +112,7 @@ class TrackingState {
     int? completedTripId,
     bool? shouldShowPaywall,
     String? errorMessage,
+    TripRecoveryStatus? recoveryStatus,
     bool clearCompletedTripId = false,
     bool clearError = false,
   }) {
@@ -101,6 +125,7 @@ class TrackingState {
           : (completedTripId ?? this.completedTripId),
       shouldShowPaywall: shouldShowPaywall ?? this.shouldShowPaywall,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      recoveryStatus: recoveryStatus ?? this.recoveryStatus,
     );
   }
 }

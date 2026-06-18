@@ -10,6 +10,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:connectivity_plus/connectivity_plus.dart' as _i895;
+import 'package:device_info_plus/device_info_plus.dart' as _i833;
 import 'package:drive_rank/core/database/app_database.dart' as _i425;
 import 'package:drive_rank/core/di/injection_module.dart' as _i953;
 import 'package:drive_rank/core/network/network_info.dart' as _i721;
@@ -21,7 +22,10 @@ import 'package:drive_rank/core/services/device_identity_service.dart' as _i529;
 import 'package:drive_rank/core/services/free_trip_counter_service.dart'
     as _i1058;
 import 'package:drive_rank/core/services/gps_service.dart' as _i375;
+import 'package:drive_rank/core/services/live_trip_notification_service.dart'
+    as _i201;
 import 'package:drive_rank/core/services/locale_service.dart' as _i447;
+import 'package:drive_rank/core/services/oem_battery_advisor.dart' as _i207;
 import 'package:drive_rank/core/services/paywall_service.dart' as _i495;
 import 'package:drive_rank/core/services/permission_service.dart' as _i576;
 import 'package:drive_rank/core/services/push_service.dart' as _i488;
@@ -68,7 +72,6 @@ _i174.GetIt $initGetIt(
   gh.singleton<_i901.AppRouter>(() => _i901.AppRouter());
   gh.singleton<_i375.GpsService>(() => _i375.GpsService());
   gh.singleton<_i125.SensorService>(() => _i125.SensorService());
-  gh.lazySingleton<_i766.ActiveTripStore>(() => _i766.ActiveTripStore());
   gh.lazySingleton<_i261.CardExportService>(() => _i261.CardExportService());
   gh.lazySingleton<_i529.DeviceIdentityService>(
     () => _i529.DeviceIdentityService(),
@@ -78,7 +81,13 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i405.CarPhotoService>(() => _i405.CarPhotoService());
   gh.lazySingleton<_i928.RoadSegmentService>(() => _i928.RoadSegmentService());
   gh.lazySingleton<_i972.CarRepository>(() => _i639.AssetCarRepository());
+  gh.lazySingleton<_i207.OemBatteryAdvisor>(
+    () => _i207.OemBatteryAdvisor(gh<_i833.DeviceInfoPlugin>()),
+  );
   gh.lazySingleton<_i488.PushService>(() => injectionModule.noopPush());
+  gh.lazySingleton<_i201.LiveTripNotificationService>(
+    () => _i201.LiveTripNotificationService(gh<_i447.LocaleService>()),
+  );
   gh.lazySingleton<_i46.TelemetryService>(
     () => injectionModule.consoleTelemetry(),
   );
@@ -107,19 +116,11 @@ _i174.GetIt $initGetIt(
       gh<_i576.PermissionService>(),
     ),
   );
+  gh.lazySingleton<_i766.ActiveTripStore>(
+    () => _i766.ActiveTripStore(gh<_i425.AppDatabase>()),
+  );
   gh.lazySingleton<_i634.TripRepository>(
     () => _i634.TripRepository(gh<_i425.AppDatabase>()),
-  );
-  gh.factory<_i687.TrackingBloc>(
-    () => _i687.TrackingBloc(
-      gh<_i375.GpsService>(),
-      gh<_i125.SensorService>(),
-      gh<_i576.PermissionService>(),
-      gh<_i634.TripRepository>(),
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i928.RoadSegmentService>(),
-      gh<_i766.ActiveTripStore>(),
-    ),
   );
   gh.factory<_i990.TripSummaryBloc>(
     () => _i990.TripSummaryBloc(
@@ -133,6 +134,18 @@ _i174.GetIt $initGetIt(
       gh<_i495.PaywallService>(),
       gh<_i727.UserSettingsRepository>(),
       gh<_i634.TripRepository>(),
+    ),
+  );
+  gh.factory<_i687.TrackingBloc>(
+    () => _i687.TrackingBloc(
+      gh<_i375.GpsService>(),
+      gh<_i125.SensorService>(),
+      gh<_i576.PermissionService>(),
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i928.RoadSegmentService>(),
+      gh<_i766.ActiveTripStore>(),
+      gh<_i201.LiveTripNotificationService>(),
     ),
   );
   gh.lazySingleton<_i67.TripStatsService>(

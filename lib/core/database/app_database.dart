@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:drive_rank/core/database/tables/live_trips_table.dart';
 import 'package:drive_rank/core/database/tables/trips_table.dart';
 import 'package:drive_rank/core/database/tables/user_settings_table.dart';
 import 'package:drive_rank/core/database/tables/waypoints_table.dart';
@@ -15,7 +16,9 @@ part 'app_database.g.dart';
 ///
 /// Reads are always served from this DB (reactive streams) — Firestore is
 /// a write-only sync target. Keeps the app fully offline-capable.
-@DriftDatabase(tables: [Trips, Waypoints, UserSettings])
+@DriftDatabase(
+  tables: [Trips, Waypoints, UserSettings, LiveTrips, LiveWaypoints],
+)
 @singleton
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -24,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -38,6 +41,23 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE trips ADD COLUMN road_segment_ids TEXT NOT NULL '
           "DEFAULT ''",
+        );
+      }
+      if (from < 3) {
+        // v3 adds the LiveTrips + LiveWaypoints tables that back the
+        // crash-recovery + service-isolate checkpoint flow. The
+        // generated CREATE statements live on the migrator — no need
+        // to hand-roll SQL.
+        await m.createTable(liveTrips);
+        await m.createTable(liveWaypoints);
+      }
+      if (from < 4) {
+        // v4 adds UserSettings.oem_advice_shown — set once after the
+        // OEM battery-killer bottom sheet runs so we don't nag the
+        // user every trip start.
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN oem_advice_shown '
+          'INTEGER NOT NULL DEFAULT 0',
         );
       }
     },

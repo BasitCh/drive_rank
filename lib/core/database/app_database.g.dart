@@ -1890,6 +1890,21 @@ class $UserSettingsTable extends UserSettings
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _oemAdviceShownMeta = const VerificationMeta(
+    'oemAdviceShown',
+  );
+  @override
+  late final GeneratedColumn<bool> oemAdviceShown = GeneratedColumn<bool>(
+    'oem_advice_shown',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("oem_advice_shown" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1922,6 +1937,7 @@ class $UserSettingsTable extends UserSettings
     freeTripsUsed,
     isPro,
     onboardingComplete,
+    oemAdviceShown,
     createdAt,
   ];
   @override
@@ -2073,6 +2089,15 @@ class $UserSettingsTable extends UserSettings
         ),
       );
     }
+    if (data.containsKey('oem_advice_shown')) {
+      context.handle(
+        _oemAdviceShownMeta,
+        oemAdviceShown.isAcceptableOrUnknown(
+          data['oem_advice_shown']!,
+          _oemAdviceShownMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -2166,6 +2191,10 @@ class $UserSettingsTable extends UserSettings
         DriftSqlType.bool,
         data['${effectivePrefix}onboarding_complete'],
       )!,
+      oemAdviceShown: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}oem_advice_shown'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2199,6 +2228,13 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   final int freeTripsUsed;
   final bool isPro;
   final bool onboardingComplete;
+
+  /// Set to true once we've shown the user the OEM battery-killer
+  /// bottom sheet (Xiaomi / Oppo / Huawei / Vivo / etc). Persisted so
+  /// the prompt fires at most once per install — repeatedly nagging a
+  /// user who already saw it is worse UX than letting them figure out
+  /// they need to whitelist DriveRank.
+  final bool oemAdviceShown;
   final DateTime createdAt;
   const UserSettingsRow({
     required this.id,
@@ -2220,6 +2256,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     required this.freeTripsUsed,
     required this.isPro,
     required this.onboardingComplete,
+    required this.oemAdviceShown,
     required this.createdAt,
   });
   @override
@@ -2260,6 +2297,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     map['free_trips_used'] = Variable<int>(freeTripsUsed);
     map['is_pro'] = Variable<bool>(isPro);
     map['onboarding_complete'] = Variable<bool>(onboardingComplete);
+    map['oem_advice_shown'] = Variable<bool>(oemAdviceShown);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -2301,6 +2339,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       freeTripsUsed: Value(freeTripsUsed),
       isPro: Value(isPro),
       onboardingComplete: Value(onboardingComplete),
+      oemAdviceShown: Value(oemAdviceShown),
       createdAt: Value(createdAt),
     );
   }
@@ -2330,6 +2369,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       freeTripsUsed: serializer.fromJson<int>(json['freeTripsUsed']),
       isPro: serializer.fromJson<bool>(json['isPro']),
       onboardingComplete: serializer.fromJson<bool>(json['onboardingComplete']),
+      oemAdviceShown: serializer.fromJson<bool>(json['oemAdviceShown']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -2356,6 +2396,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       'freeTripsUsed': serializer.toJson<int>(freeTripsUsed),
       'isPro': serializer.toJson<bool>(isPro),
       'onboardingComplete': serializer.toJson<bool>(onboardingComplete),
+      'oemAdviceShown': serializer.toJson<bool>(oemAdviceShown),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -2380,6 +2421,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     int? freeTripsUsed,
     bool? isPro,
     bool? onboardingComplete,
+    bool? oemAdviceShown,
     DateTime? createdAt,
   }) => UserSettingsRow(
     id: id ?? this.id,
@@ -2405,6 +2447,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     freeTripsUsed: freeTripsUsed ?? this.freeTripsUsed,
     isPro: isPro ?? this.isPro,
     onboardingComplete: onboardingComplete ?? this.onboardingComplete,
+    oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
     createdAt: createdAt ?? this.createdAt,
   );
   UserSettingsRow copyWithCompanion(UserSettingsCompanion data) {
@@ -2446,6 +2489,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       onboardingComplete: data.onboardingComplete.present
           ? data.onboardingComplete.value
           : this.onboardingComplete,
+      oemAdviceShown: data.oemAdviceShown.present
+          ? data.oemAdviceShown.value
+          : this.oemAdviceShown,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -2472,13 +2518,14 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           ..write('freeTripsUsed: $freeTripsUsed, ')
           ..write('isPro: $isPro, ')
           ..write('onboardingComplete: $onboardingComplete, ')
+          ..write('oemAdviceShown: $oemAdviceShown, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     uid,
     username,
@@ -2498,8 +2545,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     freeTripsUsed,
     isPro,
     onboardingComplete,
+    oemAdviceShown,
     createdAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2523,6 +2571,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           other.freeTripsUsed == this.freeTripsUsed &&
           other.isPro == this.isPro &&
           other.onboardingComplete == this.onboardingComplete &&
+          other.oemAdviceShown == this.oemAdviceShown &&
           other.createdAt == this.createdAt);
 }
 
@@ -2546,6 +2595,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
   final Value<int> freeTripsUsed;
   final Value<bool> isPro;
   final Value<bool> onboardingComplete;
+  final Value<bool> oemAdviceShown;
   final Value<DateTime> createdAt;
   const UserSettingsCompanion({
     this.id = const Value.absent(),
@@ -2567,6 +2617,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.freeTripsUsed = const Value.absent(),
     this.isPro = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
+    this.oemAdviceShown = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   UserSettingsCompanion.insert({
@@ -2589,6 +2640,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.freeTripsUsed = const Value.absent(),
     this.isPro = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
+    this.oemAdviceShown = const Value.absent(),
     required DateTime createdAt,
   }) : uid = Value(uid),
        createdAt = Value(createdAt);
@@ -2612,6 +2664,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Expression<int>? freeTripsUsed,
     Expression<bool>? isPro,
     Expression<bool>? onboardingComplete,
+    Expression<bool>? oemAdviceShown,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -2634,6 +2687,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       if (freeTripsUsed != null) 'free_trips_used': freeTripsUsed,
       if (isPro != null) 'is_pro': isPro,
       if (onboardingComplete != null) 'onboarding_complete': onboardingComplete,
+      if (oemAdviceShown != null) 'oem_advice_shown': oemAdviceShown,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -2658,6 +2712,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Value<int>? freeTripsUsed,
     Value<bool>? isPro,
     Value<bool>? onboardingComplete,
+    Value<bool>? oemAdviceShown,
     Value<DateTime>? createdAt,
   }) {
     return UserSettingsCompanion(
@@ -2680,6 +2735,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       freeTripsUsed: freeTripsUsed ?? this.freeTripsUsed,
       isPro: isPro ?? this.isPro,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
+      oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -2744,6 +2800,9 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     if (onboardingComplete.present) {
       map['onboarding_complete'] = Variable<bool>(onboardingComplete.value);
     }
+    if (oemAdviceShown.present) {
+      map['oem_advice_shown'] = Variable<bool>(oemAdviceShown.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2772,7 +2831,1294 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
           ..write('freeTripsUsed: $freeTripsUsed, ')
           ..write('isPro: $isPro, ')
           ..write('onboardingComplete: $onboardingComplete, ')
+          ..write('oemAdviceShown: $oemAdviceShown, ')
           ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LiveTripsTable extends LiveTrips
+    with TableInfo<$LiveTripsTable, LiveTripRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LiveTripsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+    'uid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('active'),
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _distanceKmMeta = const VerificationMeta(
+    'distanceKm',
+  );
+  @override
+  late final GeneratedColumn<double> distanceKm = GeneratedColumn<double>(
+    'distance_km',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _topSpeedKmhMeta = const VerificationMeta(
+    'topSpeedKmh',
+  );
+  @override
+  late final GeneratedColumn<double> topSpeedKmh = GeneratedColumn<double>(
+    'top_speed_kmh',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _avgSpeedKmhMeta = const VerificationMeta(
+    'avgSpeedKmh',
+  );
+  @override
+  late final GeneratedColumn<double> avgSpeedKmh = GeneratedColumn<double>(
+    'avg_speed_kmh',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _durationSecondsMeta = const VerificationMeta(
+    'durationSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+    'duration_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _maxGforceMeta = const VerificationMeta(
+    'maxGforce',
+  );
+  @override
+  late final GeneratedColumn<double> maxGforce = GeneratedColumn<double>(
+    'max_gforce',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _hardCornersCountMeta = const VerificationMeta(
+    'hardCornersCount',
+  );
+  @override
+  late final GeneratedColumn<int> hardCornersCount = GeneratedColumn<int>(
+    'hard_corners_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _hardBrakesCountMeta = const VerificationMeta(
+    'hardBrakesCount',
+  );
+  @override
+  late final GeneratedColumn<int> hardBrakesCount = GeneratedColumn<int>(
+    'hard_brakes_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _interruptionCountMeta = const VerificationMeta(
+    'interruptionCount',
+  );
+  @override
+  late final GeneratedColumn<int> interruptionCount = GeneratedColumn<int>(
+    'interruption_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _wasPausedMeta = const VerificationMeta(
+    'wasPaused',
+  );
+  @override
+  late final GeneratedColumn<bool> wasPaused = GeneratedColumn<bool>(
+    'was_paused',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("was_paused" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    uid,
+    status,
+    startedAt,
+    distanceKm,
+    topSpeedKmh,
+    avgSpeedKmh,
+    durationSeconds,
+    maxGforce,
+    hardCornersCount,
+    hardBrakesCount,
+    interruptionCount,
+    wasPaused,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'live_trips';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LiveTripRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uid')) {
+      context.handle(
+        _uidMeta,
+        uid.isAcceptableOrUnknown(data['uid']!, _uidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_uidMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtMeta);
+    }
+    if (data.containsKey('distance_km')) {
+      context.handle(
+        _distanceKmMeta,
+        distanceKm.isAcceptableOrUnknown(data['distance_km']!, _distanceKmMeta),
+      );
+    }
+    if (data.containsKey('top_speed_kmh')) {
+      context.handle(
+        _topSpeedKmhMeta,
+        topSpeedKmh.isAcceptableOrUnknown(
+          data['top_speed_kmh']!,
+          _topSpeedKmhMeta,
+        ),
+      );
+    }
+    if (data.containsKey('avg_speed_kmh')) {
+      context.handle(
+        _avgSpeedKmhMeta,
+        avgSpeedKmh.isAcceptableOrUnknown(
+          data['avg_speed_kmh']!,
+          _avgSpeedKmhMeta,
+        ),
+      );
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+        _durationSecondsMeta,
+        durationSeconds.isAcceptableOrUnknown(
+          data['duration_seconds']!,
+          _durationSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('max_gforce')) {
+      context.handle(
+        _maxGforceMeta,
+        maxGforce.isAcceptableOrUnknown(data['max_gforce']!, _maxGforceMeta),
+      );
+    }
+    if (data.containsKey('hard_corners_count')) {
+      context.handle(
+        _hardCornersCountMeta,
+        hardCornersCount.isAcceptableOrUnknown(
+          data['hard_corners_count']!,
+          _hardCornersCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('hard_brakes_count')) {
+      context.handle(
+        _hardBrakesCountMeta,
+        hardBrakesCount.isAcceptableOrUnknown(
+          data['hard_brakes_count']!,
+          _hardBrakesCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('interruption_count')) {
+      context.handle(
+        _interruptionCountMeta,
+        interruptionCount.isAcceptableOrUnknown(
+          data['interruption_count']!,
+          _interruptionCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('was_paused')) {
+      context.handle(
+        _wasPausedMeta,
+        wasPaused.isAcceptableOrUnknown(data['was_paused']!, _wasPausedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LiveTripRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LiveTripRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      uid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uid'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_at'],
+      )!,
+      distanceKm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}distance_km'],
+      )!,
+      topSpeedKmh: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}top_speed_kmh'],
+      )!,
+      avgSpeedKmh: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}avg_speed_kmh'],
+      )!,
+      durationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_seconds'],
+      )!,
+      maxGforce: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}max_gforce'],
+      )!,
+      hardCornersCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hard_corners_count'],
+      )!,
+      hardBrakesCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}hard_brakes_count'],
+      )!,
+      interruptionCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}interruption_count'],
+      )!,
+      wasPaused: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}was_paused'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LiveTripsTable createAlias(String alias) {
+    return $LiveTripsTable(attachedDatabase, alias);
+  }
+}
+
+class LiveTripRow extends DataClass implements Insertable<LiveTripRow> {
+  final int id;
+
+  /// User id this trip belongs to. Mirrors [Trips.uid] so completed
+  /// trips inherit ownership cleanly.
+  final String uid;
+
+  /// Status — stored as the enum's `.name` so adding a new case in
+  /// code doesn't break old rows. See [TripStatusEnum].
+  final String status;
+
+  /// Wall-clock start of the trip. Used for duration when ticking and
+  /// preserved through Resume so paused intervals don't count.
+  final DateTime startedAt;
+
+  /// Most-recent rollup of stats. Recomputable from [LiveWaypoints]
+  /// in the worst case, but cached here so the tracking page can
+  /// render the recovery banner without a full waypoint scan.
+  final double distanceKm;
+  final double topSpeedKmh;
+  final double avgSpeedKmh;
+  final int durationSeconds;
+  final double maxGforce;
+  final int hardCornersCount;
+  final int hardBrakesCount;
+
+  /// Number of times this single trip had to recover from an
+  /// interrupted state. Surfaced on the saved trip card later as the
+  /// foundation for a "Trip Quality" badge.
+  final int interruptionCount;
+
+  /// True when the trip was sitting in `paused` at the moment the
+  /// snapshot was taken — drives whether the recovery banner reads
+  /// "you paused at 12:34" vs "your trip was interrupted at 12:34".
+  final bool wasPaused;
+
+  /// When this row was last written. The bloc uses
+  /// `now - updatedAt > 30s` as the heuristic for "the OS killed us
+  /// before we could finish" and flips status → interrupted.
+  final DateTime updatedAt;
+  const LiveTripRow({
+    required this.id,
+    required this.uid,
+    required this.status,
+    required this.startedAt,
+    required this.distanceKm,
+    required this.topSpeedKmh,
+    required this.avgSpeedKmh,
+    required this.durationSeconds,
+    required this.maxGforce,
+    required this.hardCornersCount,
+    required this.hardBrakesCount,
+    required this.interruptionCount,
+    required this.wasPaused,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uid'] = Variable<String>(uid);
+    map['status'] = Variable<String>(status);
+    map['started_at'] = Variable<DateTime>(startedAt);
+    map['distance_km'] = Variable<double>(distanceKm);
+    map['top_speed_kmh'] = Variable<double>(topSpeedKmh);
+    map['avg_speed_kmh'] = Variable<double>(avgSpeedKmh);
+    map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['max_gforce'] = Variable<double>(maxGforce);
+    map['hard_corners_count'] = Variable<int>(hardCornersCount);
+    map['hard_brakes_count'] = Variable<int>(hardBrakesCount);
+    map['interruption_count'] = Variable<int>(interruptionCount);
+    map['was_paused'] = Variable<bool>(wasPaused);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  LiveTripsCompanion toCompanion(bool nullToAbsent) {
+    return LiveTripsCompanion(
+      id: Value(id),
+      uid: Value(uid),
+      status: Value(status),
+      startedAt: Value(startedAt),
+      distanceKm: Value(distanceKm),
+      topSpeedKmh: Value(topSpeedKmh),
+      avgSpeedKmh: Value(avgSpeedKmh),
+      durationSeconds: Value(durationSeconds),
+      maxGforce: Value(maxGforce),
+      hardCornersCount: Value(hardCornersCount),
+      hardBrakesCount: Value(hardBrakesCount),
+      interruptionCount: Value(interruptionCount),
+      wasPaused: Value(wasPaused),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory LiveTripRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LiveTripRow(
+      id: serializer.fromJson<int>(json['id']),
+      uid: serializer.fromJson<String>(json['uid']),
+      status: serializer.fromJson<String>(json['status']),
+      startedAt: serializer.fromJson<DateTime>(json['startedAt']),
+      distanceKm: serializer.fromJson<double>(json['distanceKm']),
+      topSpeedKmh: serializer.fromJson<double>(json['topSpeedKmh']),
+      avgSpeedKmh: serializer.fromJson<double>(json['avgSpeedKmh']),
+      durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      maxGforce: serializer.fromJson<double>(json['maxGforce']),
+      hardCornersCount: serializer.fromJson<int>(json['hardCornersCount']),
+      hardBrakesCount: serializer.fromJson<int>(json['hardBrakesCount']),
+      interruptionCount: serializer.fromJson<int>(json['interruptionCount']),
+      wasPaused: serializer.fromJson<bool>(json['wasPaused']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uid': serializer.toJson<String>(uid),
+      'status': serializer.toJson<String>(status),
+      'startedAt': serializer.toJson<DateTime>(startedAt),
+      'distanceKm': serializer.toJson<double>(distanceKm),
+      'topSpeedKmh': serializer.toJson<double>(topSpeedKmh),
+      'avgSpeedKmh': serializer.toJson<double>(avgSpeedKmh),
+      'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'maxGforce': serializer.toJson<double>(maxGforce),
+      'hardCornersCount': serializer.toJson<int>(hardCornersCount),
+      'hardBrakesCount': serializer.toJson<int>(hardBrakesCount),
+      'interruptionCount': serializer.toJson<int>(interruptionCount),
+      'wasPaused': serializer.toJson<bool>(wasPaused),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  LiveTripRow copyWith({
+    int? id,
+    String? uid,
+    String? status,
+    DateTime? startedAt,
+    double? distanceKm,
+    double? topSpeedKmh,
+    double? avgSpeedKmh,
+    int? durationSeconds,
+    double? maxGforce,
+    int? hardCornersCount,
+    int? hardBrakesCount,
+    int? interruptionCount,
+    bool? wasPaused,
+    DateTime? updatedAt,
+  }) => LiveTripRow(
+    id: id ?? this.id,
+    uid: uid ?? this.uid,
+    status: status ?? this.status,
+    startedAt: startedAt ?? this.startedAt,
+    distanceKm: distanceKm ?? this.distanceKm,
+    topSpeedKmh: topSpeedKmh ?? this.topSpeedKmh,
+    avgSpeedKmh: avgSpeedKmh ?? this.avgSpeedKmh,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    maxGforce: maxGforce ?? this.maxGforce,
+    hardCornersCount: hardCornersCount ?? this.hardCornersCount,
+    hardBrakesCount: hardBrakesCount ?? this.hardBrakesCount,
+    interruptionCount: interruptionCount ?? this.interruptionCount,
+    wasPaused: wasPaused ?? this.wasPaused,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  LiveTripRow copyWithCompanion(LiveTripsCompanion data) {
+    return LiveTripRow(
+      id: data.id.present ? data.id.value : this.id,
+      uid: data.uid.present ? data.uid.value : this.uid,
+      status: data.status.present ? data.status.value : this.status,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      distanceKm: data.distanceKm.present
+          ? data.distanceKm.value
+          : this.distanceKm,
+      topSpeedKmh: data.topSpeedKmh.present
+          ? data.topSpeedKmh.value
+          : this.topSpeedKmh,
+      avgSpeedKmh: data.avgSpeedKmh.present
+          ? data.avgSpeedKmh.value
+          : this.avgSpeedKmh,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      maxGforce: data.maxGforce.present ? data.maxGforce.value : this.maxGforce,
+      hardCornersCount: data.hardCornersCount.present
+          ? data.hardCornersCount.value
+          : this.hardCornersCount,
+      hardBrakesCount: data.hardBrakesCount.present
+          ? data.hardBrakesCount.value
+          : this.hardBrakesCount,
+      interruptionCount: data.interruptionCount.present
+          ? data.interruptionCount.value
+          : this.interruptionCount,
+      wasPaused: data.wasPaused.present ? data.wasPaused.value : this.wasPaused,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LiveTripRow(')
+          ..write('id: $id, ')
+          ..write('uid: $uid, ')
+          ..write('status: $status, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('distanceKm: $distanceKm, ')
+          ..write('topSpeedKmh: $topSpeedKmh, ')
+          ..write('avgSpeedKmh: $avgSpeedKmh, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('maxGforce: $maxGforce, ')
+          ..write('hardCornersCount: $hardCornersCount, ')
+          ..write('hardBrakesCount: $hardBrakesCount, ')
+          ..write('interruptionCount: $interruptionCount, ')
+          ..write('wasPaused: $wasPaused, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    uid,
+    status,
+    startedAt,
+    distanceKm,
+    topSpeedKmh,
+    avgSpeedKmh,
+    durationSeconds,
+    maxGforce,
+    hardCornersCount,
+    hardBrakesCount,
+    interruptionCount,
+    wasPaused,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LiveTripRow &&
+          other.id == this.id &&
+          other.uid == this.uid &&
+          other.status == this.status &&
+          other.startedAt == this.startedAt &&
+          other.distanceKm == this.distanceKm &&
+          other.topSpeedKmh == this.topSpeedKmh &&
+          other.avgSpeedKmh == this.avgSpeedKmh &&
+          other.durationSeconds == this.durationSeconds &&
+          other.maxGforce == this.maxGforce &&
+          other.hardCornersCount == this.hardCornersCount &&
+          other.hardBrakesCount == this.hardBrakesCount &&
+          other.interruptionCount == this.interruptionCount &&
+          other.wasPaused == this.wasPaused &&
+          other.updatedAt == this.updatedAt);
+}
+
+class LiveTripsCompanion extends UpdateCompanion<LiveTripRow> {
+  final Value<int> id;
+  final Value<String> uid;
+  final Value<String> status;
+  final Value<DateTime> startedAt;
+  final Value<double> distanceKm;
+  final Value<double> topSpeedKmh;
+  final Value<double> avgSpeedKmh;
+  final Value<int> durationSeconds;
+  final Value<double> maxGforce;
+  final Value<int> hardCornersCount;
+  final Value<int> hardBrakesCount;
+  final Value<int> interruptionCount;
+  final Value<bool> wasPaused;
+  final Value<DateTime> updatedAt;
+  const LiveTripsCompanion({
+    this.id = const Value.absent(),
+    this.uid = const Value.absent(),
+    this.status = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.distanceKm = const Value.absent(),
+    this.topSpeedKmh = const Value.absent(),
+    this.avgSpeedKmh = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.maxGforce = const Value.absent(),
+    this.hardCornersCount = const Value.absent(),
+    this.hardBrakesCount = const Value.absent(),
+    this.interruptionCount = const Value.absent(),
+    this.wasPaused = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  LiveTripsCompanion.insert({
+    this.id = const Value.absent(),
+    required String uid,
+    this.status = const Value.absent(),
+    required DateTime startedAt,
+    this.distanceKm = const Value.absent(),
+    this.topSpeedKmh = const Value.absent(),
+    this.avgSpeedKmh = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.maxGforce = const Value.absent(),
+    this.hardCornersCount = const Value.absent(),
+    this.hardBrakesCount = const Value.absent(),
+    this.interruptionCount = const Value.absent(),
+    this.wasPaused = const Value.absent(),
+    required DateTime updatedAt,
+  }) : uid = Value(uid),
+       startedAt = Value(startedAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<LiveTripRow> custom({
+    Expression<int>? id,
+    Expression<String>? uid,
+    Expression<String>? status,
+    Expression<DateTime>? startedAt,
+    Expression<double>? distanceKm,
+    Expression<double>? topSpeedKmh,
+    Expression<double>? avgSpeedKmh,
+    Expression<int>? durationSeconds,
+    Expression<double>? maxGforce,
+    Expression<int>? hardCornersCount,
+    Expression<int>? hardBrakesCount,
+    Expression<int>? interruptionCount,
+    Expression<bool>? wasPaused,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uid != null) 'uid': uid,
+      if (status != null) 'status': status,
+      if (startedAt != null) 'started_at': startedAt,
+      if (distanceKm != null) 'distance_km': distanceKm,
+      if (topSpeedKmh != null) 'top_speed_kmh': topSpeedKmh,
+      if (avgSpeedKmh != null) 'avg_speed_kmh': avgSpeedKmh,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (maxGforce != null) 'max_gforce': maxGforce,
+      if (hardCornersCount != null) 'hard_corners_count': hardCornersCount,
+      if (hardBrakesCount != null) 'hard_brakes_count': hardBrakesCount,
+      if (interruptionCount != null) 'interruption_count': interruptionCount,
+      if (wasPaused != null) 'was_paused': wasPaused,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  LiveTripsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? uid,
+    Value<String>? status,
+    Value<DateTime>? startedAt,
+    Value<double>? distanceKm,
+    Value<double>? topSpeedKmh,
+    Value<double>? avgSpeedKmh,
+    Value<int>? durationSeconds,
+    Value<double>? maxGforce,
+    Value<int>? hardCornersCount,
+    Value<int>? hardBrakesCount,
+    Value<int>? interruptionCount,
+    Value<bool>? wasPaused,
+    Value<DateTime>? updatedAt,
+  }) {
+    return LiveTripsCompanion(
+      id: id ?? this.id,
+      uid: uid ?? this.uid,
+      status: status ?? this.status,
+      startedAt: startedAt ?? this.startedAt,
+      distanceKm: distanceKm ?? this.distanceKm,
+      topSpeedKmh: topSpeedKmh ?? this.topSpeedKmh,
+      avgSpeedKmh: avgSpeedKmh ?? this.avgSpeedKmh,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      maxGforce: maxGforce ?? this.maxGforce,
+      hardCornersCount: hardCornersCount ?? this.hardCornersCount,
+      hardBrakesCount: hardBrakesCount ?? this.hardBrakesCount,
+      interruptionCount: interruptionCount ?? this.interruptionCount,
+      wasPaused: wasPaused ?? this.wasPaused,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (distanceKm.present) {
+      map['distance_km'] = Variable<double>(distanceKm.value);
+    }
+    if (topSpeedKmh.present) {
+      map['top_speed_kmh'] = Variable<double>(topSpeedKmh.value);
+    }
+    if (avgSpeedKmh.present) {
+      map['avg_speed_kmh'] = Variable<double>(avgSpeedKmh.value);
+    }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (maxGforce.present) {
+      map['max_gforce'] = Variable<double>(maxGforce.value);
+    }
+    if (hardCornersCount.present) {
+      map['hard_corners_count'] = Variable<int>(hardCornersCount.value);
+    }
+    if (hardBrakesCount.present) {
+      map['hard_brakes_count'] = Variable<int>(hardBrakesCount.value);
+    }
+    if (interruptionCount.present) {
+      map['interruption_count'] = Variable<int>(interruptionCount.value);
+    }
+    if (wasPaused.present) {
+      map['was_paused'] = Variable<bool>(wasPaused.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LiveTripsCompanion(')
+          ..write('id: $id, ')
+          ..write('uid: $uid, ')
+          ..write('status: $status, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('distanceKm: $distanceKm, ')
+          ..write('topSpeedKmh: $topSpeedKmh, ')
+          ..write('avgSpeedKmh: $avgSpeedKmh, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('maxGforce: $maxGforce, ')
+          ..write('hardCornersCount: $hardCornersCount, ')
+          ..write('hardBrakesCount: $hardBrakesCount, ')
+          ..write('interruptionCount: $interruptionCount, ')
+          ..write('wasPaused: $wasPaused, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LiveWaypointsTable extends LiveWaypoints
+    with TableInfo<$LiveWaypointsTable, LiveWaypointRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LiveWaypointsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _tripLocalIdMeta = const VerificationMeta(
+    'tripLocalId',
+  );
+  @override
+  late final GeneratedColumn<int> tripLocalId = GeneratedColumn<int>(
+    'trip_local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _latMeta = const VerificationMeta('lat');
+  @override
+  late final GeneratedColumn<double> lat = GeneratedColumn<double>(
+    'lat',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lngMeta = const VerificationMeta('lng');
+  @override
+  late final GeneratedColumn<double> lng = GeneratedColumn<double>(
+    'lng',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _speedKmhMeta = const VerificationMeta(
+    'speedKmh',
+  );
+  @override
+  late final GeneratedColumn<double> speedKmh = GeneratedColumn<double>(
+    'speed_kmh',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _accuracyMetersMeta = const VerificationMeta(
+    'accuracyMeters',
+  );
+  @override
+  late final GeneratedColumn<double> accuracyMeters = GeneratedColumn<double>(
+    'accuracy_meters',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timestampMeta = const VerificationMeta(
+    'timestamp',
+  );
+  @override
+  late final GeneratedColumn<DateTime> timestamp = GeneratedColumn<DateTime>(
+    'timestamp',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tripLocalId,
+    lat,
+    lng,
+    speedKmh,
+    accuracyMeters,
+    timestamp,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'live_waypoints';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LiveWaypointRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('trip_local_id')) {
+      context.handle(
+        _tripLocalIdMeta,
+        tripLocalId.isAcceptableOrUnknown(
+          data['trip_local_id']!,
+          _tripLocalIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_tripLocalIdMeta);
+    }
+    if (data.containsKey('lat')) {
+      context.handle(
+        _latMeta,
+        lat.isAcceptableOrUnknown(data['lat']!, _latMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_latMeta);
+    }
+    if (data.containsKey('lng')) {
+      context.handle(
+        _lngMeta,
+        lng.isAcceptableOrUnknown(data['lng']!, _lngMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_lngMeta);
+    }
+    if (data.containsKey('speed_kmh')) {
+      context.handle(
+        _speedKmhMeta,
+        speedKmh.isAcceptableOrUnknown(data['speed_kmh']!, _speedKmhMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_speedKmhMeta);
+    }
+    if (data.containsKey('accuracy_meters')) {
+      context.handle(
+        _accuracyMetersMeta,
+        accuracyMeters.isAcceptableOrUnknown(
+          data['accuracy_meters']!,
+          _accuracyMetersMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_accuracyMetersMeta);
+    }
+    if (data.containsKey('timestamp')) {
+      context.handle(
+        _timestampMeta,
+        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timestampMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LiveWaypointRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LiveWaypointRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      tripLocalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}trip_local_id'],
+      )!,
+      lat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lat'],
+      )!,
+      lng: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lng'],
+      )!,
+      speedKmh: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}speed_kmh'],
+      )!,
+      accuracyMeters: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}accuracy_meters'],
+      )!,
+      timestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}timestamp'],
+      )!,
+    );
+  }
+
+  @override
+  $LiveWaypointsTable createAlias(String alias) {
+    return $LiveWaypointsTable(attachedDatabase, alias);
+  }
+}
+
+class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
+  final int id;
+  final int tripLocalId;
+  final double lat;
+  final double lng;
+  final double speedKmh;
+  final double accuracyMeters;
+  final DateTime timestamp;
+  const LiveWaypointRow({
+    required this.id,
+    required this.tripLocalId,
+    required this.lat,
+    required this.lng,
+    required this.speedKmh,
+    required this.accuracyMeters,
+    required this.timestamp,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['trip_local_id'] = Variable<int>(tripLocalId);
+    map['lat'] = Variable<double>(lat);
+    map['lng'] = Variable<double>(lng);
+    map['speed_kmh'] = Variable<double>(speedKmh);
+    map['accuracy_meters'] = Variable<double>(accuracyMeters);
+    map['timestamp'] = Variable<DateTime>(timestamp);
+    return map;
+  }
+
+  LiveWaypointsCompanion toCompanion(bool nullToAbsent) {
+    return LiveWaypointsCompanion(
+      id: Value(id),
+      tripLocalId: Value(tripLocalId),
+      lat: Value(lat),
+      lng: Value(lng),
+      speedKmh: Value(speedKmh),
+      accuracyMeters: Value(accuracyMeters),
+      timestamp: Value(timestamp),
+    );
+  }
+
+  factory LiveWaypointRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LiveWaypointRow(
+      id: serializer.fromJson<int>(json['id']),
+      tripLocalId: serializer.fromJson<int>(json['tripLocalId']),
+      lat: serializer.fromJson<double>(json['lat']),
+      lng: serializer.fromJson<double>(json['lng']),
+      speedKmh: serializer.fromJson<double>(json['speedKmh']),
+      accuracyMeters: serializer.fromJson<double>(json['accuracyMeters']),
+      timestamp: serializer.fromJson<DateTime>(json['timestamp']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'tripLocalId': serializer.toJson<int>(tripLocalId),
+      'lat': serializer.toJson<double>(lat),
+      'lng': serializer.toJson<double>(lng),
+      'speedKmh': serializer.toJson<double>(speedKmh),
+      'accuracyMeters': serializer.toJson<double>(accuracyMeters),
+      'timestamp': serializer.toJson<DateTime>(timestamp),
+    };
+  }
+
+  LiveWaypointRow copyWith({
+    int? id,
+    int? tripLocalId,
+    double? lat,
+    double? lng,
+    double? speedKmh,
+    double? accuracyMeters,
+    DateTime? timestamp,
+  }) => LiveWaypointRow(
+    id: id ?? this.id,
+    tripLocalId: tripLocalId ?? this.tripLocalId,
+    lat: lat ?? this.lat,
+    lng: lng ?? this.lng,
+    speedKmh: speedKmh ?? this.speedKmh,
+    accuracyMeters: accuracyMeters ?? this.accuracyMeters,
+    timestamp: timestamp ?? this.timestamp,
+  );
+  LiveWaypointRow copyWithCompanion(LiveWaypointsCompanion data) {
+    return LiveWaypointRow(
+      id: data.id.present ? data.id.value : this.id,
+      tripLocalId: data.tripLocalId.present
+          ? data.tripLocalId.value
+          : this.tripLocalId,
+      lat: data.lat.present ? data.lat.value : this.lat,
+      lng: data.lng.present ? data.lng.value : this.lng,
+      speedKmh: data.speedKmh.present ? data.speedKmh.value : this.speedKmh,
+      accuracyMeters: data.accuracyMeters.present
+          ? data.accuracyMeters.value
+          : this.accuracyMeters,
+      timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LiveWaypointRow(')
+          ..write('id: $id, ')
+          ..write('tripLocalId: $tripLocalId, ')
+          ..write('lat: $lat, ')
+          ..write('lng: $lng, ')
+          ..write('speedKmh: $speedKmh, ')
+          ..write('accuracyMeters: $accuracyMeters, ')
+          ..write('timestamp: $timestamp')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    tripLocalId,
+    lat,
+    lng,
+    speedKmh,
+    accuracyMeters,
+    timestamp,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LiveWaypointRow &&
+          other.id == this.id &&
+          other.tripLocalId == this.tripLocalId &&
+          other.lat == this.lat &&
+          other.lng == this.lng &&
+          other.speedKmh == this.speedKmh &&
+          other.accuracyMeters == this.accuracyMeters &&
+          other.timestamp == this.timestamp);
+}
+
+class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
+  final Value<int> id;
+  final Value<int> tripLocalId;
+  final Value<double> lat;
+  final Value<double> lng;
+  final Value<double> speedKmh;
+  final Value<double> accuracyMeters;
+  final Value<DateTime> timestamp;
+  const LiveWaypointsCompanion({
+    this.id = const Value.absent(),
+    this.tripLocalId = const Value.absent(),
+    this.lat = const Value.absent(),
+    this.lng = const Value.absent(),
+    this.speedKmh = const Value.absent(),
+    this.accuracyMeters = const Value.absent(),
+    this.timestamp = const Value.absent(),
+  });
+  LiveWaypointsCompanion.insert({
+    this.id = const Value.absent(),
+    required int tripLocalId,
+    required double lat,
+    required double lng,
+    required double speedKmh,
+    required double accuracyMeters,
+    required DateTime timestamp,
+  }) : tripLocalId = Value(tripLocalId),
+       lat = Value(lat),
+       lng = Value(lng),
+       speedKmh = Value(speedKmh),
+       accuracyMeters = Value(accuracyMeters),
+       timestamp = Value(timestamp);
+  static Insertable<LiveWaypointRow> custom({
+    Expression<int>? id,
+    Expression<int>? tripLocalId,
+    Expression<double>? lat,
+    Expression<double>? lng,
+    Expression<double>? speedKmh,
+    Expression<double>? accuracyMeters,
+    Expression<DateTime>? timestamp,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tripLocalId != null) 'trip_local_id': tripLocalId,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (speedKmh != null) 'speed_kmh': speedKmh,
+      if (accuracyMeters != null) 'accuracy_meters': accuracyMeters,
+      if (timestamp != null) 'timestamp': timestamp,
+    });
+  }
+
+  LiveWaypointsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? tripLocalId,
+    Value<double>? lat,
+    Value<double>? lng,
+    Value<double>? speedKmh,
+    Value<double>? accuracyMeters,
+    Value<DateTime>? timestamp,
+  }) {
+    return LiveWaypointsCompanion(
+      id: id ?? this.id,
+      tripLocalId: tripLocalId ?? this.tripLocalId,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      speedKmh: speedKmh ?? this.speedKmh,
+      accuracyMeters: accuracyMeters ?? this.accuracyMeters,
+      timestamp: timestamp ?? this.timestamp,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (tripLocalId.present) {
+      map['trip_local_id'] = Variable<int>(tripLocalId.value);
+    }
+    if (lat.present) {
+      map['lat'] = Variable<double>(lat.value);
+    }
+    if (lng.present) {
+      map['lng'] = Variable<double>(lng.value);
+    }
+    if (speedKmh.present) {
+      map['speed_kmh'] = Variable<double>(speedKmh.value);
+    }
+    if (accuracyMeters.present) {
+      map['accuracy_meters'] = Variable<double>(accuracyMeters.value);
+    }
+    if (timestamp.present) {
+      map['timestamp'] = Variable<DateTime>(timestamp.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LiveWaypointsCompanion(')
+          ..write('id: $id, ')
+          ..write('tripLocalId: $tripLocalId, ')
+          ..write('lat: $lat, ')
+          ..write('lng: $lng, ')
+          ..write('speedKmh: $speedKmh, ')
+          ..write('accuracyMeters: $accuracyMeters, ')
+          ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
   }
@@ -2784,6 +4130,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TripsTable trips = $TripsTable(this);
   late final $WaypointsTable waypoints = $WaypointsTable(this);
   late final $UserSettingsTable userSettings = $UserSettingsTable(this);
+  late final $LiveTripsTable liveTrips = $LiveTripsTable(this);
+  late final $LiveWaypointsTable liveWaypoints = $LiveWaypointsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2792,6 +4140,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     trips,
     waypoints,
     userSettings,
+    liveTrips,
+    liveWaypoints,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3796,6 +5146,7 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<int> freeTripsUsed,
       Value<bool> isPro,
       Value<bool> onboardingComplete,
+      Value<bool> oemAdviceShown,
       required DateTime createdAt,
     });
 typedef $$UserSettingsTableUpdateCompanionBuilder =
@@ -3819,6 +5170,7 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<int> freeTripsUsed,
       Value<bool> isPro,
       Value<bool> onboardingComplete,
+      Value<bool> oemAdviceShown,
       Value<DateTime> createdAt,
     });
 
@@ -3923,6 +5275,11 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<bool> get onboardingComplete => $composableBuilder(
     column: $table.onboardingComplete,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get oemAdviceShown => $composableBuilder(
+    column: $table.oemAdviceShown,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4036,6 +5393,11 @@ class $$UserSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get oemAdviceShown => $composableBuilder(
+    column: $table.oemAdviceShown,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4126,6 +5488,11 @@ class $$UserSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get oemAdviceShown => $composableBuilder(
+    column: $table.oemAdviceShown,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
@@ -4180,6 +5547,7 @@ class $$UserSettingsTableTableManager
                 Value<int> freeTripsUsed = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
+                Value<bool> oemAdviceShown = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => UserSettingsCompanion(
                 id: id,
@@ -4201,6 +5569,7 @@ class $$UserSettingsTableTableManager
                 freeTripsUsed: freeTripsUsed,
                 isPro: isPro,
                 onboardingComplete: onboardingComplete,
+                oemAdviceShown: oemAdviceShown,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -4224,6 +5593,7 @@ class $$UserSettingsTableTableManager
                 Value<int> freeTripsUsed = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
+                Value<bool> oemAdviceShown = const Value.absent(),
                 required DateTime createdAt,
               }) => UserSettingsCompanion.insert(
                 id: id,
@@ -4245,6 +5615,7 @@ class $$UserSettingsTableTableManager
                 freeTripsUsed: freeTripsUsed,
                 isPro: isPro,
                 onboardingComplete: onboardingComplete,
+                oemAdviceShown: oemAdviceShown,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0
@@ -4272,6 +5643,621 @@ typedef $$UserSettingsTableProcessedTableManager =
       UserSettingsRow,
       PrefetchHooks Function()
     >;
+typedef $$LiveTripsTableCreateCompanionBuilder =
+    LiveTripsCompanion Function({
+      Value<int> id,
+      required String uid,
+      Value<String> status,
+      required DateTime startedAt,
+      Value<double> distanceKm,
+      Value<double> topSpeedKmh,
+      Value<double> avgSpeedKmh,
+      Value<int> durationSeconds,
+      Value<double> maxGforce,
+      Value<int> hardCornersCount,
+      Value<int> hardBrakesCount,
+      Value<int> interruptionCount,
+      Value<bool> wasPaused,
+      required DateTime updatedAt,
+    });
+typedef $$LiveTripsTableUpdateCompanionBuilder =
+    LiveTripsCompanion Function({
+      Value<int> id,
+      Value<String> uid,
+      Value<String> status,
+      Value<DateTime> startedAt,
+      Value<double> distanceKm,
+      Value<double> topSpeedKmh,
+      Value<double> avgSpeedKmh,
+      Value<int> durationSeconds,
+      Value<double> maxGforce,
+      Value<int> hardCornersCount,
+      Value<int> hardBrakesCount,
+      Value<int> interruptionCount,
+      Value<bool> wasPaused,
+      Value<DateTime> updatedAt,
+    });
+
+class $$LiveTripsTableFilterComposer
+    extends Composer<_$AppDatabase, $LiveTripsTable> {
+  $$LiveTripsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get uid => $composableBuilder(
+    column: $table.uid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get topSpeedKmh => $composableBuilder(
+    column: $table.topSpeedKmh,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get avgSpeedKmh => $composableBuilder(
+    column: $table.avgSpeedKmh,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get maxGforce => $composableBuilder(
+    column: $table.maxGforce,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hardCornersCount => $composableBuilder(
+    column: $table.hardCornersCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get hardBrakesCount => $composableBuilder(
+    column: $table.hardBrakesCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get interruptionCount => $composableBuilder(
+    column: $table.interruptionCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get wasPaused => $composableBuilder(
+    column: $table.wasPaused,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LiveTripsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LiveTripsTable> {
+  $$LiveTripsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get uid => $composableBuilder(
+    column: $table.uid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get topSpeedKmh => $composableBuilder(
+    column: $table.topSpeedKmh,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get avgSpeedKmh => $composableBuilder(
+    column: $table.avgSpeedKmh,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get maxGforce => $composableBuilder(
+    column: $table.maxGforce,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hardCornersCount => $composableBuilder(
+    column: $table.hardCornersCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get hardBrakesCount => $composableBuilder(
+    column: $table.hardBrakesCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get interruptionCount => $composableBuilder(
+    column: $table.interruptionCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get wasPaused => $composableBuilder(
+    column: $table.wasPaused,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LiveTripsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LiveTripsTable> {
+  $$LiveTripsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<double> get distanceKm => $composableBuilder(
+    column: $table.distanceKm,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get topSpeedKmh => $composableBuilder(
+    column: $table.topSpeedKmh,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get avgSpeedKmh => $composableBuilder(
+    column: $table.avgSpeedKmh,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get maxGforce =>
+      $composableBuilder(column: $table.maxGforce, builder: (column) => column);
+
+  GeneratedColumn<int> get hardCornersCount => $composableBuilder(
+    column: $table.hardCornersCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get hardBrakesCount => $composableBuilder(
+    column: $table.hardBrakesCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get interruptionCount => $composableBuilder(
+    column: $table.interruptionCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get wasPaused =>
+      $composableBuilder(column: $table.wasPaused, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$LiveTripsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LiveTripsTable,
+          LiveTripRow,
+          $$LiveTripsTableFilterComposer,
+          $$LiveTripsTableOrderingComposer,
+          $$LiveTripsTableAnnotationComposer,
+          $$LiveTripsTableCreateCompanionBuilder,
+          $$LiveTripsTableUpdateCompanionBuilder,
+          (
+            LiveTripRow,
+            BaseReferences<_$AppDatabase, $LiveTripsTable, LiveTripRow>,
+          ),
+          LiveTripRow,
+          PrefetchHooks Function()
+        > {
+  $$LiveTripsTableTableManager(_$AppDatabase db, $LiveTripsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LiveTripsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LiveTripsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LiveTripsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> uid = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> startedAt = const Value.absent(),
+                Value<double> distanceKm = const Value.absent(),
+                Value<double> topSpeedKmh = const Value.absent(),
+                Value<double> avgSpeedKmh = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<double> maxGforce = const Value.absent(),
+                Value<int> hardCornersCount = const Value.absent(),
+                Value<int> hardBrakesCount = const Value.absent(),
+                Value<int> interruptionCount = const Value.absent(),
+                Value<bool> wasPaused = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => LiveTripsCompanion(
+                id: id,
+                uid: uid,
+                status: status,
+                startedAt: startedAt,
+                distanceKm: distanceKm,
+                topSpeedKmh: topSpeedKmh,
+                avgSpeedKmh: avgSpeedKmh,
+                durationSeconds: durationSeconds,
+                maxGforce: maxGforce,
+                hardCornersCount: hardCornersCount,
+                hardBrakesCount: hardBrakesCount,
+                interruptionCount: interruptionCount,
+                wasPaused: wasPaused,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String uid,
+                Value<String> status = const Value.absent(),
+                required DateTime startedAt,
+                Value<double> distanceKm = const Value.absent(),
+                Value<double> topSpeedKmh = const Value.absent(),
+                Value<double> avgSpeedKmh = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<double> maxGforce = const Value.absent(),
+                Value<int> hardCornersCount = const Value.absent(),
+                Value<int> hardBrakesCount = const Value.absent(),
+                Value<int> interruptionCount = const Value.absent(),
+                Value<bool> wasPaused = const Value.absent(),
+                required DateTime updatedAt,
+              }) => LiveTripsCompanion.insert(
+                id: id,
+                uid: uid,
+                status: status,
+                startedAt: startedAt,
+                distanceKm: distanceKm,
+                topSpeedKmh: topSpeedKmh,
+                avgSpeedKmh: avgSpeedKmh,
+                durationSeconds: durationSeconds,
+                maxGforce: maxGforce,
+                hardCornersCount: hardCornersCount,
+                hardBrakesCount: hardBrakesCount,
+                interruptionCount: interruptionCount,
+                wasPaused: wasPaused,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LiveTripsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LiveTripsTable,
+      LiveTripRow,
+      $$LiveTripsTableFilterComposer,
+      $$LiveTripsTableOrderingComposer,
+      $$LiveTripsTableAnnotationComposer,
+      $$LiveTripsTableCreateCompanionBuilder,
+      $$LiveTripsTableUpdateCompanionBuilder,
+      (
+        LiveTripRow,
+        BaseReferences<_$AppDatabase, $LiveTripsTable, LiveTripRow>,
+      ),
+      LiveTripRow,
+      PrefetchHooks Function()
+    >;
+typedef $$LiveWaypointsTableCreateCompanionBuilder =
+    LiveWaypointsCompanion Function({
+      Value<int> id,
+      required int tripLocalId,
+      required double lat,
+      required double lng,
+      required double speedKmh,
+      required double accuracyMeters,
+      required DateTime timestamp,
+    });
+typedef $$LiveWaypointsTableUpdateCompanionBuilder =
+    LiveWaypointsCompanion Function({
+      Value<int> id,
+      Value<int> tripLocalId,
+      Value<double> lat,
+      Value<double> lng,
+      Value<double> speedKmh,
+      Value<double> accuracyMeters,
+      Value<DateTime> timestamp,
+    });
+
+class $$LiveWaypointsTableFilterComposer
+    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
+  $$LiveWaypointsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get tripLocalId => $composableBuilder(
+    column: $table.tripLocalId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get lat => $composableBuilder(
+    column: $table.lat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get lng => $composableBuilder(
+    column: $table.lng,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get speedKmh => $composableBuilder(
+    column: $table.speedKmh,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get accuracyMeters => $composableBuilder(
+    column: $table.accuracyMeters,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LiveWaypointsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
+  $$LiveWaypointsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get tripLocalId => $composableBuilder(
+    column: $table.tripLocalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get lat => $composableBuilder(
+    column: $table.lat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get lng => $composableBuilder(
+    column: $table.lng,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get speedKmh => $composableBuilder(
+    column: $table.speedKmh,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get accuracyMeters => $composableBuilder(
+    column: $table.accuracyMeters,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LiveWaypointsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
+  $$LiveWaypointsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get tripLocalId => $composableBuilder(
+    column: $table.tripLocalId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get lat =>
+      $composableBuilder(column: $table.lat, builder: (column) => column);
+
+  GeneratedColumn<double> get lng =>
+      $composableBuilder(column: $table.lng, builder: (column) => column);
+
+  GeneratedColumn<double> get speedKmh =>
+      $composableBuilder(column: $table.speedKmh, builder: (column) => column);
+
+  GeneratedColumn<double> get accuracyMeters => $composableBuilder(
+    column: $table.accuracyMeters,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get timestamp =>
+      $composableBuilder(column: $table.timestamp, builder: (column) => column);
+}
+
+class $$LiveWaypointsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LiveWaypointsTable,
+          LiveWaypointRow,
+          $$LiveWaypointsTableFilterComposer,
+          $$LiveWaypointsTableOrderingComposer,
+          $$LiveWaypointsTableAnnotationComposer,
+          $$LiveWaypointsTableCreateCompanionBuilder,
+          $$LiveWaypointsTableUpdateCompanionBuilder,
+          (
+            LiveWaypointRow,
+            BaseReferences<_$AppDatabase, $LiveWaypointsTable, LiveWaypointRow>,
+          ),
+          LiveWaypointRow,
+          PrefetchHooks Function()
+        > {
+  $$LiveWaypointsTableTableManager(_$AppDatabase db, $LiveWaypointsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LiveWaypointsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LiveWaypointsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LiveWaypointsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> tripLocalId = const Value.absent(),
+                Value<double> lat = const Value.absent(),
+                Value<double> lng = const Value.absent(),
+                Value<double> speedKmh = const Value.absent(),
+                Value<double> accuracyMeters = const Value.absent(),
+                Value<DateTime> timestamp = const Value.absent(),
+              }) => LiveWaypointsCompanion(
+                id: id,
+                tripLocalId: tripLocalId,
+                lat: lat,
+                lng: lng,
+                speedKmh: speedKmh,
+                accuracyMeters: accuracyMeters,
+                timestamp: timestamp,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int tripLocalId,
+                required double lat,
+                required double lng,
+                required double speedKmh,
+                required double accuracyMeters,
+                required DateTime timestamp,
+              }) => LiveWaypointsCompanion.insert(
+                id: id,
+                tripLocalId: tripLocalId,
+                lat: lat,
+                lng: lng,
+                speedKmh: speedKmh,
+                accuracyMeters: accuracyMeters,
+                timestamp: timestamp,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LiveWaypointsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LiveWaypointsTable,
+      LiveWaypointRow,
+      $$LiveWaypointsTableFilterComposer,
+      $$LiveWaypointsTableOrderingComposer,
+      $$LiveWaypointsTableAnnotationComposer,
+      $$LiveWaypointsTableCreateCompanionBuilder,
+      $$LiveWaypointsTableUpdateCompanionBuilder,
+      (
+        LiveWaypointRow,
+        BaseReferences<_$AppDatabase, $LiveWaypointsTable, LiveWaypointRow>,
+      ),
+      LiveWaypointRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4282,4 +6268,8 @@ class $AppDatabaseManager {
       $$WaypointsTableTableManager(_db, _db.waypoints);
   $$UserSettingsTableTableManager get userSettings =>
       $$UserSettingsTableTableManager(_db, _db.userSettings);
+  $$LiveTripsTableTableManager get liveTrips =>
+      $$LiveTripsTableTableManager(_db, _db.liveTrips);
+  $$LiveWaypointsTableTableManager get liveWaypoints =>
+      $$LiveWaypointsTableTableManager(_db, _db.liveWaypoints);
 }

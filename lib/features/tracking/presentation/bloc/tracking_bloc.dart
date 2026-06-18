@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:drive_rank/core/constants/app_constants.dart';
+import 'package:drive_rank/core/database/tables/live_trips_table.dart';
 import 'package:drive_rank/core/services/active_trip_store.dart';
 import 'package:drive_rank/core/services/gps_service.dart';
+import 'package:drive_rank/core/services/live_trip_notification_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/core/services/sensor_service.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
@@ -41,6 +43,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     this._settings,
     this._segments,
     this._activeTrip,
+    this._notification,
   ) : super(TrackingState.initial()) {
     on<TrackingStartRequested>(_onStartRequested);
     on<TrackingStopRequested>(_onStopRequested);
@@ -67,6 +70,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   final UserSettingsRepository _settings;
   final RoadSegmentService _segments;
   final ActiveTripStore _activeTrip;
+  final LiveTripNotificationService _notification;
 
   StreamSubscription<TripPoint>? _pointSub;
   StreamSubscription<double>? _gforceSub;
@@ -87,10 +91,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
   // ---------- crash-recovery ----------
 
-  /// Fired once at bloc construction. If the [ActiveTripStore] holds a
-  /// snapshot from a previous (interrupted) session, restore those
-  /// stats into a `paused` phase so the user can tap Resume — the
-  /// trip never silently disappears just because the OS killed us.
+  /// Fired once at bloc construction. If the [ActiveTripStore] has a
+  /// row from a previous session, restore the bloc into the `paused`
+  /// phase so the user can tap Resume — the trip never silently
+  /// disappears just because the OS killed us. If the most recent
+  /// snapshot is stale (last update > 30s ago) we also flip the
+  /// status to `interrupted` so the recovery banner can explain
+  /// what happened.
   Future<void> _onRestoreFromCrash(
     TrackingRestoreFromCrash event,
     Emitter<TrackingState> emit,
@@ -99,6 +106,20 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     if (state.phase != TrackingPhase.idle) return;
     final snap = await _activeTrip.load();
     if (snap == null) return;
+
+    // Heuristic: if the live row hasn't been touched for more than
+    // ~30 seconds we infer the OS killed the process mid-trip (the
+    // hot path writes every second). Flip status → interrupted so the
+    // UI can tell the user *why* the trip is paused.
+    final stale = DateTime.now().difference(snap.updatedAt) >
+        const Duration(seconds: 30);
+    final shouldMarkInterrupted = stale &&
+        snap.status != TripStatusEnum.interrupted &&
+        snap.status != TripStatusEnum.failed;
+    if (shouldMarkInterrupted) {
+      unawaited(_activeTrip.setStatus(TripStatusEnum.interrupted));
+    }
+
     _startedAt = snap.startedAt;
     _inHardBrake = false;
     _inHardCorner = false;
@@ -112,27 +133,33 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       state.copyWith(
         phase: TrackingPhase.paused,
         stats: snap.stats,
+        recoveryStatus: shouldMarkInterrupted
+            ? TripRecoveryStatus.interruptedByOs
+            : (snap.wasPaused
+                ? TripRecoveryStatus.userPaused
+                : TripRecoveryStatus.fresh),
       ),
     );
   }
 
-  /// Fire-and-forget — push the latest in-bloc snapshot to the
-  /// [ActiveTripStore]. Called after every meaningful state change
-  /// while a trip is live (point received, tick, g-force, pause /
-  /// resume). The store coalesces rapid writes internally so this is
-  /// safe to call from the 1Hz hot path.
-  void _persistActive({bool wasPaused = false}) {
-    final startedAt = _startedAt;
-    if (startedAt == null) return;
-    unawaited(
-      _activeTrip.save(
-        ActiveTripSnapshot(
-          startedAt: startedAt,
-          stats: state.stats,
-          wasPaused: wasPaused,
-        ),
-      ),
-    );
+  /// Persist the most-recent summary roll-up AND refresh the live
+  /// notification. Called after every meaningful state change while a
+  /// trip is live (point, tick, g-force, pause / resume). Cheap —
+  /// single UPDATE on the one-row live_trips table; flutter_local_-
+  /// notifications collapses duplicate updates within ~250 ms.
+  void _persistSummary({bool wasPaused = false}) {
+    if (_startedAt == null) return;
+    unawaited(_activeTrip.saveSummary(state.stats, wasPaused: wasPaused));
+    unawaited(_notification.show(state.stats, paused: wasPaused));
+  }
+
+  /// Append a new waypoint AND refresh the summary AND refresh the live
+  /// notification. Used by `_onPoint` when a moving sample lands.
+  void _persistWaypointAndSummary(TripPoint p) {
+    if (_startedAt == null) return;
+    unawaited(_activeTrip.appendWaypoint(p));
+    unawaited(_activeTrip.saveSummary(state.stats));
+    unawaited(_notification.show(state.stats));
   }
 
   // ---------- user-initiated transitions ----------
@@ -174,8 +201,20 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     }
     try {
       await _spinUp();
-      emit(state.copyWith(phase: TrackingPhase.active));
-      _persistActive();
+      // _spinUp set _startedAt; create the live row so subsequent
+      // saveSummary calls have something to update.
+      final settings = await _settings.read();
+      await _activeTrip.startTrip(
+        uid: settings.uid,
+        startedAt: _startedAt!,
+      );
+      emit(
+        state.copyWith(
+          phase: TrackingPhase.active,
+          recoveryStatus: TripRecoveryStatus.fresh,
+        ),
+      );
+      _persistSummary();
     } catch (e) {
       await _teardown();
       emit(
@@ -221,8 +260,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     // brakes / corners cleanly, even if we paused mid-event.
     _inHardBrake = false;
     _inHardCorner = false;
-    emit(state.copyWith(phase: TrackingPhase.paused));
-    _persistActive(wasPaused: true);
+    emit(
+      state.copyWith(
+        phase: TrackingPhase.paused,
+        recoveryStatus: TripRecoveryStatus.userPaused,
+      ),
+    );
+    _persistSummary(wasPaused: true);
   }
 
   Future<void> _onResumeRequested(
@@ -250,8 +294,19 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         const Duration(seconds: 1),
         (_) => add(const TrackingTicked()),
       );
-      emit(state.copyWith(phase: TrackingPhase.active));
-      _persistActive();
+      // If we were paused because the OS interrupted the previous
+      // session, flip the Drift status from `interrupted` → `recovered`
+      // so support tooling can tell a clean resume from a crash-recovery.
+      if (state.recoveryStatus == TripRecoveryStatus.interruptedByOs) {
+        unawaited(_activeTrip.setStatus(TripStatusEnum.recovered));
+      }
+      emit(
+        state.copyWith(
+          phase: TrackingPhase.active,
+          recoveryStatus: TripRecoveryStatus.fresh,
+        ),
+      );
+      _persistSummary();
     } catch (e) {
       await _teardown();
       emit(
@@ -355,8 +410,10 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
       _startedAt = null;
       // Trip durably saved to Drift — wipe the crash-recovery snapshot
-      // so a later cold start doesn't try to "restore" a finished trip.
+      // so a later cold start doesn't try to "restore" a finished trip,
+      // and pull down the live notification.
       unawaited(_activeTrip.clear());
+      unawaited(_notification.dismiss());
       emit(
         state.copyWith(
           phase: TrackingPhase.idle,
@@ -382,6 +439,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     await _teardown();
     _startedAt = null;
     unawaited(_activeTrip.clear());
+    unawaited(_notification.dismiss());
     emit(TrackingState.initial());
   }
 
@@ -422,7 +480,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
           ),
         ),
       );
-      _persistActive();
+      _persistSummary();
       return;
     }
 
@@ -471,7 +529,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         ),
       ),
     );
-    _persistActive();
+    _persistWaypointAndSummary(p);
   }
 
   void _onGforce(
@@ -512,7 +570,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         ),
       ),
     );
-    _persistActive();
+    _persistSummary();
   }
 
   void _onTick(TrackingTicked event, Emitter<TrackingState> emit) {
@@ -523,7 +581,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     emit(
       state.copyWith(stats: state.stats.copyWith(durationSeconds: seconds)),
     );
-    _persistActive();
+    _persistSummary();
   }
 
   // ---------- helpers ----------

@@ -129,6 +129,11 @@ class UserSettingsRepository {
   Future<void> markOnboardingComplete() =>
       patch(const UserSettingsCompanion(onboardingComplete: Value(true)));
 
+  /// Records that we showed the OEM battery-killer bottom sheet, so
+  /// the next trip start doesn't fire it again.
+  Future<void> markOemAdviceShown() =>
+      patch(const UserSettingsCompanion(oemAdviceShown: Value(true)));
+
   // ---- Trip-counter helpers (used by the paywall in Session 4) ----
 
   Future<void> incrementFreeTripsUsed() async {

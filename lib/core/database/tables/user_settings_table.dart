@@ -43,5 +43,13 @@ class UserSettings extends Table {
   BoolColumn get onboardingComplete =>
       boolean().withDefault(const Constant(false))();
 
+  /// Set to true once we've shown the user the OEM battery-killer
+  /// bottom sheet (Xiaomi / Oppo / Huawei / Vivo / etc). Persisted so
+  /// the prompt fires at most once per install — repeatedly nagging a
+  /// user who already saw it is worse UX than letting them figure out
+  /// they need to whitelist DriveRank.
+  BoolColumn get oemAdviceShown =>
+      boolean().withDefault(const Constant(false))();
+
   DateTimeColumn get createdAt => dateTime()();
 }

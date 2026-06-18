@@ -7,12 +7,14 @@ import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/core/services/oem_battery_advisor.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_state.dart';
 import 'package:drive_rank/features/tracking/presentation/widgets/live_badge.dart';
 import 'package:drive_rank/features/tracking/presentation/widgets/mini_stat.dart';
+import 'package:drive_rank/features/tracking/presentation/widgets/oem_battery_advice_sheet.dart';
 import 'package:drive_rank/features/tracking/presentation/widgets/route_strip.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
@@ -71,6 +73,34 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
     }
   }
 
+  // Within-session guard so even if Drift's persisted flag write hasn't
+  // landed yet (it's fire-and-forget), a second active-phase transition
+  // in the same session doesn't double-show the sheet.
+  bool _oemAdviceCheckedThisSession = false;
+
+  /// Fires the [OemBatteryAdviceSheet] iff this device is on a known
+  /// battery-killer OEM list AND we haven't shown the sheet before.
+  /// Marks the persisted [UserSettings.oemAdviceShown] flag after a
+  /// successful show so the prompt never repeats.
+  Future<void> _maybeShowOemAdvice(BuildContext context) async {
+    if (_oemAdviceCheckedThisSession) return;
+    _oemAdviceCheckedThisSession = true;
+    try {
+      final settings = await getIt<UserSettingsRepository>().read();
+      if (settings.oemAdviceShown) return;
+      final isKiller = await getIt<OemBatteryAdvisor>().isLikelyKiller();
+      if (!isKiller) return;
+      if (!context.mounted) return;
+      await OemBatteryAdviceSheet.show(context);
+      // Mark seen regardless of which button was tapped — the user
+      // chose what to do with the advice and we don't want to keep
+      // nagging on every trip start.
+      await getIt<UserSettingsRepository>().markOemAdviceShown();
+    } catch (_) {
+      // Best-effort UX hint — never block a trip on this.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -92,6 +122,13 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
               if (context.mounted) {
                 context.read<TrackingBloc>().add(const TrackingReset());
               }
+            }
+            // First successful entry into the active phase from this
+            // device → fire the OEM battery-killer advice sheet if the
+            // manufacturer is on the known-killer list and we haven't
+            // shown it before. Marked persistently so it never repeats.
+            if (state.phase == TrackingPhase.active && context.mounted) {
+              await _maybeShowOemAdvice(context);
             }
           },
           builder: (context, state) {
@@ -380,12 +417,15 @@ class _ActiveSurface extends StatelessWidget {
         final hasFix = stats.lastPoint != null;
 
         final isPaused = state.phase == TrackingPhase.paused;
+        final showRecoveryBanner =
+            state.recoveryStatus == TripRecoveryStatus.interruptedByOs;
         return Column(
           children: [
             _Header(
               showLiveBadge: !isPaused,
               showPausedBadge: isPaused,
             ),
+            if (showRecoveryBanner) const _InterruptionBanner(),
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.xl,
@@ -968,6 +1008,79 @@ class _TransientSurface extends StatelessWidget {
           const CircularProgressIndicator(color: AppColors.teal),
           const SizedBox(height: AppSpacing.lg),
           Text(label, style: AppTextStyles.tag),
+        ],
+      ),
+    );
+  }
+}
+
+/// Recovery banner shown above the speed hero when the bloc restored a
+/// trip whose previous session was killed by the OS / a process crash.
+///
+/// Explains what happened (we're not the bad guys, your phone's
+/// battery manager is) and points the user at the existing Resume / End
+/// controls in the bottom button row.
+class _InterruptionBanner extends StatelessWidget {
+  const _InterruptionBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        0,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.orange.withValues(alpha: 0.10),
+        border: Border.all(
+          color: AppColors.orange.withValues(alpha: 0.35),
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.orange,
+            size: 18,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tracking was interrupted',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Your phone closed DriveRank in the background — your '
+                  'trip so far is safe. Tap Resume to keep recording, or '
+                  'End to save what you have.',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

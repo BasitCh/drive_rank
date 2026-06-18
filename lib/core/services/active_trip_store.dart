@@ -1,183 +1,229 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
+import 'package:drift/drift.dart';
+import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/core/database/tables/live_trips_table.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
-import 'package:path_provider/path_provider.dart';
 
-/// Frozen snapshot of an in-progress trip — what we persist between
-/// the bloc and disk. Contains both bloc-private state (`startedAt`)
-/// and the public stats so a fresh process can resume without losing
-/// distance / duration / polyline.
+/// Frozen snapshot of an in-progress trip — what we hand back from
+/// [ActiveTripStore.load]. Carries both bloc-private state
+/// (`startedAt`, `status`) and the public stats so a fresh process can
+/// resume without losing distance / duration / polyline.
 @immutable
 class ActiveTripSnapshot {
   const ActiveTripSnapshot({
+    required this.id,
+    required this.uid,
+    required this.status,
     required this.startedAt,
-    required this.stats,
+    required this.updatedAt,
     required this.wasPaused,
+    required this.interruptionCount,
+    required this.stats,
   });
 
+  final int id;
+  final String uid;
+  final TripStatusEnum status;
   final DateTime startedAt;
-  final LiveTripStats stats;
-
-  /// True if the trip was paused when the snapshot was written. Drives
-  /// whether the bloc restores to `paused` (true) or `idle-ish` paused
-  /// (false — i.e. the process died while the trip was active). Either
-  /// way the user lands in the paused surface and taps Resume to
-  /// continue; we never auto-restart GPS without an explicit user
-  /// action.
+  final DateTime updatedAt;
   final bool wasPaused;
-
-  Map<String, dynamic> toMap() => {
-    'schemaVersion': 1,
-    'startedAt': startedAt.millisecondsSinceEpoch,
-    'wasPaused': wasPaused,
-    'stats': _statsToMap(stats),
-  };
-
-  static ActiveTripSnapshot? fromMap(Map<String, dynamic> raw) {
-    if (raw['schemaVersion'] != 1) return null;
-    final startedAtMs = raw['startedAt'] as int?;
-    final statsRaw = raw['stats'] as Map<String, dynamic>?;
-    if (startedAtMs == null || statsRaw == null) return null;
-    return ActiveTripSnapshot(
-      startedAt: DateTime.fromMillisecondsSinceEpoch(startedAtMs),
-      wasPaused: (raw['wasPaused'] as bool?) ?? false,
-      stats: _statsFromMap(statsRaw),
-    );
-  }
+  final int interruptionCount;
+  final LiveTripStats stats;
 }
 
-Map<String, dynamic> _statsToMap(LiveTripStats s) => {
-  'currentSpeedKmh': s.currentSpeedKmh,
-  'maxSpeedKmh': s.maxSpeedKmh,
-  'avgSpeedKmh': s.avgSpeedKmh,
-  'distanceKm': s.distanceKm,
-  'durationSeconds': s.durationSeconds,
-  'maxGforce': s.maxGforce,
-  'hardCornersCount': s.hardCornersCount,
-  'hardBrakesCount': s.hardBrakesCount,
-  'lastPoint': s.lastPoint == null ? null : _pointToMap(s.lastPoint!),
-  'points': [for (final p in s.points) _pointToMap(p)],
-};
-
-LiveTripStats _statsFromMap(Map<String, dynamic> m) {
-  final lastPointRaw = m['lastPoint'];
-  final pointsRaw = (m['points'] as List?) ?? const <dynamic>[];
-  return LiveTripStats(
-    currentSpeedKmh: (m['currentSpeedKmh'] as num?)?.toDouble() ?? 0,
-    maxSpeedKmh: (m['maxSpeedKmh'] as num?)?.toDouble() ?? 0,
-    avgSpeedKmh: (m['avgSpeedKmh'] as num?)?.toDouble() ?? 0,
-    distanceKm: (m['distanceKm'] as num?)?.toDouble() ?? 0,
-    durationSeconds: (m['durationSeconds'] as num?)?.toInt() ?? 0,
-    maxGforce: (m['maxGforce'] as num?)?.toDouble() ?? 0,
-    hardCornersCount: (m['hardCornersCount'] as num?)?.toInt() ?? 0,
-    hardBrakesCount: (m['hardBrakesCount'] as num?)?.toInt() ?? 0,
-    lastPoint: lastPointRaw is Map<String, dynamic>
-        ? _pointFromMap(lastPointRaw)
-        : null,
-    points: [
-      for (final raw in pointsRaw)
-        if (raw is Map<String, dynamic>) _pointFromMap(raw),
-    ],
-  );
-}
-
-Map<String, dynamic> _pointToMap(TripPoint p) => {
-  'lat': p.lat,
-  'lng': p.lng,
-  'speedKmh': p.speedKmh,
-  'accuracyMeters': p.accuracyMeters,
-  'ts': p.timestamp.millisecondsSinceEpoch,
-};
-
-TripPoint _pointFromMap(Map<String, dynamic> m) => TripPoint(
-  lat: (m['lat'] as num).toDouble(),
-  lng: (m['lng'] as num).toDouble(),
-  speedKmh: (m['speedKmh'] as num).toDouble(),
-  accuracyMeters: (m['accuracyMeters'] as num).toDouble(),
-  timestamp: DateTime.fromMillisecondsSinceEpoch(m['ts'] as int),
-);
-
-/// Persists the in-progress trip to a single JSON file in the app's
-/// documents directory. The bloc writes on every state change so a
-/// process kill / phone reboot / app force-stop never loses more than
-/// the most recent unflushed update.
+/// Persists the in-progress trip across process kills via Drift.
 ///
-/// File is removed when the trip ends normally (saved to Drift); a
-/// lingering file means a previous session was interrupted and the
-/// bloc should restore it on the next launch.
-@lazySingleton
+/// Two tables: [LiveTrips] (single row, rolled-up summary) and
+/// [LiveWaypoints] (append-only). The bloc calls [startTrip] once on
+/// Start, [appendWaypoint] for every GPS point that lands on the
+/// polyline, and [saveSummary] for every meaningful state change
+/// (point, tick, g-force, pause/resume). All writes coalesce inside
+/// Drift's transaction queue.
+///
+/// The previous implementation was a JSON file in app-docs — fine for
+/// a prototype, but every save rewrote the entire polyline; a 3-hour
+/// trip wrote a ~1.5 MB file every second. Drift gives us atomic
+/// transactions and incremental appends — the right architecture for
+/// what's effectively the user's trust signal.
+@LazySingleton()
 class ActiveTripStore {
-  ActiveTripStore();
+  ActiveTripStore(this._db);
 
-  static const _fileName = 'live_trip.json';
+  final AppDatabase _db;
 
-  // Single in-flight write — every save() coalesces with any prior
-  // pending write so we don't pile up futures on fast tick rates.
-  Future<void>? _pendingWrite;
-  ActiveTripSnapshot? _queued;
-
-  Future<File> _file() async {
-    final dir = await getApplicationDocumentsDirectory();
-    return File('${dir.path}/$_fileName');
-  }
-
-  /// Write the snapshot to disk. Multiple rapid calls coalesce — the
-  /// most recent snapshot wins.
-  Future<void> save(ActiveTripSnapshot snapshot) {
-    _queued = snapshot;
-    if (_pendingWrite != null) return _pendingWrite!;
-    _pendingWrite = _drainQueue();
-    return _pendingWrite!;
-  }
-
-  Future<void> _drainQueue() async {
+  /// Idempotent — if a live row already exists this is a no-op. Used
+  /// by the bloc on `_onStartRequested` (after a `clear()`) and during
+  /// crash recovery.
+  Future<void> startTrip({
+    required String uid,
+    required DateTime startedAt,
+  }) async {
     try {
-      while (_queued != null) {
-        final next = _queued!;
-        _queued = null;
-        try {
-          final file = await _file();
-          await file.writeAsString(jsonEncode(next.toMap()), flush: false);
-        } catch (e) {
-          if (kDebugMode) debugPrint('[ActiveTripStore] save failed: $e');
-        }
-      }
-    } finally {
-      _pendingWrite = null;
+      final existing =
+          await (_db.select(_db.liveTrips)..limit(1)).getSingleOrNull();
+      if (existing != null) return;
+      await _db.into(_db.liveTrips).insert(
+        LiveTripsCompanion.insert(
+          uid: uid,
+          startedAt: startedAt,
+          updatedAt: DateTime.now(),
+          status: const Value('active'),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[ActiveTripStore] startTrip failed: $e');
     }
   }
 
-  /// Read the persisted snapshot, or null if the file doesn't exist /
-  /// is corrupt.
+  /// Upsert the rolled-up summary. Cheap — single UPDATE on a one-row
+  /// table.
+  Future<void> saveSummary(
+    LiveTripStats stats, {
+    bool wasPaused = false,
+  }) async {
+    try {
+      final row = await (_db.select(_db.liveTrips)..limit(1))
+          .getSingleOrNull();
+      if (row == null) return; // no active trip — bloc should have called startTrip first
+      await (_db.update(_db.liveTrips)
+            ..where((t) => t.id.equals(row.id)))
+          .write(
+        LiveTripsCompanion(
+          distanceKm: Value(stats.distanceKm),
+          topSpeedKmh: Value(stats.maxSpeedKmh),
+          avgSpeedKmh: Value(stats.avgSpeedKmh),
+          durationSeconds: Value(stats.durationSeconds),
+          maxGforce: Value(stats.maxGforce),
+          hardCornersCount: Value(stats.hardCornersCount),
+          hardBrakesCount: Value(stats.hardBrakesCount),
+          wasPaused: Value(wasPaused),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[ActiveTripStore] saveSummary failed: $e');
+    }
+  }
+
+  /// Append a single waypoint. Called on every GPS point that the bloc
+  /// adds to the polyline.
+  Future<void> appendWaypoint(TripPoint point) async {
+    try {
+      final row = await (_db.select(_db.liveTrips)..limit(1))
+          .getSingleOrNull();
+      if (row == null) return;
+      await _db.into(_db.liveWaypoints).insert(
+        LiveWaypointsCompanion.insert(
+          tripLocalId: row.id,
+          lat: point.lat,
+          lng: point.lng,
+          speedKmh: point.speedKmh,
+          accuracyMeters: point.accuracyMeters,
+          timestamp: point.timestamp,
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[ActiveTripStore] appendWaypoint failed: $e');
+      }
+    }
+  }
+
+  /// Flip the status — used by the bloc's recovery flow to mark
+  /// `interrupted` on cold start when last-updated is stale, and
+  /// `recovered` when the user taps Resume.
+  Future<void> setStatus(TripStatusEnum status) async {
+    try {
+      final row = await (_db.select(_db.liveTrips)..limit(1))
+          .getSingleOrNull();
+      if (row == null) return;
+      await (_db.update(_db.liveTrips)
+            ..where((t) => t.id.equals(row.id)))
+          .write(
+        LiveTripsCompanion(
+          status: Value(status.name),
+          updatedAt: Value(DateTime.now()),
+          interruptionCount: status == TripStatusEnum.interrupted
+              ? Value(row.interruptionCount + 1)
+              : const Value.absent(),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[ActiveTripStore] setStatus failed: $e');
+    }
+  }
+
+  /// Reads the in-progress trip back as a snapshot. Returns null if no
+  /// trip is active (the normal idle-state case).
   Future<ActiveTripSnapshot?> load() async {
     try {
-      final file = await _file();
-      if (!file.existsSync()) return null;
-      final raw = await file.readAsString();
-      if (raw.isEmpty) return null;
-      final json = jsonDecode(raw);
-      if (json is! Map<String, dynamic>) return null;
-      return ActiveTripSnapshot.fromMap(json);
+      final row = await (_db.select(_db.liveTrips)..limit(1))
+          .getSingleOrNull();
+      if (row == null) return null;
+      final waypointRows = await (_db.select(_db.liveWaypoints)
+            ..where((t) => t.tripLocalId.equals(row.id))
+            ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+          .get();
+      final points = [
+        for (final w in waypointRows)
+          TripPoint(
+            lat: w.lat,
+            lng: w.lng,
+            speedKmh: w.speedKmh,
+            accuracyMeters: w.accuracyMeters,
+            timestamp: w.timestamp,
+          ),
+      ];
+      final stats = LiveTripStats(
+        currentSpeedKmh: 0,
+        maxSpeedKmh: row.topSpeedKmh,
+        avgSpeedKmh: row.avgSpeedKmh,
+        distanceKm: row.distanceKm,
+        durationSeconds: row.durationSeconds,
+        maxGforce: row.maxGforce,
+        hardCornersCount: row.hardCornersCount,
+        hardBrakesCount: row.hardBrakesCount,
+        lastPoint: points.isEmpty ? null : points.last,
+        points: points,
+      );
+      return ActiveTripSnapshot(
+        id: row.id,
+        uid: row.uid,
+        status: _statusFromString(row.status),
+        startedAt: row.startedAt,
+        updatedAt: row.updatedAt,
+        wasPaused: row.wasPaused,
+        interruptionCount: row.interruptionCount,
+        stats: stats,
+      );
     } catch (e) {
       if (kDebugMode) debugPrint('[ActiveTripStore] load failed: $e');
       return null;
     }
   }
 
-  /// Delete the snapshot file — call after the trip is persisted to
-  /// Drift or explicitly discarded.
+  /// Deletes the live row and all of its waypoints in one transaction.
+  /// Called after the trip is durably saved to [Trips] / [Waypoints]
+  /// and after an explicit reset.
   Future<void> clear() async {
-    _queued = null;
     try {
-      final file = await _file();
-      if (file.existsSync()) await file.delete();
+      await _db.transaction(() async {
+        await _db.delete(_db.liveWaypoints).go();
+        await _db.delete(_db.liveTrips).go();
+      });
     } catch (e) {
       if (kDebugMode) debugPrint('[ActiveTripStore] clear failed: $e');
     }
+  }
+
+  TripStatusEnum _statusFromString(String raw) {
+    return TripStatusEnum.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => TripStatusEnum.active,
+    );
   }
 }
