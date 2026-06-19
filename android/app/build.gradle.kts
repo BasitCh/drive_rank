@@ -44,6 +44,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Required by flutter_local_notifications (it ships time-zone
+        // code that uses java.time APIs which only exist natively on
+        // API 26+; desugaring backfills them down to our minSdk 21).
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -104,4 +108,13 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Core library desugaring runtime — paired with
+    // `isCoreLibraryDesugaringEnabled = true` above. Required by
+    // flutter_local_notifications. The 2.1.x version line is what
+    // the plugin pins to as of mid-2026 — bump only when the plugin
+    // changelog explicitly says to.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
