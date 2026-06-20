@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
@@ -7,6 +9,7 @@ import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart' show UnitSystem;
+import 'package:drive_rank/core/services/paywall_service.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
@@ -18,6 +21,22 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart' show NumberFormat;
+import 'package:url_launcher/url_launcher.dart';
+
+// =============================================================================
+// External URLs used by the Subscription + Legal sections below.
+//
+// TODO(BasitCh): replace the bytse.com placeholders with the real public
+// pages once you've published them. The Play / App Store deep links
+// don't need to change.
+// =============================================================================
+const String _kPlayStoreSubscriptionUrl =
+    'https://play.google.com/store/account/subscriptions'
+    '?sku=driverank_pro_annual&package=com.bytse.drive_rank';
+const String _kAppleSubscriptionUrl =
+    'https://apps.apple.com/account/subscriptions';
+const String _kTermsUrl = 'https://bytse.com/drive-rank/terms';
+const String _kPrivacyUrl = 'https://bytse.com/drive-rank/privacy';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -202,6 +221,36 @@ class _Body extends StatelessWidget {
             ),
           ],
         ),
+        _Section(
+          title: 'Subscription',
+          children: [
+            _LinkRow(
+              label: 'Manage subscription',
+              icon: Icons.subscriptions_outlined,
+              onTap: () => _openManageSubscription(context),
+            ),
+            _LinkRow(
+              label: 'Restore purchases',
+              icon: Icons.restore_rounded,
+              onTap: () => _restorePurchases(context),
+            ),
+          ],
+        ),
+        _Section(
+          title: 'Legal',
+          children: [
+            _LinkRow(
+              label: 'Terms of service',
+              icon: Icons.description_outlined,
+              onTap: () => _openExternal(context, _kTermsUrl),
+            ),
+            _LinkRow(
+              label: 'Privacy policy',
+              icon: Icons.lock_outline_rounded,
+              onTap: () => _openExternal(context, _kPrivacyUrl),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         _DestructiveAction(
           label: AppStrings.profileDeleteAccount,
@@ -209,6 +258,56 @@ class _Body extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Deep-link into the platform's subscription management page. We
+  /// never cancel via API — Google Play and Apple both require the
+  /// user to manage subs through their store account UI, and this is
+  /// the link Play / Apple sanction.
+  Future<void> _openManageSubscription(BuildContext context) async {
+    final url = Platform.isIOS
+        ? _kAppleSubscriptionUrl
+        : _kPlayStoreSubscriptionUrl;
+    await _openExternal(context, url);
+  }
+
+  /// Asks RevenueCat to re-check this account's entitlements (e.g. if
+  /// the user paid on another device, reinstalled, or switched
+  /// accounts). Surfaces a snackbar with the result either way.
+  Future<void> _restorePurchases(BuildContext context) async {
+    final paywall = getIt<PaywallService>();
+    var restored = false;
+    try {
+      restored = await paywall.restorePurchases();
+    } catch (_) {
+      restored = false;
+    }
+    // Side-effect: when the real RC service returns true, the bloc /
+    // bootstrap layer flips the local isPro flag. Here we just tell
+    // the user what happened.
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          restored
+              ? 'Pro restored — thanks for being a subscriber.'
+              : "We couldn't find an active subscription on this account.",
+        ),
+      ),
+    );
+  }
+
+  /// Opens [url] in the platform's external browser (or store app, for
+  /// the play/apple subscription URLs). Falls back to a snackbar if
+  /// no handler is available — common on emulators without a browser.
+  Future<void> _openExternal(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't open the link.")),
+      );
+    }
   }
 
   Future<void> _confirmDelete(
@@ -1164,6 +1263,58 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A tappable settings row with a leading icon, a label, and the
+/// standard trailing chevron. Used for Subscription + Legal links —
+/// each one just fires a callback (`_openExternal`, `_restorePurchases`,
+/// etc.) when tapped. Visual styling matches `_PickerRow` so the
+/// sections feel uniform.
+class _LinkRow extends StatelessWidget {
+  const _LinkRow({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.textSecondary, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textTertiary,
+              size: 18,
+            ),
+          ],
         ),
       ),
     );

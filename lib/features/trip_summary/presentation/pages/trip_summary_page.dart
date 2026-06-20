@@ -112,7 +112,6 @@ class _Loaded extends StatelessWidget {
                   hardCorners: trip.hardCornersCount,
                   hardBrakes: trip.hardBrakesCount,
                   fuelCostFormatted: _fuelLabel(locale, trip),
-                  rankLabel: '—',
                 ),
               ],
             ),

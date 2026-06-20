@@ -4,14 +4,16 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:flutter/material.dart';
 
-/// 2-column analytics block shown below the stat card on the trip summary
-/// page. Mirrors the mock's `.analytics-2col` grid.
+/// Analytics block shown below the stat card on the trip summary page.
+///
+/// MVP scope dropped the leaderboard — the old "your rank" tile was a
+/// dead `—` placeholder confusing users, so it's gone. Three tiles in
+/// a single row reads cleaner than 2x2 with one dead cell.
 class AnalyticsGrid extends StatelessWidget {
   const AnalyticsGrid({
     required this.hardCorners,
     required this.hardBrakes,
     required this.fuelCostFormatted,
-    required this.rankLabel,
     super.key,
   });
 
@@ -21,9 +23,6 @@ class AnalyticsGrid extends StatelessWidget {
   /// Pre-formatted via `LocaleService.formatCurrency`, or `—` if the user
   /// hasn't configured fuel.
   final String fuelCostFormatted;
-
-  /// e.g. "#12 PK" — pre-formatted by the caller.
-  final String rankLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -48,18 +47,12 @@ class AnalyticsGrid extends StatelessWidget {
               label: AppStrings.tripSummaryHardBrakes,
               color: AppColors.blue,
             ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
+            const SizedBox(width: 6),
             _Item(
               value: fuelCostFormatted,
               label: AppStrings.trackingFuelCost,
               color: AppColors.green,
             ),
-            const SizedBox(width: 6),
-            _Item(value: rankLabel, label: AppStrings.tripSummaryYourRank),
           ],
         ),
       ],

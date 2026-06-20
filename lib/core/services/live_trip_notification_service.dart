@@ -40,6 +40,13 @@ class LiveTripNotificationService {
       'while a trip is recording.';
   static const _notificationId = 1001;
 
+  /// Status-bar icon. Lives at
+  /// `android/app/src/main/res/drawable/ic_stat_drive.xml` — a white-on-
+  /// transparent vector so Android can tint it to the system theme.
+  /// Never reference `ic_launcher` here: that's a mipmap, and the
+  /// notification framework needs a drawable.
+  static const _statusBarIcon = 'ic_stat_drive';
+
   static const _endRequestActionId = 'end_trip_request';
   static const _endConfirmActionId = 'end_trip_confirm';
   static const _confirmWindow = Duration(seconds: 3);
@@ -62,7 +69,7 @@ class LiveTripNotificationService {
   Future<void> _ensureInitialised() async {
     if (_initialised) return;
     const initSettings = InitializationSettings(
-      android: AndroidInitializationSettings('ic_launcher'),
+      android: AndroidInitializationSettings(_statusBarIcon),
       iOS: DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
@@ -168,6 +175,7 @@ class LiveTripNotificationService {
             _channelId,
             _channelName,
             channelDescription: _channelDescription,
+            icon: _statusBarIcon,
             importance: Importance.high,
             priority: Priority.high,
             playSound: false,

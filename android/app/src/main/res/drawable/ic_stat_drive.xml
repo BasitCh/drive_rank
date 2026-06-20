@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Outer D speedometer arc -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4,4 H13 C18,4 21,7 21,12 C21,17 18,20 13,20 H11 V17 H13 C16.5,17 18,15.5 18,12 C18,8.5 16.5,7 13,7 H4 Z" />
+
+    <!-- R shape -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M6,8 H11 C13,8 14,9 14,10.5 C14,12 13,13 11.5,13 H9.5 L14,18 H11.2 L8,14.2 V18 H6 Z M8,10 V11.5 H10.5 C11.2,11.5 11.7,11.2 11.7,10.5 C11.7,9.8 11.2,9.5 10.5,9.5 H8 Z" />
+
+    <!-- Speedometer needle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12.5,12.5 L18,7.5 L13.5,13.2 Z" />
+
+    <!-- Needle center -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12.3,12.3 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+
+</vector>

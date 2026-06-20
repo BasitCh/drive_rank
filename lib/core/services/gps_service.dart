@@ -116,12 +116,19 @@ class GpsService {
         distanceFilter: 0,
         intervalDuration: const Duration(seconds: 1),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
+          // Passive copy — the live-speed notification from
+          // LiveTripNotificationService is what users actually look at.
+          // This one just satisfies Android's "foreground service must
+          // have a visible notification" rule.
           notificationTitle: 'DriveRank',
-          notificationText: 'Tracking your trip',
+          notificationText: 'Background tracking active',
           enableWakeLock: true,
           notificationIcon: AndroidResource(
-            name: 'ic_launcher',
-            defType: 'mipmap',
+            // Must match the drawable used by LiveTripNotificationService
+            // (`res/drawable/ic_stat_drive.xml`) — the launcher mipmap is
+            // not a valid notification icon.
+            name: 'ic_stat_drive',
+            defType: 'drawable',
           ),
         ),
       );
