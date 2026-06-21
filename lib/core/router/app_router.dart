@@ -1,5 +1,7 @@
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
+import 'package:drive_rank/core/services/analytics_router_observer.dart';
+import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/features/history/presentation/pages/history_page.dart';
 import 'package:drive_rank/features/monthly_report/presentation/pages/monthly_report_page.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_page.dart';
@@ -34,31 +36,40 @@ class AppRouter {
     return GoRouter(
       initialLocation: RouteNames.splash,
       redirect: _redirect,
+      observers: [
+        AnalyticsRouterObserver(getIt<TelemetryService>()),
+      ],
       routes: [
         GoRoute(
           path: RouteNames.splash,
+          name: 'splash',
           builder: (_, __) => const SplashPage(),
         ),
         GoRoute(
           path: RouteNames.onboarding,
+          name: 'onboarding',
           builder: (_, __) => const OnboardingPage(),
         ),
         GoRoute(
           path: '${RouteNames.tripSummary}/:tripId',
+          name: 'trip_summary',
           builder: (_, state) => TripSummaryPage(
             tripId: int.parse(state.pathParameters['tripId']!),
           ),
         ),
         GoRoute(
           path: RouteNames.paywall,
+          name: 'paywall',
           pageBuilder: (_, __) => const NoTransitionPage(child: PaywallPage()),
         ),
         GoRoute(
           path: RouteNames.settings,
+          name: 'settings',
           builder: (_, __) => const SettingsPage(),
         ),
         GoRoute(
           path: RouteNames.monthlyReport,
+          name: 'monthly_report',
           builder: (_, __) => const MonthlyReportPage(),
         ),
         ShellRoute(
@@ -67,21 +78,25 @@ class AppRouter {
           routes: [
             GoRoute(
               path: RouteNames.home,
+              name: 'home',
               pageBuilder: (_, __) =>
                   const NoTransitionPage(child: TrackingPage()),
             ),
             GoRoute(
               path: RouteNames.history,
+              name: 'history',
               pageBuilder: (_, __) =>
                   const NoTransitionPage(child: HistoryPage()),
             ),
             GoRoute(
               path: RouteNames.personalBests,
+              name: 'personal_bests',
               pageBuilder: (_, __) =>
                   const NoTransitionPage(child: PersonalBestsPage()),
             ),
             GoRoute(
               path: RouteNames.profile,
+              name: 'profile',
               pageBuilder: (_, __) =>
                   const NoTransitionPage(child: ProfilePage()),
             ),

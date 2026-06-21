@@ -81,6 +81,16 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
   // until the next restart.
   await _applyPersistedUnitOverride();
 
+  // Sticky analytics user properties so every event report can be sliced
+  // by country / vehicle / pro / units / map theme / onboarding status
+  // without having to attach them to each track() call.
+  await _syncAnalyticsUserProperties();
+
+  // One-shot app_open event so Firebase Analytics can compute DAU /
+  // session retention. Firebase also auto-fires its own session_start,
+  // but the typed app_open lets us correlate with our own properties.
+  unawaited(_safeTelemetry()?.track(TelemetryEvents.appOpen));
+
   runApp(await builder());
 
   // OneSignal and RevenueCat are independent of any first-launch
@@ -137,6 +147,48 @@ TelemetryService? _safeTelemetry() {
     return getIt<TelemetryService>();
   } catch (_) {
     return null;
+  }
+}
+
+/// Reads the persisted user settings and pushes them to Firebase Analytics
+/// as sticky user properties. Safe to call multiple times — Firebase
+/// dedups identical values cheaply. Settings UI re-calls this whenever
+/// a property changes (pro upgrade, country switch, unit toggle, etc.).
+Future<void> _syncAnalyticsUserProperties() async {
+  try {
+    final telemetry = _safeTelemetry();
+    if (telemetry == null) return;
+    final row = await getIt<UserSettingsRepository>().ensureExists();
+    await Future.wait<void>([
+      telemetry.setUserProperty(
+        name: TelemetryUserProperties.countryCode,
+        value: row.country,
+      ),
+      telemetry.setUserProperty(
+        name: TelemetryUserProperties.vehicleType,
+        value: row.vehicleType,
+      ),
+      telemetry.setUserProperty(
+        name: TelemetryUserProperties.unitSystem,
+        value: row.unitSystem,
+      ),
+      telemetry.setUserProperty(
+        name: TelemetryUserProperties.isPro,
+        value: row.isPro ? 'true' : 'false',
+      ),
+      telemetry.setUserProperty(
+        name: TelemetryUserProperties.mapTheme,
+        value: row.selectedMapTheme,
+      ),
+      telemetry.setUserProperty(
+        name: TelemetryUserProperties.onboardingComplete,
+        value: row.onboardingComplete ? 'true' : 'false',
+      ),
+    ]);
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('[bootstrap] analytics user-properties sync skipped: $e');
+    }
   }
 }
 

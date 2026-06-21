@@ -1,5 +1,9 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:injectable/injectable.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 
 /// Outcome of a location permission request.
 enum LocationPermissionStatus {
@@ -62,6 +66,33 @@ class PermissionService {
 
   Future<void> openLocationSettings() async {
     await Geolocator.openLocationSettings();
+  }
+
+  /// Best-effort POST_NOTIFICATIONS request.
+  ///
+  /// Android 13+: surfaces the system runtime dialog if the permission has
+  /// never been answered. Older Android: silently granted (no runtime
+  /// dialog exists). iOS: handled by APNS/local-notification plugins
+  /// separately; this path is a no-op.
+  ///
+  /// Returns whether the permission is granted *after* the request. We
+  /// don't block the trip start on `false` — the live notification just
+  /// won't render, but GPS + the foreground service notification still
+  /// work (geolocator's own notification doesn't need POST_NOTIFICATIONS
+  /// because it's tied to the foreground service).
+  Future<bool> requestNotifications() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final status = await ph.Permission.notification.status;
+      if (status.isGranted) return true;
+      final result = await ph.Permission.notification.request();
+      return result.isGranted;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[PermissionService] notification request failed: $e');
+      }
+      return false;
+    }
   }
 
   LocationPermissionStatus _map(LocationPermission p) => switch (p) {

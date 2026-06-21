@@ -21,10 +21,11 @@ import 'package:injectable/injectable.dart';
 /// The notification is silent / ongoing / public visibility — it sits on
 /// the lock screen for the duration of a trip without ever alerting.
 ///
-/// Android 13+ requires a runtime POST_NOTIFICATIONS grant; we request
-/// it lazily on first [show]. iOS gets a single notification at trip
-/// start (no live update — there's no equivalent lock-screen widget on
-/// Apple's platform yet).
+/// Android 13+ requires a runtime POST_NOTIFICATIONS grant; that request
+/// lives in `PermissionService.requestNotifications()` and is fired from
+/// `TrackingBloc._onStartRequested` before this service is initialised.
+/// iOS gets a single notification at trip start (no live update — there's
+/// no equivalent lock-screen widget on Apple's platform yet).
 @lazySingleton
 class LiveTripNotificationService {
   LiveTripNotificationService(this._locale)
@@ -66,7 +67,12 @@ class LiveTripNotificationService {
   bool _awaitingConfirmTap = false;
   bool _initialised = false;
 
-  Future<void> _ensureInitialised() async {
+  /// Idempotent — initialises the plugin + creates the channel.
+  ///
+  /// POST_NOTIFICATIONS is requested elsewhere (PermissionService) via
+  /// `permission_handler` so the dialog surfaces from a stable Activity
+  /// context. Don't re-request here.
+  Future<void> ensureInitialised() async {
     if (_initialised) return;
     const initSettings = InitializationSettings(
       android: AndroidInitializationSettings(_statusBarIcon),
@@ -97,7 +103,6 @@ class LiveTripNotificationService {
           showBadge: false,
         ),
       );
-      await androidImpl?.requestNotificationsPermission();
     }
     _initialised = true;
   }
@@ -136,7 +141,7 @@ class LiveTripNotificationService {
   /// at the 1Hz hot path — Android collapses duplicate updates that
   /// arrive within ~250 ms of each other.
   Future<void> show(LiveTripStats stats, {bool paused = false}) async {
-    await _ensureInitialised();
+    await ensureInitialised();
     _lastStats = stats;
     _lastPaused = paused;
     if (_awaitingConfirmTap) {

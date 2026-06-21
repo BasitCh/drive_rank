@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/services/paywall_service.dart';
+import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/features/paywall/domain/entities/paywall_offering.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
@@ -106,7 +107,7 @@ class PaywallState {
 
 @injectable
 class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
-  PaywallBloc(this._paywall, this._settings, this._trips)
+  PaywallBloc(this._paywall, this._settings, this._trips, this._telemetry)
     : super(PaywallState.initial()) {
     on<PaywallStarted>(_onStarted);
     on<PaywallPackageSelected>(_onSelected);
@@ -118,6 +119,7 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
   final PaywallService _paywall;
   final UserSettingsRepository _settings;
   final TripRepository _trips;
+  final TelemetryService _telemetry;
 
   Future<void> _onStarted(
     PaywallStarted event,
@@ -139,6 +141,7 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
         ),
       ),
     );
+    await _telemetry.track(TelemetryEvents.paywallViewed);
   }
 
   void _onSelected(
@@ -163,14 +166,31 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
     if (pkg == null) return;
     emit(state.copyWith(status: PaywallStatus.purchasing, clearError: true));
 
+    final sku = pkg.id;
+    await _telemetry.track(
+      TelemetryEvents.paywallPurchaseStarted,
+      properties: <String, Object?>{'sku': sku},
+    );
     final result = await _paywall.purchase(pkg);
     switch (result) {
       case PurchaseResult.granted:
         await _settings.patch(_proGrantedPatch());
+        await _telemetry.track(
+          TelemetryEvents.paywallPurchaseSucceeded,
+          properties: <String, Object?>{'sku': sku},
+        );
         emit(state.copyWith(status: PaywallStatus.success));
       case PurchaseResult.cancelled:
+        await _telemetry.track(
+          TelemetryEvents.paywallPurchaseFailed,
+          properties: <String, Object?>{'sku': sku, 'result': 'cancelled'},
+        );
         emit(state.copyWith(status: PaywallStatus.ready));
       case PurchaseResult.failed:
+        await _telemetry.track(
+          TelemetryEvents.paywallPurchaseFailed,
+          properties: <String, Object?>{'sku': sku, 'result': 'failed'},
+        );
         emit(
           state.copyWith(
             status: PaywallStatus.error,
@@ -187,6 +207,7 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
     final restored = await _paywall.restorePurchases();
     if (restored) {
       await _settings.patch(_proGrantedPatch());
+      await _telemetry.track(TelemetryEvents.paywallRestored);
       emit(state.copyWith(status: PaywallStatus.success));
     }
   }

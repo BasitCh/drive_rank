@@ -23,20 +23,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 import 'package:url_launcher/url_launcher.dart';
 
-// =============================================================================
-// External URLs used by the Subscription + Legal sections below.
-//
-// TODO(BasitCh): replace the bytse.com placeholders with the real public
-// pages once you've published them. The Play / App Store deep links
-// don't need to change.
-// =============================================================================
+
 const String _kPlayStoreSubscriptionUrl =
     'https://play.google.com/store/account/subscriptions'
     '?sku=driverank_pro_annual&package=com.bytse.drive_rank';
 const String _kAppleSubscriptionUrl =
     'https://apps.apple.com/account/subscriptions';
-const String _kTermsUrl = 'https://bytse.com/drive-rank/terms';
-const String _kPrivacyUrl = 'https://bytse.com/drive-rank/privacy';
+const String _kPrivacyUrl = 'https://doc-hosting.flycricket.io/drive-rank-privacy-policy/3a6ae044-e764-43cd-98f8-fd96a55555b0/privacy';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -239,11 +232,6 @@ class _Body extends StatelessWidget {
         _Section(
           title: 'Legal',
           children: [
-            _LinkRow(
-              label: 'Terms of service',
-              icon: Icons.description_outlined,
-              onTap: () => _openExternal(context, _kTermsUrl),
-            ),
             _LinkRow(
               label: 'Privacy policy',
               icon: Icons.lock_outline_rounded,

@@ -114,19 +114,20 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i721.NetworkInfo>(
     () => _i721.NetworkInfo(gh<_i895.Connectivity>()),
   );
+  gh.lazySingleton<_i766.ActiveTripStore>(
+    () => _i766.ActiveTripStore(gh<_i425.AppDatabase>()),
+  );
+  gh.lazySingleton<_i634.TripRepository>(
+    () => _i634.TripRepository(gh<_i425.AppDatabase>()),
+  );
   gh.factory<_i162.OnboardingBloc>(
     () => _i162.OnboardingBloc(
       gh<_i972.CarRepository>(),
       gh<_i727.UserSettingsRepository>(),
       gh<_i447.LocaleService>(),
       gh<_i576.PermissionService>(),
+      gh<_i46.TelemetryService>(),
     ),
-  );
-  gh.lazySingleton<_i766.ActiveTripStore>(
-    () => _i766.ActiveTripStore(gh<_i425.AppDatabase>()),
-  );
-  gh.lazySingleton<_i634.TripRepository>(
-    () => _i634.TripRepository(gh<_i425.AppDatabase>()),
   );
   gh.factory<_i990.TripSummaryBloc>(
     () => _i990.TripSummaryBloc(
@@ -135,12 +136,8 @@ _i174.GetIt $initGetIt(
       gh<_i261.CardExportService>(),
     ),
   );
-  gh.factory<_i284.PaywallBloc>(
-    () => _i284.PaywallBloc(
-      gh<_i495.PaywallService>(),
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i634.TripRepository>(),
-    ),
+  gh.lazySingleton<_i67.TripStatsService>(
+    () => _i67.TripStatsService(gh<_i634.TripRepository>()),
   );
   gh.factory<_i687.TrackingBloc>(
     () => _i687.TrackingBloc(
@@ -152,10 +149,8 @@ _i174.GetIt $initGetIt(
       gh<_i928.RoadSegmentService>(),
       gh<_i766.ActiveTripStore>(),
       gh<_i201.LiveTripNotificationService>(),
+      gh<_i46.TelemetryService>(),
     ),
-  );
-  gh.lazySingleton<_i67.TripStatsService>(
-    () => _i67.TripStatsService(gh<_i634.TripRepository>()),
   );
   gh.lazySingleton<_i244.PersonalBestsRepository>(
     () => _i244.PersonalBestsRepository(
@@ -167,6 +162,14 @@ _i174.GetIt $initGetIt(
     () => _i586.HistoryBloc(
       gh<_i634.TripRepository>(),
       gh<_i727.UserSettingsRepository>(),
+    ),
+  );
+  gh.factory<_i284.PaywallBloc>(
+    () => _i284.PaywallBloc(
+      gh<_i495.PaywallService>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i634.TripRepository>(),
+      gh<_i46.TelemetryService>(),
     ),
   );
   gh.factory<_i314.PersonalBestsBloc>(

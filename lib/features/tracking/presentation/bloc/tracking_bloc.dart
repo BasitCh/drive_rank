@@ -7,6 +7,7 @@ import 'package:drive_rank/core/services/gps_service.dart';
 import 'package:drive_rank/core/services/live_trip_notification_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/core/services/sensor_service.dart';
+import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.dart';
@@ -44,6 +45,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     this._segments,
     this._activeTrip,
     this._notification,
+    this._telemetry,
   ) : super(TrackingState.initial()) {
     on<TrackingStartRequested>(_onStartRequested);
     on<TrackingStopRequested>(_onStopRequested);
@@ -82,6 +84,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   final RoadSegmentService _segments;
   final ActiveTripStore _activeTrip;
   final LiveTripNotificationService _notification;
+  final TelemetryService _telemetry;
 
   StreamSubscription<TripPoint>? _pointSub;
   StreamSubscription<double>? _gforceSub;
@@ -211,7 +214,15 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       );
       return;
     }
+    // Notification permission is best-effort. We request before _spinUp
+    // so the system dialog surfaces from the home page (visible Activity
+    // context) instead of mid-frame after the tracking page navigates.
+    // Trip still starts if the user denies — the live notification just
+    // won't render. The plugin's own request path was unreliable on
+    // Android 13+ because it fired from a non-UI thread context.
+    unawaited(_permissions.requestNotifications());
     try {
+      await _notification.ensureInitialised();
       await _spinUp();
       // _spinUp set _startedAt; create the live row so subsequent
       // saveSummary calls have something to update.
@@ -227,6 +238,15 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         ),
       );
       _persistSummary();
+      unawaited(
+        _telemetry.track(
+          TelemetryEvents.tripStarted,
+          properties: <String, Object?>{
+            'vehicle_type': settings.vehicleType,
+            'is_pro': settings.isPro,
+          },
+        ),
+      );
     } catch (e) {
       await _teardown();
       emit(
@@ -426,6 +446,20 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       // and pull down the live notification.
       unawaited(_activeTrip.clear());
       unawaited(_notification.dismiss());
+      unawaited(
+        _telemetry.track(
+          TelemetryEvents.tripEnded,
+          properties: <String, Object?>{
+            'distance_km': state.stats.distanceKm,
+            'duration_seconds': state.stats.durationSeconds,
+            'top_speed_kmh': state.stats.maxSpeedKmh,
+            'hard_brakes': state.stats.hardBrakesCount,
+            'hard_corners': state.stats.hardCornersCount,
+            'was_recovered':
+                state.recoveryStatus == TripRecoveryStatus.interruptedByOs,
+          },
+        ),
+      );
       emit(
         state.copyWith(
           phase: TrackingPhase.idle,

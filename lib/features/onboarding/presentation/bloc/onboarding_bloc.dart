@@ -2,6 +2,7 @@ import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
+import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/features/onboarding/domain/repositories/car_repository.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_event.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_state.dart';
@@ -30,6 +31,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     this._settings,
     this._locale,
     this._permissions,
+    this._telemetry,
   ) : super(OnboardingState.initial()) {
     on<OnboardingStarted>(_onStarted);
     on<OnboardingStepNext>(_onNext);
@@ -51,6 +53,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   final UserSettingsRepository _settings;
   final LocaleService _locale;
   final PermissionService _permissions;
+  final TelemetryService _telemetry;
 
   /// Local format rules used to gate the Continue button on the
   /// username step. Mirrors what the spec calls "minimum 3 characters,
@@ -64,6 +67,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     Emitter<OnboardingState> emit,
   ) async {
     emit(state.copyWith(isLoading: true));
+    await _telemetry.track(TelemetryEvents.onboardingStarted);
     await _settings.ensureExists();
     final row = await _settings.read();
     final detectedCountry =
@@ -109,8 +113,26 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
       await _settings.setUsername(state.username.trim());
     }
 
+    // Each Continue tap is a step-completed checkpoint — the step name
+    // we report is the one the user just left, not the new one. Drives
+    // the onboarding funnel chart.
+    await _telemetry.track(
+      TelemetryEvents.onboardingStepCompleted,
+      properties: <String, Object?>{'step_name': state.step.name},
+    );
+
     if (next == OnboardingStep.done) {
       await _settings.markOnboardingComplete();
+      await _telemetry.track(
+        TelemetryEvents.onboardingFinished,
+        properties: <String, Object?>{
+          'country': state.country?.code,
+          'vehicle_type': state.vehicleType.id,
+          'unit_system': _locale.unitSystem == UnitSystem.imperial
+              ? 'imperial'
+              : 'metric',
+        },
+      );
       emit(state.copyWith(step: next, completed: true));
       return;
     }

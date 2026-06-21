@@ -12,6 +12,15 @@ abstract class TelemetryService {
   /// or authenticated id over time.
   Future<void> setUser({required String uid});
 
+  /// Set a sticky user property — appears as a filter in every report.
+  /// Used for country / vehicle / units / pro / map theme / onboarding,
+  /// so any event-level breakdown can be sliced by these dimensions
+  /// without having to re-attach them on every track() call.
+  Future<void> setUserProperty({
+    required String name,
+    required String? value,
+  });
+
   /// Fire-and-forget event. Property values must be primitives the
   /// underlying SDK can serialise (string / num / bool).
   Future<void> track(
@@ -43,6 +52,14 @@ class ConsoleTelemetryService implements TelemetryService {
   @override
   Future<void> setUser({required String uid}) async {
     _trace('telemetry/setUser uid=$uid');
+  }
+
+  @override
+  Future<void> setUserProperty({
+    required String name,
+    required String? value,
+  }) async {
+    _trace('telemetry/setUserProperty $name=$value');
   }
 
   @override
@@ -110,4 +127,27 @@ class TelemetryEvents {
   static const String unitsChanged = 'units_changed';
   static const String fuelConfigured = 'fuel_configured';
   static const String monthlyReportOpened = 'monthly_report_opened';
+
+  static const String appOpen = 'app_open';
+  static const String screenView = 'screen_view';
+  static const String tripPaused = 'trip_paused';
+  static const String tripResumed = 'trip_resumed';
+  static const String tripRecovered = 'trip_recovered';
+  static const String settingChanged = 'setting_changed';
+  static const String updateRequiredShown = 'update_required_shown';
+  static const String recoveryBannerShown = 'recovery_banner_shown';
+}
+
+/// Sticky user property keys. Firebase Analytics shows these as filters
+/// across every report so we can break funnels and retention down by
+/// country / vehicle / pro etc. without re-attaching to each event.
+class TelemetryUserProperties {
+  const TelemetryUserProperties._();
+
+  static const String countryCode = 'country_code';
+  static const String vehicleType = 'vehicle_type';
+  static const String unitSystem = 'unit_system';
+  static const String isPro = 'is_pro';
+  static const String mapTheme = 'map_theme';
+  static const String onboardingComplete = 'onboarding_complete';
 }
