@@ -14,10 +14,17 @@ import 'package:flutter/widgets.dart';
 ///
 /// Anonymous routes (no name) are skipped — those are usually transient
 /// modal sheets we don't want polluting the screen-view funnel.
+///
+/// Takes a `telemetryLookup` callback rather than a [TelemetryService]
+/// directly. The router is registered as an eager singleton in DI, which
+/// constructs before [TelemetryService] is registered — resolving it at
+/// observer-construction time would crash the whole boot. Calling
+/// `telemetryLookup()` lazily at event-time hits getIt only after all
+/// registrations are complete.
 class AnalyticsRouterObserver extends NavigatorObserver {
-  AnalyticsRouterObserver(this._telemetry);
+  AnalyticsRouterObserver(this._telemetryLookup);
 
-  final TelemetryService _telemetry;
+  final TelemetryService? Function() _telemetryLookup;
 
   String? _lastScreen;
 
@@ -42,8 +49,10 @@ class AnalyticsRouterObserver extends NavigatorObserver {
     if (name == _lastScreen) return;
     final previous = _lastScreen;
     _lastScreen = name;
+    final telemetry = _telemetryLookup();
+    if (telemetry == null) return;
     unawaited(
-      _telemetry.track(
+      telemetry.track(
         TelemetryEvents.screenView,
         properties: <String, Object?>{
           'screen_name': name,

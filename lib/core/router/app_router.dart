@@ -37,7 +37,17 @@ class AppRouter {
       initialLocation: RouteNames.splash,
       redirect: _redirect,
       observers: [
-        AnalyticsRouterObserver(getIt<TelemetryService>()),
+        // Resolved lazily — AppRouter is an eager @singleton and may
+        // construct before TelemetryService is registered. The observer
+        // only invokes the lookup at navigation time, by which point
+        // configureDependencies() has finished.
+        AnalyticsRouterObserver(() {
+          try {
+            return getIt<TelemetryService>();
+          } catch (_) {
+            return null;
+          }
+        }),
       ],
       routes: [
         GoRoute(
