@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Resource shrinking allow-list.
+
+  R8 strips resources that have no static reference, but
+  flutter_local_notifications and geolocator's foreground-service
+  notification both resolve their status-bar icon by name via
+  Resources.getIdentifier("ic_stat_drive", "drawable", pkg). That's a
+  dynamic lookup the analyzer can't see, so the drawable gets dropped
+  from release builds — causing PlatformException(invalid_icon, …) when
+  a trip starts.
+
+  Keep `@drawable/ic_stat_drive` (and the launcher mipmaps it falls back
+  to) here so they survive resource shrinking.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_drive,@mipmap/ic_launcher,@mipmap/ic_launcher_round" />
