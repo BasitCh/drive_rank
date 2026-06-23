@@ -120,6 +120,13 @@ jobs:
         # promoted to testers until you click Publish. That's the human
         # review gate you wanted. Change to `completed` later if you
         # decide to auto-publish.
+        #
+        # changesNotSentForReview: true is mandatory once the app has
+        # been manually submitted for review at least once (production
+        # access requirement). Without it the API refuses the commit
+        # with "Changes cannot be sent for review automatically". The
+        # upload still lands as a Draft — you click "Send for review"
+        # in the Console once you're ready to roll it out.
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
@@ -127,6 +134,7 @@ jobs:
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
           track: alpha
           status: draft
+          changesNotSentForReview: true
           # Use the tag name (e.g. v1.0.1) as the release name in Play
           # Console so you can correlate Play history with git tags.
           releaseName: ${{ github.ref_name }}
