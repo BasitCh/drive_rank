@@ -58,6 +58,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     on<TrackingTicked>(_onTick);
     on<TrackingReset>(_onReset);
     on<TrackingRestoreFromCrash>(_onRestoreFromCrash);
+    on<TrackingDisclosureResolved>(_onDisclosureResolved);
     // Bridge the lock-screen notification → bloc. When the user
     // completes the tap-twice End Trip confirmation on the live
     // notification, the service emits on this stream and we dispatch
@@ -189,6 +190,19 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         state.phase == TrackingPhase.stopping) {
       return;
     }
+
+    // Google Play User Data policy: the in-app Prominent Disclosure
+    // must precede the system permission dialog and any background
+    // location use. If the user skipped the onboarding step (or this
+    // is the very first Start), surface the disclosure modal — the UI
+    // re-dispatches TrackingDisclosureResolved which routes back into
+    // this handler with the flag set.
+    final settingsRow = await _settings.read();
+    if (!settingsRow.bgLocationDisclosureAcked) {
+      emit(state.copyWith(phase: TrackingPhase.needsLocationDisclosure));
+      return;
+    }
+
     _inHardBrake = false;
     _inHardCorner = false;
     // A fresh trip means any leftover crash-recovery snapshot from a
@@ -225,8 +239,10 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       await _notification.ensureInitialised();
       await _spinUp();
       // _spinUp set _startedAt; create the live row so subsequent
-      // saveSummary calls have something to update.
-      final settings = await _settings.read();
+      // saveSummary calls have something to update. settingsRow was
+      // already read above for the disclosure gate — reuse it instead
+      // of a second round-trip.
+      final settings = settingsRow;
       await _activeTrip.startTrip(
         uid: settings.uid,
         startedAt: _startedAt!,
@@ -262,6 +278,28 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   /// after the user returns from Settings. We passively read the OS
   /// state (no prompt) and drop the gate if location is now usable.
   /// Never auto-starts a trip; the user must still tap Start.
+  /// Handles the outcome of the in-trip Prominent Disclosure modal.
+  ///
+  /// Either path persists the acked flag (Google's policy is satisfied
+  /// by "we showed the disclosure", not by the user accepting). Continue
+  /// re-dispatches TrackingStartRequested so the trip start sequence
+  /// runs through the normal handler with the flag now true. Not now
+  /// bounces back to idle without touching GPS — the user can still
+  /// tap Start again later and we'll skip straight past the disclosure.
+  Future<void> _onDisclosureResolved(
+    TrackingDisclosureResolved event,
+    Emitter<TrackingState> emit,
+  ) async {
+    if (state.phase != TrackingPhase.needsLocationDisclosure) return;
+    await _settings.markBgLocationDisclosureAcked();
+    if (event.proceed) {
+      emit(state.copyWith(phase: TrackingPhase.idle));
+      add(const TrackingStartRequested());
+      return;
+    }
+    emit(state.copyWith(phase: TrackingPhase.idle));
+  }
+
   Future<void> _onPermissionRechecked(
     TrackingPermissionRechecked event,
     Emitter<TrackingState> emit,

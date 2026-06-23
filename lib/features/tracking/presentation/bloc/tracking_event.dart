@@ -78,3 +78,13 @@ class TrackingReset extends TrackingEvent {
 class TrackingRestoreFromCrash extends TrackingEvent {
   const TrackingRestoreFromCrash();
 }
+
+/// Fired from the in-trip Prominent Disclosure modal after the user
+/// taps Continue or Not now. The bloc persists the disclosure-acked
+/// flag in both cases (Google's policy is "in-app disclosure shown",
+/// not "user agreed") and, when `proceed` is true, kicks off the
+/// regular Start sequence.
+class TrackingDisclosureResolved extends TrackingEvent {
+  const TrackingDisclosureResolved({required this.proceed});
+  final bool proceed;
+}

@@ -51,5 +51,12 @@ class UserSettings extends Table {
   BoolColumn get oemAdviceShown =>
       boolean().withDefault(const Constant(false))();
 
+  /// Set once the user has been shown the in-app Prominent Disclosure
+  /// for background location and either accepted or skipped it. Drives
+  /// the gate in TrackingBloc that blocks Start until the disclosure
+  /// has been surfaced at least once — Google Play policy compliance.
+  BoolColumn get bgLocationDisclosureAcked =>
+      boolean().withDefault(const Constant(false))();
+
   DateTimeColumn get createdAt => dateTime()();
 }

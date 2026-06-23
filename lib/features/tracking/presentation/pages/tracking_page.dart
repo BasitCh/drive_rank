@@ -101,6 +101,25 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
     }
   }
 
+  /// Surfaces the in-trip Prominent Disclosure modal. Returns `true` if
+  /// the user tapped Continue (proceed to the system permission flow),
+  /// `false` if they tapped Not now (defer). Either choice acks the
+  /// disclosure in TrackingBloc — Google's policy is satisfied by the
+  /// disclosure being shown, not by the user accepting.
+  Future<bool?> _showLocationDisclosureSheet(BuildContext context) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppColors.bg2,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => const _LocationDisclosureSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,6 +129,22 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
           listenWhen: (a, b) =>
               a.phase != b.phase || a.completedTripId != b.completedTripId,
           listener: (context, state) async {
+            // First Start tap without an onboarding-acked disclosure →
+            // surface the in-trip Prominent Disclosure modal. Result
+            // round-trips back into the bloc; user can't reach the
+            // system permission dialog until they've seen this.
+            //
+            // Handled FIRST so the modal opens off a fresh BuildContext
+            // — none of the other branches above can have awaited yet.
+            if (state.phase ==
+                TrackingPhase.needsLocationDisclosure) {
+              final proceed = await _showLocationDisclosureSheet(context);
+              if (!context.mounted) return;
+              context.read<TrackingBloc>().add(
+                TrackingDisclosureResolved(proceed: proceed ?? false),
+              );
+              return;
+            }
             // Trip saved successfully → push summary → optionally paywall.
             if (state.phase == TrackingPhase.idle &&
                 state.completedTripId != null) {
@@ -139,7 +174,11 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
               TrackingPhase.stopping => _TransientSurface(phase: state.phase),
               TrackingPhase.active ||
               TrackingPhase.paused => _ActiveSurface(state: state),
-              TrackingPhase.idle => const _IdleSurface(),
+              // The modal sits on top of the idle surface so the user
+              // sees the home screen behind it — no jarring blackout.
+              TrackingPhase.idle ||
+              TrackingPhase.needsLocationDisclosure =>
+                const _IdleSurface(),
             };
           },
         ),
@@ -1082,6 +1121,172 @@ class _InterruptionBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Background-location Prominent Disclosure modal — Google Play policy.
+// ---------------------------------------------------------------------------
+
+/// Bottom sheet shown the first time a user taps Start without having
+/// gone through the onboarding location step. Mirrors the disclosure
+/// copy from `OnboardingLocationStep` so the user sees consistent text
+/// regardless of which surface fires.
+///
+/// Returns `true` via Navigator.pop when Continue is tapped, `false` on
+/// Not now. Caller dispatches `TrackingDisclosureResolved` with the
+/// result; the bloc persists the acked flag in both cases.
+class _LocationDisclosureSheet extends StatelessWidget {
+  const _LocationDisclosureSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Center(
+            child: Text('📍', style: TextStyle(fontSize: 30)),
+          ),
+          const SizedBox(height: 6),
+          const Center(
+            child: Text(
+              AppStrings.locationDisclosureTitle,
+              style: AppTextStyles.headingLarge,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(
+              AppStrings.locationDisclosureSub,
+              style: AppTextStyles.body.copyWith(
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const _SheetItem(
+            emoji: '🛣',
+            text: AppStrings.locationDisclosureItem1,
+          ),
+          const _SheetItem(
+            emoji: '🔋',
+            text: AppStrings.locationDisclosureItem2,
+          ),
+          const _SheetItem(
+            emoji: '🔒',
+            text: AppStrings.locationDisclosureItem3,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            AppStrings.locationDisclosureRevoke,
+            style: AppTextStyles.bodySmall.copyWith(
+              fontSize: 11,
+              color: Colors.white.withValues(alpha: 0.5),
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.teal,
+                foregroundColor: AppColors.bg,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              child: const Text(
+                AppStrings.locationDisclosureCta,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              AppStrings.locationDisclosureSkip,
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 13,
+                color: AppColors.textTertiary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetItem extends StatelessWidget {
+  const _SheetItem({required this.emoji, required this.text});
+
+  final String emoji;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.teal.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(emoji, style: const TextStyle(fontSize: 13)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                text,
+                style: AppTextStyles.bodySmall.copyWith(
+                  fontSize: 11.5,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

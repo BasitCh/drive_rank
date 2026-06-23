@@ -37,6 +37,14 @@ enum TrackingPhase {
   /// Settings button.
   permissionDenied,
 
+  /// The user tapped Start before they've ever seen the in-app
+  /// Prominent Disclosure. Page renders a modal with the disclosure
+  /// copy; tapping Continue acks the disclosure and continues the
+  /// start sequence. Tapping Not now acks and bounces back to idle.
+  /// Required by the Google Play User Data policy: the disclosure
+  /// must precede the system permission dialog.
+  needsLocationDisclosure,
+
   /// Something went wrong. Page shows the error message + a Retry
   /// button that re-emits StartRequested.
   error,

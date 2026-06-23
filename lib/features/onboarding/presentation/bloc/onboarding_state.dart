@@ -32,20 +32,22 @@ enum OnboardingStep {
   mapTheme,
   reviews,
   safety,
+  locationPermission,
   done;
 
   /// Progress bar fill ratio (0..1) — splash and done are excluded from
   /// the progress chrome.
   double get progress => switch (this) {
     splash || done => 0,
-    countryAndVehicle => 0.12,
-    car => 0.24,
-    username => 0.36,
-    carPhoto => 0.48,
-    community => 0.60,
-    mapTheme => 0.72,
-    reviews => 0.84,
-    safety => 0.95,
+    countryAndVehicle => 0.11,
+    car => 0.22,
+    username => 0.33,
+    carPhoto => 0.44,
+    community => 0.55,
+    mapTheme => 0.66,
+    reviews => 0.77,
+    safety => 0.88,
+    locationPermission => 0.95,
   };
 
   bool get showsProgressChrome => this != splash && this != done;
@@ -134,6 +136,9 @@ class OnboardingState {
     OnboardingStep.mapTheme => true,
     OnboardingStep.reviews => true,
     OnboardingStep.safety => safetyAccepted,
+    // Disclosure step always advances — both Continue (request perm)
+    // and Skip (defer until first trip start) are valid exits.
+    OnboardingStep.locationPermission => true,
     OnboardingStep.done => false,
   };
 

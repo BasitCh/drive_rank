@@ -134,6 +134,14 @@ class UserSettingsRepository {
   Future<void> markOemAdviceShown() =>
       patch(const UserSettingsCompanion(oemAdviceShown: Value(true)));
 
+  /// Flips the background-location Prominent Disclosure flag. Called
+  /// when the user taps either Continue or Skip on the disclosure
+  /// surface — both paths count as "we showed it"; the system
+  /// permission grant is tracked separately by the OS.
+  Future<void> markBgLocationDisclosureAcked() => patch(
+    const UserSettingsCompanion(bgLocationDisclosureAcked: Value(true)),
+  );
+
   // ---- Trip-counter helpers (used by the paywall in Session 4) ----
 
   Future<void> incrementFreeTripsUsed() async {

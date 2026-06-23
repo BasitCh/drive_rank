@@ -1905,6 +1905,21 @@ class $UserSettingsTable extends UserSettings
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _bgLocationDisclosureAckedMeta =
+      const VerificationMeta('bgLocationDisclosureAcked');
+  @override
+  late final GeneratedColumn<bool> bgLocationDisclosureAcked =
+      GeneratedColumn<bool>(
+        'bg_location_disclosure_acked',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("bg_location_disclosure_acked" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1938,6 +1953,7 @@ class $UserSettingsTable extends UserSettings
     isPro,
     onboardingComplete,
     oemAdviceShown,
+    bgLocationDisclosureAcked,
     createdAt,
   ];
   @override
@@ -2098,6 +2114,15 @@ class $UserSettingsTable extends UserSettings
         ),
       );
     }
+    if (data.containsKey('bg_location_disclosure_acked')) {
+      context.handle(
+        _bgLocationDisclosureAckedMeta,
+        bgLocationDisclosureAcked.isAcceptableOrUnknown(
+          data['bg_location_disclosure_acked']!,
+          _bgLocationDisclosureAckedMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -2195,6 +2220,10 @@ class $UserSettingsTable extends UserSettings
         DriftSqlType.bool,
         data['${effectivePrefix}oem_advice_shown'],
       )!,
+      bgLocationDisclosureAcked: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}bg_location_disclosure_acked'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2235,6 +2264,12 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   /// user who already saw it is worse UX than letting them figure out
   /// they need to whitelist DriveRank.
   final bool oemAdviceShown;
+
+  /// Set once the user has been shown the in-app Prominent Disclosure
+  /// for background location and either accepted or skipped it. Drives
+  /// the gate in TrackingBloc that blocks Start until the disclosure
+  /// has been surfaced at least once — Google Play policy compliance.
+  final bool bgLocationDisclosureAcked;
   final DateTime createdAt;
   const UserSettingsRow({
     required this.id,
@@ -2257,6 +2292,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     required this.isPro,
     required this.onboardingComplete,
     required this.oemAdviceShown,
+    required this.bgLocationDisclosureAcked,
     required this.createdAt,
   });
   @override
@@ -2298,6 +2334,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     map['is_pro'] = Variable<bool>(isPro);
     map['onboarding_complete'] = Variable<bool>(onboardingComplete);
     map['oem_advice_shown'] = Variable<bool>(oemAdviceShown);
+    map['bg_location_disclosure_acked'] = Variable<bool>(
+      bgLocationDisclosureAcked,
+    );
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -2340,6 +2379,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       isPro: Value(isPro),
       onboardingComplete: Value(onboardingComplete),
       oemAdviceShown: Value(oemAdviceShown),
+      bgLocationDisclosureAcked: Value(bgLocationDisclosureAcked),
       createdAt: Value(createdAt),
     );
   }
@@ -2370,6 +2410,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       isPro: serializer.fromJson<bool>(json['isPro']),
       onboardingComplete: serializer.fromJson<bool>(json['onboardingComplete']),
       oemAdviceShown: serializer.fromJson<bool>(json['oemAdviceShown']),
+      bgLocationDisclosureAcked: serializer.fromJson<bool>(
+        json['bgLocationDisclosureAcked'],
+      ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -2397,6 +2440,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       'isPro': serializer.toJson<bool>(isPro),
       'onboardingComplete': serializer.toJson<bool>(onboardingComplete),
       'oemAdviceShown': serializer.toJson<bool>(oemAdviceShown),
+      'bgLocationDisclosureAcked': serializer.toJson<bool>(
+        bgLocationDisclosureAcked,
+      ),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -2422,6 +2468,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     bool? isPro,
     bool? onboardingComplete,
     bool? oemAdviceShown,
+    bool? bgLocationDisclosureAcked,
     DateTime? createdAt,
   }) => UserSettingsRow(
     id: id ?? this.id,
@@ -2448,6 +2495,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     isPro: isPro ?? this.isPro,
     onboardingComplete: onboardingComplete ?? this.onboardingComplete,
     oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
+    bgLocationDisclosureAcked:
+        bgLocationDisclosureAcked ?? this.bgLocationDisclosureAcked,
     createdAt: createdAt ?? this.createdAt,
   );
   UserSettingsRow copyWithCompanion(UserSettingsCompanion data) {
@@ -2492,6 +2541,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       oemAdviceShown: data.oemAdviceShown.present
           ? data.oemAdviceShown.value
           : this.oemAdviceShown,
+      bgLocationDisclosureAcked: data.bgLocationDisclosureAcked.present
+          ? data.bgLocationDisclosureAcked.value
+          : this.bgLocationDisclosureAcked,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -2519,6 +2571,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           ..write('isPro: $isPro, ')
           ..write('onboardingComplete: $onboardingComplete, ')
           ..write('oemAdviceShown: $oemAdviceShown, ')
+          ..write('bgLocationDisclosureAcked: $bgLocationDisclosureAcked, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2546,6 +2599,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     isPro,
     onboardingComplete,
     oemAdviceShown,
+    bgLocationDisclosureAcked,
     createdAt,
   ]);
   @override
@@ -2572,6 +2626,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           other.isPro == this.isPro &&
           other.onboardingComplete == this.onboardingComplete &&
           other.oemAdviceShown == this.oemAdviceShown &&
+          other.bgLocationDisclosureAcked == this.bgLocationDisclosureAcked &&
           other.createdAt == this.createdAt);
 }
 
@@ -2596,6 +2651,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
   final Value<bool> isPro;
   final Value<bool> onboardingComplete;
   final Value<bool> oemAdviceShown;
+  final Value<bool> bgLocationDisclosureAcked;
   final Value<DateTime> createdAt;
   const UserSettingsCompanion({
     this.id = const Value.absent(),
@@ -2618,6 +2674,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.isPro = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
     this.oemAdviceShown = const Value.absent(),
+    this.bgLocationDisclosureAcked = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   UserSettingsCompanion.insert({
@@ -2641,6 +2698,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.isPro = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
     this.oemAdviceShown = const Value.absent(),
+    this.bgLocationDisclosureAcked = const Value.absent(),
     required DateTime createdAt,
   }) : uid = Value(uid),
        createdAt = Value(createdAt);
@@ -2665,6 +2723,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Expression<bool>? isPro,
     Expression<bool>? onboardingComplete,
     Expression<bool>? oemAdviceShown,
+    Expression<bool>? bgLocationDisclosureAcked,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -2688,6 +2747,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       if (isPro != null) 'is_pro': isPro,
       if (onboardingComplete != null) 'onboarding_complete': onboardingComplete,
       if (oemAdviceShown != null) 'oem_advice_shown': oemAdviceShown,
+      if (bgLocationDisclosureAcked != null)
+        'bg_location_disclosure_acked': bgLocationDisclosureAcked,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -2713,6 +2774,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Value<bool>? isPro,
     Value<bool>? onboardingComplete,
     Value<bool>? oemAdviceShown,
+    Value<bool>? bgLocationDisclosureAcked,
     Value<DateTime>? createdAt,
   }) {
     return UserSettingsCompanion(
@@ -2736,6 +2798,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       isPro: isPro ?? this.isPro,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
+      bgLocationDisclosureAcked:
+          bgLocationDisclosureAcked ?? this.bgLocationDisclosureAcked,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -2803,6 +2867,11 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     if (oemAdviceShown.present) {
       map['oem_advice_shown'] = Variable<bool>(oemAdviceShown.value);
     }
+    if (bgLocationDisclosureAcked.present) {
+      map['bg_location_disclosure_acked'] = Variable<bool>(
+        bgLocationDisclosureAcked.value,
+      );
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2832,6 +2901,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
           ..write('isPro: $isPro, ')
           ..write('onboardingComplete: $onboardingComplete, ')
           ..write('oemAdviceShown: $oemAdviceShown, ')
+          ..write('bgLocationDisclosureAcked: $bgLocationDisclosureAcked, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -5147,6 +5217,7 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<bool> isPro,
       Value<bool> onboardingComplete,
       Value<bool> oemAdviceShown,
+      Value<bool> bgLocationDisclosureAcked,
       required DateTime createdAt,
     });
 typedef $$UserSettingsTableUpdateCompanionBuilder =
@@ -5171,6 +5242,7 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<bool> isPro,
       Value<bool> onboardingComplete,
       Value<bool> oemAdviceShown,
+      Value<bool> bgLocationDisclosureAcked,
       Value<DateTime> createdAt,
     });
 
@@ -5280,6 +5352,11 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<bool> get oemAdviceShown => $composableBuilder(
     column: $table.oemAdviceShown,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get bgLocationDisclosureAcked => $composableBuilder(
+    column: $table.bgLocationDisclosureAcked,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5398,6 +5475,11 @@ class $$UserSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get bgLocationDisclosureAcked => $composableBuilder(
+    column: $table.bgLocationDisclosureAcked,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -5493,6 +5575,11 @@ class $$UserSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get bgLocationDisclosureAcked => $composableBuilder(
+    column: $table.bgLocationDisclosureAcked,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
@@ -5548,6 +5635,7 @@ class $$UserSettingsTableTableManager
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
                 Value<bool> oemAdviceShown = const Value.absent(),
+                Value<bool> bgLocationDisclosureAcked = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => UserSettingsCompanion(
                 id: id,
@@ -5570,6 +5658,7 @@ class $$UserSettingsTableTableManager
                 isPro: isPro,
                 onboardingComplete: onboardingComplete,
                 oemAdviceShown: oemAdviceShown,
+                bgLocationDisclosureAcked: bgLocationDisclosureAcked,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -5594,6 +5683,7 @@ class $$UserSettingsTableTableManager
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
                 Value<bool> oemAdviceShown = const Value.absent(),
+                Value<bool> bgLocationDisclosureAcked = const Value.absent(),
                 required DateTime createdAt,
               }) => UserSettingsCompanion.insert(
                 id: id,
@@ -5616,6 +5706,7 @@ class $$UserSettingsTableTableManager
                 isPro: isPro,
                 onboardingComplete: onboardingComplete,
                 oemAdviceShown: oemAdviceShown,
+                bgLocationDisclosureAcked: bgLocationDisclosureAcked,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

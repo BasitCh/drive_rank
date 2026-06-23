@@ -10,6 +10,7 @@ import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_car
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_car_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_community_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_country_step.dart';
+import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_location_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_map_theme_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_reviews_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_safety_step.dart';
@@ -117,6 +118,7 @@ class _OnboardingPageBody extends StatelessWidget {
     OnboardingStep.mapTheme => const OnboardingMapThemeStep(),
     OnboardingStep.reviews => const OnboardingReviewsStep(),
     OnboardingStep.safety => const OnboardingSafetyStep(),
+    OnboardingStep.locationPermission => const OnboardingLocationStep(),
     OnboardingStep.splash || OnboardingStep.done => const SizedBox.shrink(),
   };
 }

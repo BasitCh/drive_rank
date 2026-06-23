@@ -121,6 +121,14 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
       properties: <String, Object?>{'step_name': state.step.name},
     );
 
+    // The location-permission step persists the disclosure flag on both
+    // exit paths (Continue requested it via _onRequestPermission; Skip
+    // falls through here). Either way Google's policy requirement —
+    // "in-app disclosure shown" — is satisfied for this install.
+    if (state.step == OnboardingStep.locationPermission) {
+      await _settings.markBgLocationDisclosureAcked();
+    }
+
     if (next == OnboardingStep.done) {
       await _settings.markOnboardingComplete();
       await _telemetry.track(
@@ -280,8 +288,22 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     OnboardingLocationPermissionRequested event,
     Emitter<OnboardingState> emit,
   ) async {
+    // The Prominent Disclosure has now been surfaced — mark it as
+    // acknowledged regardless of how the system permission dialog goes,
+    // so TrackingBloc doesn't re-prompt the disclosure on first Start.
+    // Google's policy is satisfied by the in-app disclosure existing,
+    // not by the OS granting the permission.
+    await _settings.markBgLocationDisclosureAcked();
     final status = await _permissions.requestLocation();
     add(OnboardingLocationPermissionResolved(status));
+    // Auto-advance to the final step on grant — there's nothing else for
+    // the user to do here. On denial we stay so the inline help banner
+    // explains the consequence; the user can still tap Skip or Continue
+    // again to fall through.
+    if (status == LocationPermissionStatus.granted ||
+        status == LocationPermissionStatus.grantedAlways) {
+      add(const OnboardingStepNext());
+    }
   }
 
   void _onPermissionResolved(

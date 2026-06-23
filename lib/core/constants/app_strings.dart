@@ -103,6 +103,33 @@ class AppStrings {
       'I acknowledge these guidelines and agree to drive responsibly';
   static const String onboardSafetyCta = 'I Agree & Continue';
 
+  // Onboarding — background location Prominent Disclosure.
+  //
+  // Wording locked to the Google Play User Data policy: identifies the
+  // data type (location), the feature (trip tracking), and explicitly
+  // that the access continues in the background / while the screen is
+  // off. Don't soften without re-checking the policy text — vague
+  // disclosure copy is exactly what got the app rejected the first time.
+  static const String locationDisclosureTitle =
+      'DriveRank needs your location';
+  static const String locationDisclosureSub =
+      'So we can track your trips accurately';
+  static const String locationDisclosureItem1 =
+      'Records your route, distance, and speed while you drive.';
+  static const String locationDisclosureItem2 =
+      'Continues recording when the screen is off or the app is in the '
+      "background — that's what keeps the live stats moving on long drives.";
+  static const String locationDisclosureItem3 =
+      'Stays on your device. Your location is never uploaded, sold, '
+      'or shared with anyone.';
+  static const String locationDisclosureRevoke =
+      "You can revoke access any time from your phone's settings.";
+  static const String locationDisclosureCta = 'Allow location access';
+  static const String locationDisclosureSkip = 'Skip for now';
+  static const String locationDisclosureDeniedHelp =
+      'Location access is needed to record trips. You can grant it from '
+      "your phone's app settings.";
+
   // Onboarding — community popup numbers (computed at runtime).
   static const String onboardCommunityMostPopularPrefix = '#';
   static const String onboardCommunityMostPopularSuffix =

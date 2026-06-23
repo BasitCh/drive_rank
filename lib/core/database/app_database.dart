@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -58,6 +58,17 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE user_settings ADD COLUMN oem_advice_shown '
           'INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 5) {
+        // v5 adds UserSettings.bg_location_disclosure_acked — flips true
+        // after the user sees the Prominent Disclosure dialog (during
+        // onboarding or before the first trip start). Google Play
+        // policy requires the in-app disclosure ahead of any background
+        // location use.
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN '
+          'bg_location_disclosure_acked INTEGER NOT NULL DEFAULT 0',
         );
       }
     },
