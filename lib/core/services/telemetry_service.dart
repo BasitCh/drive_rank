@@ -136,6 +136,18 @@ class TelemetryEvents {
   static const String settingChanged = 'setting_changed';
   static const String updateRequiredShown = 'update_required_shown';
   static const String recoveryBannerShown = 'recovery_banner_shown';
+
+  // Trip Insights funnel.
+  //
+  // `insightsViewed` — page opened from Trip Summary.
+  // `insightsShared` — user tapped Share Insights (intent).
+  // `insightsExported` — capture + share_plus sheet actually fired (success).
+  //
+  // The intent → success split lets us spot capture failures (grey map
+  // tiles, OOM on long trips, etc.) by comparing the two counts.
+  static const String insightsViewed = 'insights_viewed';
+  static const String insightsShared = 'insights_shared';
+  static const String insightsExported = 'insights_exported';
 }
 
 /// Sticky user property keys. Firebase Analytics shows these as filters

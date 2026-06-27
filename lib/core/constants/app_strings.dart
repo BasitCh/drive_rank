@@ -224,6 +224,16 @@ class AppStrings {
   static const String tripSummaryNoRouteYet = 'No GPS fix recorded';
   static const String tripSummaryShareSubject = 'My DriveRank trip';
 
+  // Trip Insights.
+  static const String tripInsightsTitle = 'Trip Insights';
+  static const String tripInsightsCta = 'View Insights';
+  static const String tripInsightsShare = 'Share Insights';
+  static const String tripInsightsShareSubject =
+      'My DriveRank trip insights';
+  static const String tripInsightsLoadError =
+      'Could not load insights for this trip.';
+  static const String tripInsightsTagline = 'Every drive has a story.';
+
   // History.
   static const String historyTitle = 'History';
   static const String historyFilterAll = 'All';

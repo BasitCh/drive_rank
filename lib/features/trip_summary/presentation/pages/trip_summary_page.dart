@@ -4,6 +4,7 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
+import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_bloc.dart';
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_event.dart';
@@ -113,6 +114,8 @@ class _Loaded extends StatelessWidget {
                   hardBrakes: trip.hardBrakesCount,
                   fuelCostFormatted: _fuelLabel(locale, trip),
                 ),
+                const SizedBox(height: AppSpacing.md),
+                _InsightsCta(tripId: trip.id),
               ],
             ),
           ),
@@ -312,6 +315,78 @@ class _NotFound extends StatelessWidget {
           AppStrings.errorUnknown,
           style: AppTextStyles.body,
           textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+/// Subtle CTA below the AnalyticsGrid that pushes the user to the
+/// premium analytics surface. Trip Summary stays lightweight; the
+/// chart + map + records live one tap deeper.
+class _InsightsCta extends StatelessWidget {
+  const _InsightsCta({required this.tripId});
+
+  final int tripId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        onTap: () => context.push(RouteNames.tripInsightsFor(tripId)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.teal.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('📊', style: TextStyle(fontSize: 14)),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppStrings.tripInsightsCta,
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Speed chart, route, breakdown, records',
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -51,6 +51,12 @@ import 'package:drive_rank/features/profile/presentation/bloc/profile_bloc.dart'
     as _i868;
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart'
     as _i687;
+import 'package:drive_rank/features/trip_insights/data/insights_repository.dart'
+    as _i337;
+import 'package:drive_rank/features/trip_insights/domain/usecases/build_insights.dart'
+    as _i486;
+import 'package:drive_rank/features/trip_insights/presentation/bloc/insights_bloc.dart'
+    as _i723;
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_bloc.dart'
     as _i990;
 import 'package:drive_rank/shared/repositories/trip_repository.dart' as _i634;
@@ -94,6 +100,9 @@ _i174.GetIt $initGetIt(
     () => _i201.LiveTripNotificationService(gh<_i447.LocaleService>()),
     dispose: (i) => i.dispose(),
   );
+  gh.factory<_i486.BuildInsights>(
+    () => _i486.BuildInsights(gh<_i447.LocaleService>()),
+  );
   gh.lazySingleton<_i46.TelemetryService>(
     () => injectionModule.consoleTelemetry(),
   );
@@ -119,6 +128,13 @@ _i174.GetIt $initGetIt(
   );
   gh.lazySingleton<_i634.TripRepository>(
     () => _i634.TripRepository(gh<_i425.AppDatabase>()),
+  );
+  gh.lazySingleton<_i337.InsightsRepository>(
+    () => _i337.InsightsRepository(
+      gh<_i425.AppDatabase>(),
+      gh<_i634.TripRepository>(),
+      gh<_i486.BuildInsights>(),
+    ),
   );
   gh.factory<_i162.OnboardingBloc>(
     () => _i162.OnboardingBloc(
@@ -149,6 +165,12 @@ _i174.GetIt $initGetIt(
       gh<_i928.RoadSegmentService>(),
       gh<_i766.ActiveTripStore>(),
       gh<_i201.LiveTripNotificationService>(),
+      gh<_i46.TelemetryService>(),
+    ),
+  );
+  gh.factory<_i723.InsightsBloc>(
+    () => _i723.InsightsBloc(
+      gh<_i337.InsightsRepository>(),
       gh<_i46.TelemetryService>(),
     ),
   );
