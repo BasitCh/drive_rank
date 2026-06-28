@@ -5,11 +5,11 @@ import 'package:drive_rank/core/database/app_database.dart' show TripRow;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-/// Top of the social card: small DriveRank wordmark + the trip's date
-/// and vehicle. Reads at a glance — first thing a viewer sees in the
-/// Instagram crop preview.
-class InsightsBrandHeader extends StatelessWidget {
-  const InsightsBrandHeader({
+/// Top of every social card: the DriveRank wordmark + the trip's
+/// vehicle + date row. Compact — the screenshot's information density
+/// is owned by the hero strip / chart / map below it.
+class CardBrandHeader extends StatelessWidget {
+  const CardBrandHeader({
     required this.trip,
     required this.vehicleLabel,
     super.key,
@@ -20,22 +20,22 @@ class InsightsBrandHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat.MMMEd().format(trip.startedAt.toLocal());
-    final timeLabel = DateFormat.jm().format(trip.startedAt.toLocal());
+    final date = DateFormat('EEE, MMM d').format(trip.startedAt.toLocal());
+    final time = DateFormat.jm().format(trip.startedAt.toLocal());
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           AppStrings.appName.toUpperCase(),
           style: AppTextStyles.brandLogo.copyWith(
-            fontSize: 22,
-            letterSpacing: 4,
+            fontSize: 24,
+            letterSpacing: 4.5,
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Text(
-          '$dateLabel · $timeLabel · $vehicleLabel',
+          '$date · $time · $vehicleLabel',
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.textSecondary,
             fontSize: 11,

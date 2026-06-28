@@ -11,7 +11,8 @@ import 'package:drive_rank/features/personal_bests/presentation/pages/personal_b
 import 'package:drive_rank/features/profile/presentation/pages/profile_page.dart';
 import 'package:drive_rank/features/settings/presentation/pages/settings_page.dart';
 import 'package:drive_rank/features/tracking/presentation/pages/tracking_page.dart';
-import 'package:drive_rank/features/trip_insights/presentation/pages/trip_insights_page.dart';
+import 'package:drive_rank/features/trip_insights/presentation/pages/journey_card_page.dart';
+import 'package:drive_rank/features/trip_insights/presentation/pages/performance_card_page.dart';
 import 'package:drive_rank/features/trip_summary/presentation/pages/trip_summary_page.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/widgets/main_shell.dart';
@@ -69,9 +70,16 @@ class AppRouter {
           ),
         ),
         GoRoute(
-          path: '${RouteNames.tripInsights}/:tripId',
-          name: 'trip_insights',
-          builder: (_, state) => TripInsightsPage(
+          path: '${RouteNames.performanceCard}/:tripId',
+          name: 'performance_card',
+          builder: (_, state) => PerformanceCardPage(
+            tripId: int.parse(state.pathParameters['tripId']!),
+          ),
+        ),
+        GoRoute(
+          path: '${RouteNames.journeyCard}/:tripId',
+          name: 'journey_card',
+          builder: (_, state) => JourneyCardPage(
             tripId: int.parse(state.pathParameters['tripId']!),
           ),
         ),

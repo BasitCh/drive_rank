@@ -224,15 +224,25 @@ class AppStrings {
   static const String tripSummaryNoRouteYet = 'No GPS fix recorded';
   static const String tripSummaryShareSubject = 'My DriveRank trip';
 
-  // Trip Insights.
-  static const String tripInsightsTitle = 'Trip Insights';
-  static const String tripInsightsCta = 'View Insights';
-  static const String tripInsightsShare = 'Share Insights';
-  static const String tripInsightsShareSubject =
-      'My DriveRank trip insights';
-  static const String tripInsightsLoadError =
-      'Could not load insights for this trip.';
-  static const String tripInsightsTagline = 'Every drive has a story.';
+  // Social share cards — Performance.
+  static const String performanceCardTitle = 'Performance';
+  static const String performanceCardCta = 'Performance';
+  static const String performanceCardCtaSub = 'Speed flex card';
+  static const String performanceCardShareCta = 'Share Performance';
+  static const String performanceCardShareSubject =
+      'My DriveRank performance card';
+  static const String performanceCardLoadError =
+      'Could not build the performance card for this trip.';
+
+  // Social share cards — Journey.
+  static const String journeyCardTitle = 'Journey';
+  static const String journeyCardCta = 'Journey';
+  static const String journeyCardCtaSub = 'Route story card';
+  static const String journeyCardShareCta = 'Share Journey';
+  static const String journeyCardShareSubject =
+      'My DriveRank journey card';
+  static const String journeyCardLoadError =
+      'Could not build the journey card for this trip.';
 
   // History.
   static const String historyTitle = 'History';

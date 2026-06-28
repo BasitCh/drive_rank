@@ -34,8 +34,13 @@ class BuildInsights {
   static const int _breakdownMinDurationSeconds = 60;
 
   /// Centred moving-average window. Wider = smoother but loses peaks.
-  /// 5 is the sweet spot for ~1 Hz GPS data on a car trip.
-  static const int _smoothingWindow = 5;
+  ///
+  /// Tuned for the Performance card aesthetic: the chart must look
+  /// energetic — many peaks, frequent dips, a feeling that the trip
+  /// was *fast*. A 2-point window damps single-sample GPS spikes but
+  /// preserves the natural waveform. 5-point flattened too much and
+  /// the share screenshot looked tame.
+  static const int _smoothingWindow = 2;
 
   /// Distance / duration / month thresholds for individual badges.
   static const double _longestRideMinKm = 5;

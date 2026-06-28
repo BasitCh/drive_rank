@@ -137,17 +137,22 @@ class TelemetryEvents {
   static const String updateRequiredShown = 'update_required_shown';
   static const String recoveryBannerShown = 'recovery_banner_shown';
 
-  // Trip Insights funnel.
+  // Social share cards — one funnel per card kind.
   //
-  // `insightsViewed` — page opened from Trip Summary.
-  // `insightsShared` — user tapped Share Insights (intent).
-  // `insightsExported` — capture + share_plus sheet actually fired (success).
+  // viewed → page opened from Trip Summary.
+  // shared → user tapped the Share CTA (intent).
+  // exported → capture + share_plus sheet actually fired (success).
   //
-  // The intent → success split lets us spot capture failures (grey map
-  // tiles, OOM on long trips, etc.) by comparing the two counts.
-  static const String insightsViewed = 'insights_viewed';
-  static const String insightsShared = 'insights_shared';
-  static const String insightsExported = 'insights_exported';
+  // Split per card so we can compare Performance vs Journey usage and
+  // spot capture failures (grey map tiles, OOM on long trips, etc.)
+  // by comparing intent → success counts per surface.
+  static const String performanceCardViewed = 'performance_card_viewed';
+  static const String performanceCardShared = 'performance_card_shared';
+  static const String performanceCardExported = 'performance_card_exported';
+
+  static const String journeyCardViewed = 'journey_card_viewed';
+  static const String journeyCardShared = 'journey_card_shared';
+  static const String journeyCardExported = 'journey_card_exported';
 }
 
 /// Sticky user property keys. Firebase Analytics shows these as filters

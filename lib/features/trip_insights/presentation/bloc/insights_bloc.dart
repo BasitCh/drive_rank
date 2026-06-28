@@ -7,13 +7,15 @@ import 'package:drive_rank/features/trip_insights/presentation/bloc/insights_sta
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
-/// Owns the Trip Insights lifecycle.
+/// Owns the lifecycle for either social share card (Performance or
+/// Journey). Both pages provide the same bloc with a different
+/// `CardKind` on `InsightsLoaded` — the bloc routes telemetry to the
+/// right per-card funnel without leaking card details into the data
+/// layer.
 ///
-/// Single precomputation pass on `InsightsLoaded`. The share button
-/// transitions through a brief `isSharing = true` window so the page
-/// can render a spinner; the actual capture + share_plus call lives on
-/// the page (it needs a `BuildContext` + `RepaintBoundary` key). The
-/// bloc just persists the intent + emits telemetry.
+/// Share capture lives on the page (it needs a `BuildContext` +
+/// `RepaintBoundary` key). The bloc just persists the intent + emits
+/// telemetry.
 @injectable
 class InsightsBloc extends Bloc<InsightsEvent, InsightsState> {
   InsightsBloc(this._repo, this._telemetry)
@@ -41,20 +43,11 @@ class InsightsBloc extends Bloc<InsightsEvent, InsightsState> {
         bundle: bundle,
         clearError: true,
       ));
-      unawaited(
-        _telemetry.track(
-          TelemetryEvents.insightsViewed,
-          properties: <String, Object?>{
-            'has_chart': bundle.chartEligible,
-            'has_records': bundle.recordsEligible,
-            'segment_count': bundle.segments.length,
-          },
-        ),
-      );
+      unawaited(_telemetry.track(event.kind.viewedEvent));
     } catch (e) {
       emit(state.copyWith(
         status: InsightsStatus.error,
-        errorMessage: 'Could not load insights: $e',
+        errorMessage: 'Could not load card: $e',
       ));
     }
   }
@@ -65,7 +58,7 @@ class InsightsBloc extends Bloc<InsightsEvent, InsightsState> {
   ) async {
     if (state.status != InsightsStatus.ready || state.isSharing) return;
     emit(state.copyWith(isSharing: true));
-    unawaited(_telemetry.track(TelemetryEvents.insightsShared));
+    unawaited(_telemetry.track(event.kind.sharedEvent));
   }
 
   Future<void> _onShareFinished(

@@ -115,7 +115,14 @@ class _Loaded extends StatelessWidget {
                   fuelCostFormatted: _fuelLabel(locale, trip),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _InsightsCta(tripId: trip.id),
+                _ShareCardsRow(
+                  tripId: trip.id,
+                  // Performance card hides when the chart would be
+                  // empty — < 20 waypoints means a flatline screenshot
+                  // and we'd rather not surface the CTA at all than
+                  // ship a broken share.
+                  showPerformance: state.points.length >= 20,
+                ),
               ],
             ),
           ),
@@ -321,13 +328,63 @@ class _NotFound extends StatelessWidget {
   }
 }
 
-/// Subtle CTA below the AnalyticsGrid that pushes the user to the
-/// premium analytics surface. Trip Summary stays lightweight; the
-/// chart + map + records live one tap deeper.
-class _InsightsCta extends StatelessWidget {
-  const _InsightsCta({required this.tripId});
+/// Side-by-side CTA row under the AnalyticsGrid. Trip Summary remains
+/// the lightweight share surface; each card opens its own dedicated
+/// share page (one screenshot per card).
+///
+/// Performance card auto-hides when the chart wouldn't have anything
+/// to show — < 20 waypoints means a flatline export, and we'd rather
+/// not surface the CTA at all than ship a broken share.
+class _ShareCardsRow extends StatelessWidget {
+  const _ShareCardsRow({
+    required this.tripId,
+    required this.showPerformance,
+  });
 
   final int tripId;
+  final bool showPerformance;
+
+  @override
+  Widget build(BuildContext context) {
+    final journey = Expanded(
+      child: _ShareCardCta(
+        emoji: '🗺',
+        title: AppStrings.journeyCardCta,
+        subtitle: AppStrings.journeyCardCtaSub,
+        onTap: () => context.push(RouteNames.journeyCardFor(tripId)),
+      ),
+    );
+    if (!showPerformance) return Row(children: [journey]);
+    return Row(
+      children: [
+        Expanded(
+          child: _ShareCardCta(
+            emoji: '📈',
+            title: AppStrings.performanceCardCta,
+            subtitle: AppStrings.performanceCardCtaSub,
+            onTap: () =>
+                context.push(RouteNames.performanceCardFor(tripId)),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        journey,
+      ],
+    );
+  }
+}
+
+class _ShareCardCta extends StatelessWidget {
+  const _ShareCardCta({
+    required this.emoji,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final String emoji;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -336,53 +393,52 @@ class _InsightsCta extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        onTap: () => context.push(RouteNames.tripInsightsFor(tripId)),
+        onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
           child: Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: AppColors.teal.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('📊', style: TextStyle(fontSize: 14)),
+                child: Text(emoji, style: const TextStyle(fontSize: 13)),
               ),
-              const SizedBox(width: 12),
-              const Expanded(
+              const SizedBox(width: 10),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      AppStrings.tripInsightsCta,
-                      style: TextStyle(
+                      title,
+                      style: const TextStyle(
                         fontFamily: 'Outfit',
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 1),
                     Text(
-                      'Speed chart, route, breakdown, records',
-                      style: TextStyle(
+                      subtitle,
+                      style: const TextStyle(
                         fontFamily: 'Outfit',
-                        fontSize: 11,
+                        fontSize: 10,
                         color: AppColors.textSecondary,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               const Icon(
                 Icons.chevron_right_rounded,
-                size: 20,
+                size: 18,
                 color: AppColors.textSecondary,
               ),
             ],

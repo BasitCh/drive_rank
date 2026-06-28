@@ -6,21 +6,14 @@ import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/personal_record.dart';
 import 'package:flutter/material.dart';
 
-/// 2x2 hero strip at the top of Insights.
+/// 2x2 hero strip used by both social cards.
 ///
-/// Cell layout (chosen for screenshot density — the diagonal teal
-/// emphasis pulls the eye from top-left "biggest stat" down to the
-/// bottom-right achievement, which is the post-share flex):
-///   ┌─────────────┬─────────────┐
-///   │  Top Speed  │  Avg Speed  │
-///   ├─────────────┼─────────────┤
-///   │  Distance   │ Best Ach.   │
-///   └─────────────┴─────────────┘
-///
-/// When the trip earned no badge, the achievement cell falls back to
-/// the trip duration so the grid stays symmetric.
-class InsightsHeroStrip extends StatelessWidget {
-  const InsightsHeroStrip({
+/// Top row anchors the eye with the two "flex" numbers (Top Speed left,
+/// teal-accented, then Avg Speed). Bottom row balances with Distance
+/// and the Best Achievement badge — when no record fired, that cell
+/// shows the trip duration instead so the grid stays symmetric.
+class HeroStatStrip extends StatelessWidget {
+  const HeroStatStrip({
     required this.trip,
     required this.locale,
     required this.bestAchievement,
@@ -46,17 +39,19 @@ class InsightsHeroStrip extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _HeroCell(
+                child: _Cell(
                   label: 'TOP SPEED',
                   value: locale.formatSpeed(trip.topSpeedKmh),
                   accent: AppColors.teal,
+                  big: true,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: _HeroCell(
+                child: _Cell(
                   label: 'AVG SPEED',
                   value: locale.formatSpeed(trip.avgSpeedKmh),
+                  big: true,
                 ),
               ),
             ],
@@ -65,14 +60,14 @@ class InsightsHeroStrip extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _HeroCell(
+                child: _Cell(
                   label: 'DISTANCE',
                   value: locale.formatDistance(trip.distanceKm),
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: _HeroCell(
+                child: _Cell(
                   label: ach != null ? 'ACHIEVEMENT' : 'DURATION',
                   value: ach != null
                       ? '${ach.kind.emoji} ${ach.kind.title}'
@@ -88,26 +83,25 @@ class InsightsHeroStrip extends StatelessWidget {
   }
 }
 
-class _HeroCell extends StatelessWidget {
-  const _HeroCell({
+class _Cell extends StatelessWidget {
+  const _Cell({
     required this.label,
     required this.value,
     this.accent,
+    this.big = false,
   });
 
   final String label;
   final String value;
   final Color? accent;
+  final bool big;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: AppTextStyles.microLabel.copyWith(fontSize: 9),
-        ),
+        Text(label, style: AppTextStyles.microLabel.copyWith(fontSize: 9)),
         const SizedBox(height: 4),
         Text(
           value,
@@ -115,10 +109,11 @@ class _HeroCell extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontFamily: 'Outfit',
-            fontSize: 18,
+            fontSize: big ? 24 : 16,
             fontWeight: FontWeight.w700,
             color: accent ?? AppColors.textPrimary,
-            letterSpacing: -0.2,
+            letterSpacing: -0.4,
+            height: 1.05,
           ),
         ),
       ],
