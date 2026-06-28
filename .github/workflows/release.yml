@@ -117,16 +117,19 @@ jobs:
 
       - name: Upload AAB to Play (closed testing, Draft)
         # Status: draft means the AAB lands in Play Console but isn't
-        # promoted to testers until you click Publish. That's the human
-        # review gate you wanted. Change to `completed` later if you
-        # decide to auto-publish.
+        # promoted to testers until you click Publish.
         #
-        # changesNotSentForReview: true is mandatory once the app has
-        # been manually submitted for review at least once (production
-        # access requirement). Without it the API refuses the commit
-        # with "Changes cannot be sent for review automatically". The
-        # upload still lands as a Draft — you click "Send for review"
-        # in the Console once you're ready to roll it out.
+        # changesNotSentForReview deliberately omitted — the Play API
+        # has two modes the action can't autodetect:
+        #   - Tracks that require Google review (production) demand it
+        #     be true, otherwise the commit fails with "Changes cannot
+        #     be sent for review automatically".
+        #   - Tracks that auto-submit (alpha/internal once production
+        #     access has been granted) refuse the parameter, failing
+        #     with "Changes are sent for review automatically. The
+        #     query parameter changesNotSentForReview must not be set".
+        # Alpha → auto-submit. When this workflow later promotes to
+        # production, re-add `changesNotSentForReview: true` then.
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
@@ -134,7 +137,6 @@ jobs:
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
           track: alpha
           status: draft
-          changesNotSentForReview: true
           # Use the tag name (e.g. v1.0.1) as the release name in Play
           # Console so you can correlate Play history with git tags.
           releaseName: ${{ github.ref_name }}
