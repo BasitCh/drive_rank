@@ -4,14 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-/// OSM map with the speed-coloured polyline + explicit START / END
-/// markers. Built to fill the Journey card's vertical real estate —
-/// the spec calls for the map to occupy ~70% of the card.
+/// Dark-themed map with the speed-coloured polyline + explicit START /
+/// END markers. Fills the Journey card's vertical real estate per
+/// spec (~70 % of the card).
 ///
-/// Tile darkening keeps the OSM Carto-light palette readable against
-/// the dark app surface. Pre-grouped `SpeedSegment`s from the bundle
-/// render as one polyline each, which keeps frame time bounded on a
-/// 5000-waypoint trip.
+/// Basemap: CartoDB Dark Matter tiles — pre-rendered dark style with
+/// legible white labels. Earlier versions filtered OSM Carto-light at
+/// runtime with a `ColorFilter` matrix, which mangled label contrast
+/// (the user couldn't read country names) and cost a GPU pass per
+/// tile per frame. Dark tiles render natively, no filter required.
+/// Attribution rendered bottom-right via flutter_map's
+/// `RichAttributionWidget`.
 class JourneyMap extends StatelessWidget {
   const JourneyMap({required this.bundle, super.key});
 
@@ -47,9 +50,13 @@ class JourneyMap extends StatelessWidget {
       ),
       children: [
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          urlTemplate:
+              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          subdomains: const ['a', 'b', 'c', 'd'],
+          retinaMode: true,
           userAgentPackageName: 'com.bytse.drive_rank',
-          tileBuilder: _darkenTile,
+          // No tileBuilder filter — Dark Matter is already dark with
+          // legible labels. Filtering on top would only crush contrast.
         ),
         PolylineLayer(
           polylines: [
@@ -58,7 +65,7 @@ class JourneyMap extends StatelessWidget {
                 points: s.points,
                 color: s.bucket.color,
                 strokeWidth: 5,
-                borderColor: Colors.black.withValues(alpha: 0.35),
+                borderColor: Colors.black.withValues(alpha: 0.45),
                 borderStrokeWidth: 1.5,
               ),
           ],
@@ -90,6 +97,15 @@ class JourneyMap extends StatelessWidget {
                 ),
             ],
           ),
+        RichAttributionWidget(
+          showFlutterMapAttribution: false,
+          alignment: AttributionAlignment.bottomRight,
+          popupBorderRadius: BorderRadius.circular(8),
+          attributions: const [
+            TextSourceAttribution('OpenStreetMap'),
+            TextSourceAttribution('CARTO'),
+          ],
+        ),
       ],
     );
   }
@@ -117,18 +133,6 @@ class JourneyMap extends StatelessWidget {
     return null;
   }
 
-  /// Dims the bright OSM Carto-light tiles to fit the dark card.
-  Widget _darkenTile(BuildContext context, Widget tileWidget, _) {
-    return ColorFiltered(
-      colorFilter: const ColorFilter.matrix(<double>[
-        0.42, 0, 0, 0, 6,
-        0, 0.42, 0, 0, 6,
-        0, 0, 0.48, 0, 10,
-        0, 0, 0, 1, 0,
-      ]),
-      child: tileWidget,
-    );
-  }
 }
 
 class _EndpointMarker extends StatelessWidget {

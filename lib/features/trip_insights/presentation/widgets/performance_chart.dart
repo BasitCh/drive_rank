@@ -50,7 +50,10 @@ class PerformanceChart extends StatelessWidget {
         ),
     ];
     final maxTime = (times.isEmpty ? 1 : times.last).toDouble();
-    final step = ceiling / 4; // 0 / 100 / 200 / 300 / 400 km/h ticks
+    // 40 km/h ticks (or 25 mph in imperial) match the TripRank reference
+    // and stay readable at typical phone widths. Grid lines + labels
+    // both use the same interval so the eye reads one cadence.
+    final step = isImperial ? 25.0 : 40.0;
 
     return AspectRatio(
       aspectRatio: 0.95, // tall — chart dominates the card
@@ -84,7 +87,10 @@ class PerformanceChart extends StatelessWidget {
             rightTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 50,
+                // Dedicated label column. Wider reserved space pushes
+                // text safely outside the polyline area so the chart
+                // can't visually overlap the right-axis values.
+                reservedSize: 64,
                 interval: step,
                 getTitlesWidget: (value, meta) {
                   // Hide the 0 label — visually noisy at the baseline.
@@ -95,8 +101,9 @@ class PerformanceChart extends StatelessWidget {
                       '${value.toStringAsFixed(0)} ${locale.speedUnitLabel}',
                       style: const TextStyle(
                         fontFamily: 'JetBrainsMono',
-                        fontSize: 9,
-                        color: AppColors.textTertiary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   );
@@ -107,17 +114,17 @@ class PerformanceChart extends StatelessWidget {
           lineBarsData: [
             LineChartBarData(
               spots: spots,
-              isCurved: true,
-              curveSmoothness: 0.10,
-              preventCurveOverShooting: true,
+              // Polyline (not Bezier) preserves the natural waveform
+              // peaks — the smoothing pass already de-noised single-
+              // sample spikes, anything more would tame the screenshot.
+              // Also removes per-frame Bezier control-point math, which
+              // contributes to the perceived back-button lag on long
+              // trips.
+              isCurved: false,
               color: AppColors.teal,
               barWidth: 2,
               isStrokeCapRound: true,
               dotData: const FlDotData(show: false),
-              shadow: const Shadow(
-                color: AppColors.teal,
-                blurRadius: 9,
-              ),
               belowBarData: BarAreaData(
                 show: true,
                 gradient: LinearGradient(

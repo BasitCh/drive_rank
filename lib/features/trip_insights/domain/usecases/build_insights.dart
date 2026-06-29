@@ -42,6 +42,14 @@ class BuildInsights {
   /// the share screenshot looked tame.
   static const int _smoothingWindow = 2;
 
+  /// Hard cap on the number of bucket pairs produced by min-max
+  /// decimation. With both a min and a max kept per bucket, the chart
+  /// receives up to 2 * buckets points — `400` → ~800 points max. fl_chart
+  /// renders a 5000-point polyline slowly enough on lower-end Android
+  /// to make the back button feel broken (every back-tap queues behind
+  /// the next paint frame). 800 points renders in a few ms.
+  static const int _chartTargetBuckets = 400;
+
   /// Distance / duration / month thresholds for individual badges.
   static const double _longestRideMinKm = 5;
   static const int _fastestMonthlyMinDurationSeconds = 5 * 60;
@@ -52,18 +60,24 @@ class BuildInsights {
     required List<TripPoint> waypoints,
     required List<TripRow> otherTrips,
   }) {
-    final smoothedSpeeds = _smooth(
-      waypoints.map((p) => p.speedKmh).toList(growable: false),
-    );
+    final rawSpeeds = waypoints
+        .map((p) => p.speedKmh)
+        .toList(growable: false);
+    final smoothedSpeeds = _smooth(rawSpeeds);
     final smoothedSeconds = _secondsFromStart(waypoints);
+    final (decimatedSpeeds, decimatedSeconds) = _decimate(
+      smoothedSpeeds,
+      smoothedSeconds,
+      targetBuckets: _chartTargetBuckets,
+    );
     final segments = _groupSegments(waypoints);
     final breakdown = _bucketTimes(waypoints);
     final records = _records(trip: trip, otherTrips: otherTrips);
 
     return InsightsBundle(
       trip: trip,
-      smoothedSpeedKmh: smoothedSpeeds,
-      smoothedSecondsFromStart: smoothedSeconds,
+      smoothedSpeedKmh: decimatedSpeeds,
+      smoothedSecondsFromStart: decimatedSeconds,
       segments: segments,
       breakdown: breakdown,
       records: records,
@@ -76,6 +90,50 @@ class BuildInsights {
       // previous trip to compare against (was previously <2).
       recordsEligible: otherTrips.isNotEmpty,
     );
+  }
+
+  /// Min-max decimation: walk the smoothed series in buckets and keep
+  /// the min + max from each bucket, in chronological order. Cuts a
+  /// 5000-point series to ~800 points without erasing peaks — fl_chart
+  /// renders fast and the silhouette of the trip stays intact, which
+  /// is what makes the share screenshot read as energetic.
+  (List<double>, List<int>) _decimate(
+    List<double> speeds,
+    List<int> seconds, {
+    required int targetBuckets,
+  }) {
+    if (speeds.length <= targetBuckets * 2) return (speeds, seconds);
+    final stride = math.max(1, speeds.length ~/ targetBuckets);
+    final outSpeeds = <double>[];
+    final outSeconds = <int>[];
+    for (var i = 0; i < speeds.length; i += stride) {
+      final end = math.min(i + stride, speeds.length);
+      var minIdx = i;
+      var maxIdx = i;
+      for (var j = i + 1; j < end; j++) {
+        if (speeds[j] < speeds[minIdx]) minIdx = j;
+        if (speeds[j] > speeds[maxIdx]) maxIdx = j;
+      }
+      if (minIdx == maxIdx) {
+        outSpeeds.add(speeds[minIdx]);
+        outSeconds.add(seconds[minIdx]);
+      } else if (minIdx < maxIdx) {
+        outSpeeds
+          ..add(speeds[minIdx])
+          ..add(speeds[maxIdx]);
+        outSeconds
+          ..add(seconds[minIdx])
+          ..add(seconds[maxIdx]);
+      } else {
+        outSpeeds
+          ..add(speeds[maxIdx])
+          ..add(speeds[minIdx]);
+        outSeconds
+          ..add(seconds[maxIdx])
+          ..add(seconds[minIdx]);
+      }
+    }
+    return (outSpeeds, outSeconds);
   }
 
   /// Centred 5-point moving average. Edge points use the available
