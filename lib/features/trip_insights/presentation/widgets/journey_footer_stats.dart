@@ -1,7 +1,6 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
-import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart' show TripRow;
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/personal_record.dart';
@@ -91,7 +90,19 @@ class _Cell extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.microLabel.copyWith(fontSize: 9)),
+        // textTertiary at 9 pt was invisible on the dark card — bumped
+        // to textSecondary (#8E8E9A) and weight 600 so the field
+        // labels read at a glance in screenshots.
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+            letterSpacing: 1.2,
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           value,

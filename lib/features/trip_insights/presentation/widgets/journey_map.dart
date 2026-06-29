@@ -1,5 +1,8 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
+import 'package:drive_rank/core/constants/app_spacing.dart';
+import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/insights_bundle.dart';
+import 'package:drive_rank/features/trip_insights/domain/entities/speed_bucket.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -50,13 +53,22 @@ class JourneyMap extends StatelessWidget {
       ),
       children: [
         TileLayer(
+          // {r} expands to "@2x" on retina screens. CartoDB ships
+          // 512 px @2x dark tiles that render city / country labels
+          // crisp white against the dark base — exactly the look the
+          // user pointed at on TripRank. The non-retina path looked
+          // soft and grey on high-DPI Android, which is what they
+          // were seeing.
           urlTemplate:
-              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
           subdomains: const ['a', 'b', 'c', 'd'],
           retinaMode: true,
           userAgentPackageName: 'com.bytse.drive_rank',
-          // No tileBuilder filter — Dark Matter is already dark with
-          // legible labels. Filtering on top would only crush contrast.
+          // Keep one extra ring of tiles prefetched around the viewport
+          // so panning / zooming during framing reveals already-loaded
+          // labels instead of grey squares.
+          keepBuffer: 2,
+          maxZoom: 19,
         ),
         PolylineLayer(
           polylines: [
@@ -184,60 +196,104 @@ class _EndpointMarker extends StatelessWidget {
   }
 }
 
-/// Compact horizontal speed legend rendered below the map.
+/// Speed Ranges card rendered below the map — title + 4 rows of
+/// coloured bar + km/h (or mph) range. Matches the TripRank reference
+/// the user pointed to: a proper card chrome with a clear hierarchy,
+/// not a chip strip.
+///
+/// Numeric thresholds come from `SpeedBucket` constants and run
+/// through [LocaleService] so an mph user reads "25 – 50 mph", not
+/// "40 – 80 km/h".
 class JourneyMapLegend extends StatelessWidget {
-  const JourneyMapLegend({super.key});
+  const JourneyMapLegend({required this.locale, super.key});
+
+  final LocaleService locale;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 6,
-      children: [
-        for (final entry in _legendEntries)
-          _Chip(label: entry.$1, color: entry.$2),
-      ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Speed Ranges',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          for (var i = 0; i < SpeedBucket.values.length; i++) ...[
+            _Row(
+              bucket: SpeedBucket.values[i],
+              locale: locale,
+            ),
+            if (i != SpeedBucket.values.length - 1)
+              const SizedBox(height: 10),
+          ],
+        ],
+      ),
     );
   }
-
-  // Bucket → human label. The numeric thresholds are intentionally
-  // omitted here — the legend in the screenshot reads cleaner as
-  // descriptive words ("Slow / Cruising / Fast / Very Fast") than as
-  // a tooltip of km/h ranges.
-  static const List<(String, Color)> _legendEntries = [
-    ('Slow', AppColors.red),
-    ('Cruising', AppColors.orange),
-    ('Fast', AppColors.green),
-    ('Very Fast', AppColors.teal),
-  ];
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.color});
-  final String label;
-  final Color color;
+class _Row extends StatelessWidget {
+  const _Row({required this.bucket, required this.locale});
+
+  final SpeedBucket bucket;
+  final LocaleService locale;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
+        // Short coloured pill — the visual key for this band.
         Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          width: 36,
+          height: 4,
+          decoration: BoxDecoration(
+            color: bucket.color,
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 11,
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w600,
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            _label(),
+            style: const TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
       ],
     );
+  }
+
+  /// Returns the inclusive-exclusive range label, locale-aware.
+  /// Examples (metric):  "< 40 km/h", "40 – 80 km/h", "> 120 km/h".
+  /// Examples (imperial):"< 25 mph",  "25 – 50 mph",   "> 75 mph".
+  String _label() {
+    final unit = locale.speedUnitLabel;
+    final lo = locale.formatSpeedValue(bucket.minKmh);
+    final hi = bucket.maxKmh;
+    if (bucket.minKmh == 0 && hi != null) {
+      return '< ${locale.formatSpeedValue(hi)} $unit';
+    }
+    if (hi == null) {
+      return '> $lo $unit';
+    }
+    return '$lo – ${locale.formatSpeedValue(hi)} $unit';
   }
 }

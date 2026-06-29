@@ -1,6 +1,5 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
-import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart' show TripRow;
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/personal_record.dart';
@@ -101,7 +100,19 @@ class _Cell extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.microLabel.copyWith(fontSize: 9)),
+        // Same brightening pass as the journey footer — textTertiary
+        // doesn't register on the dark card; textSecondary + weight 600
+        // keeps the field labels readable in screenshots.
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+            letterSpacing: 1.2,
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           value,

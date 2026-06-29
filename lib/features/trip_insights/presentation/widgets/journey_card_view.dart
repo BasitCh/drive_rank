@@ -52,7 +52,7 @@ class JourneyCardView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            const JourneyMapLegend(),
+            JourneyMapLegend(locale: locale),
             const SizedBox(height: AppSpacing.md),
             JourneyFooterStats(
               trip: bundle.trip,
