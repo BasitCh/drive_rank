@@ -5,8 +5,20 @@ import 'package:go_router/go_router.dart';
 /// Page chrome bar shared by Performance + Journey share pages.
 ///
 /// Back button on the left, page title centred, Share CTA on the right.
-/// Kept thin so the share card below has room to breathe — the chrome
-/// is what the user sees, the card is what they screenshot.
+/// The chrome is what the user sees, the card is what they screenshot.
+///
+/// Back-button reliability notes (the previous three patches did not
+/// fix this — the issue was the tap target, not pop semantics):
+///   • Visible chip stays 36 dp so the chrome doesn't get visually
+///     bulkier, but the tappable area is a 48×48 dp box (Material's
+///     accessibility floor). The 30-dp box in v1.1.0–v1.1.4 was
+///     smaller than a fingertip on high-DPI Android and tap events
+///     were physically missing it.
+///   • Tap action goes through `Navigator.maybePop(context)` — the
+///     underlying primitive both go_router and the Android system
+///     back gesture funnel through. No fall-back to `context.go(...)`
+///     because the only callers push these pages from Trip Summary,
+///     so the route stack always has a previous entry to pop to.
 class CardChromeBar extends StatelessWidget {
   const CardChromeBar({
     required this.title,
@@ -24,16 +36,24 @@ class CardChromeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Row(
         children: [
           _CircleButton(
-            onTap: () =>
-                context.canPop() ? context.pop() : context.go('/home'),
+            tooltip: 'Back',
+            onTap: () async {
+              // maybePop returns false instead of throwing if the
+              // route stack is somehow empty — the only callers always
+              // push, so this is purely defensive.
+              final popped = await Navigator.of(context).maybePop();
+              if (!popped && context.mounted) {
+                context.go('/home');
+              }
+            },
             child: const Icon(
-              Icons.chevron_left_rounded,
+              Icons.arrow_back_rounded,
               color: AppColors.textPrimary,
-              size: 18,
+              size: 22,
             ),
           ),
           const SizedBox(width: 12),
@@ -60,20 +80,50 @@ class CardChromeBar extends StatelessWidget {
 }
 
 class _CircleButton extends StatelessWidget {
-  const _CircleButton({required this.child, required this.onTap});
+  const _CircleButton({
+    required this.child,
+    required this.onTap,
+    required this.tooltip,
+  });
 
   final Widget child;
   final VoidCallback onTap;
+  final String tooltip;
+
+  /// Material spec: minimum touch target is 48×48 dp. The visible
+  /// pill chip stays 36 dp; the InkWell+SizedBox sits on a 48 dp
+  /// square so taps anywhere in that neighbourhood land.
+  static const double _hitSize = 48;
+  static const double _visualSize = 36;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.card,
-      shape: const CircleBorder(side: BorderSide(color: AppColors.border)),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: SizedBox(width: 30, height: 30, child: Center(child: child)),
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: _hitSize,
+        height: _hitSize,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: Center(
+              child: Container(
+                width: _visualSize,
+                height: _visualSize,
+                decoration: const BoxDecoration(
+                  color: AppColors.card,
+                  shape: BoxShape.circle,
+                  border: Border.fromBorderSide(
+                    BorderSide(color: AppColors.border),
+                  ),
+                ),
+                child: Center(child: child),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
