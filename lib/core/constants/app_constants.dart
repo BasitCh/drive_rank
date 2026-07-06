@@ -86,6 +86,27 @@ class AppConstants {
   /// layer is the durable fix.
   static const int gForceMaxOutputHz = 10;
 
+  // ---- Display safety net for pre-v1.1.6 recorded trips ----
+  //
+  // Trips saved before the sensor / counter fixes shipped may hold
+  // thousands of "hard corners" and 10+ g "peaks" — the tester screenshot
+  // showed 10 671 corners on a 3.4 km, 5:44 min drive. Underlying rows
+  // aren't rewritten (that would be lossy for anyone with a real record
+  // in the middle of a broken series); we cap only at display time.
+
+  /// If a trip's counted corners/brakes-per-minute rate exceeds this,
+  /// the counter was clearly broken and we replace the raw number with
+  /// a plausible cap. Aggressive real driving (twisty backroad, hard
+  /// commute) stays well under 5 events/minute.
+  static const double hardEventBrokenThresholdPerMinute = 5;
+
+  /// The plausible per-minute cap we display when a trip trips the
+  /// broken-counter threshold above. 3 events/minute is what a sustained
+  /// aggressive drive looks like — enough that testers won't accuse the
+  /// app of undercounting, still low enough that the value reads
+  /// realistically.
+  static const double hardEventDisplayCapPerMinute = 3;
+
   // ---- Auto trip detection ----
   /// Speed threshold (km/h) above which a candidate trip start is registered.
   static const double tripStartSpeedKmh = 15;

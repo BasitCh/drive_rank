@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:drive_rank/core/constants/app_colors.dart';
+import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
@@ -9,10 +12,19 @@ import 'package:flutter/material.dart';
 /// MVP scope dropped the leaderboard — the old "your rank" tile was a
 /// dead `—` placeholder confusing users, so it's gone. Three tiles in
 /// a single row reads cleaner than 2x2 with one dead cell.
+///
+/// Both counter tiles run through [_sanityCap] before rendering. Trips
+/// recorded before v1.1.6 hold physically impossible values (10 000+
+/// hard corners on a 5-minute drive from a 100 Hz noisy sensor stream);
+/// the raw rows aren't rewritten, but at display time we cap anything
+/// whose per-minute rate is above the "clearly broken" threshold at
+/// a plausible-driving rate. New trips post-v1.1.6 come in well under
+/// the threshold and render as-is.
 class AnalyticsGrid extends StatelessWidget {
   const AnalyticsGrid({
     required this.hardCorners,
     required this.hardBrakes,
+    required this.durationSeconds,
     required this.fuelCostFormatted,
     super.key,
   });
@@ -20,9 +32,26 @@ class AnalyticsGrid extends StatelessWidget {
   final int hardCorners;
   final int hardBrakes;
 
+  /// Trip duration — the denominator for the rate-based sanity cap.
+  final int durationSeconds;
+
   /// Pre-formatted via `LocaleService.formatCurrency`, or `—` if the user
   /// hasn't configured fuel.
   final String fuelCostFormatted;
+
+  /// Duration-aware sanity cap. Real drivers, even aggressive ones,
+  /// stay well below `hardEventBrokenThresholdPerMinute` events per
+  /// minute. Anything past that was produced by the pre-v1.1.6 counter
+  /// bug — replace with the plausible-driving cap so testers stop
+  /// screenshotting the taunt.
+  int _sanityCap(int count) {
+    final minutes = math.max(1, durationSeconds / 60.0);
+    final ratePerMinute = count / minutes;
+    if (ratePerMinute <= AppConstants.hardEventBrokenThresholdPerMinute) {
+      return count;
+    }
+    return (minutes * AppConstants.hardEventDisplayCapPerMinute).ceil();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,19 +66,13 @@ class AnalyticsGrid extends StatelessWidget {
         Row(
           children: [
             _Item(
-              // Display cap for trips recorded before v1.1.6 fixed the
-              // corner-detection debouncer — a noisy 100 Hz sensor
-              // stream produced 10 000+ "corners" on short trips and
-              // testers were screenshotting the taunt. Cap the shown
-              // value at 999 with a "+" so old rows read plausibly;
-              // new trips are already sane at source.
-              value: hardCorners > 999 ? '999+' : hardCorners.toString(),
+              value: _sanityCap(hardCorners).toString(),
               label: AppStrings.tripSummaryHardCorners,
               color: AppColors.orange,
             ),
             const SizedBox(width: 6),
             _Item(
-              value: hardBrakes > 999 ? '999+' : hardBrakes.toString(),
+              value: _sanityCap(hardBrakes).toString(),
               label: AppStrings.tripSummaryHardBrakes,
               color: AppColors.blue,
             ),

@@ -112,6 +112,7 @@ class _Loaded extends StatelessWidget {
                 AnalyticsGrid(
                   hardCorners: trip.hardCornersCount,
                   hardBrakes: trip.hardBrakesCount,
+                  durationSeconds: trip.durationSeconds,
                   fuelCostFormatted: _fuelLabel(locale, trip),
                 ),
                 const SizedBox(height: AppSpacing.md),
