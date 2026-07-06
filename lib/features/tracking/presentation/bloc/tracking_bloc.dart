@@ -98,12 +98,25 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   // while paused). Consumed on the next `_onPoint`.
   bool _skipNextDistanceDelta = false;
 
-  // "Currently inside an event" flags for the hard-brake / hard-corner
-  // detectors. The counters only step on the transition from false→true,
-  // so a single 5-sample-long hard brake increments hardBrakesCount once.
-  // Reset on Start and Pause so the next driving leg counts fresh.
+  // "Currently inside an event" flag for the hard-brake detector. The
+  // counter only steps on the transition from false→true, so a single
+  // 5-sample-long hard brake increments hardBrakesCount once. Reset on
+  // Start and Pause so the next driving leg counts fresh.
   bool _inHardBrake = false;
-  bool _inHardCorner = false;
+
+  // Hard-corner state. Two guards prevent the counter from ballooning
+  // on a noisy sensor stream that jitters around `hardCornerG` — before
+  // v1.1.6, a 5-minute trip could tally 10 000+ "corners" because every
+  // false→true transition was counted at the raw 100 Hz sensor rate.
+  //   - `_cornerSustainedSamples`: how many consecutive samples so far
+  //     have been over the threshold. Only when it hits
+  //     `AppConstants.hardCornerSustainedSamples` does the event count.
+  //   - `_lastCornerAt`: wall-clock of the last counted event.
+  //     Subsequent events within `hardCornerCooldown` are ignored — a
+  //     single cornering motion never fires faster than once every
+  //     ~2 s in real life.
+  int _cornerSustainedSamples = 0;
+  DateTime? _lastCornerAt;
 
   // ---------- crash-recovery ----------
 
@@ -138,7 +151,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
     _startedAt = snap.startedAt;
     _inHardBrake = false;
-    _inHardCorner = false;
+    _cornerSustainedSamples = 0;
+    _lastCornerAt = null;
     // After a process kill the GPS stream is dead — we must not pretend
     // we're still streaming. Restore as `paused` so the surface shows
     // accumulated stats + a Resume button. The first post-resume point
@@ -204,7 +218,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     }
 
     _inHardBrake = false;
-    _inHardCorner = false;
+    _cornerSustainedSamples = 0;
+    _lastCornerAt = null;
     // A fresh trip means any leftover crash-recovery snapshot from a
     // prior session is stale — wipe it before we begin streaming.
     unawaited(_activeTrip.clear());
@@ -329,7 +344,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     // Reset in-event flags so the post-resume leg counts its own
     // brakes / corners cleanly, even if we paused mid-event.
     _inHardBrake = false;
-    _inHardCorner = false;
+    _cornerSustainedSamples = 0;
+    _lastCornerAt = null;
     emit(
       state.copyWith(
         phase: TrackingPhase.paused,
@@ -624,25 +640,46 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     final g = event.gforce;
     final prev = state.stats;
 
-    // Hard-corner detection — same transition pattern as hard brakes:
-    // counter only steps when we cross from below threshold to above,
-    // so a single 1.5s 0.6g sweeping turn = +1, not many. Also gated
-    // on the vehicle actually moving — picking up the phone while
-    // sitting still easily produces > 0.45 g spikes and was anchoring
-    // phantom corner counts on idle tests.
+    // Hard-corner detection with sustained-sample gating + cooldown.
+    //
+    // Before v1.1.6 this counted every false→true threshold crossing,
+    // which — combined with a 100 Hz noisy sensor stream jittering
+    // around `hardCornerG` — produced 10 000+ "corners" on a 5-minute
+    // trip. Now the counter only steps when the g-force stays above
+    // the threshold for `hardCornerSustainedSamples` consecutive
+    // samples (~300 ms at the throttled 10 Hz stream) AND the last
+    // counted event is at least `hardCornerCooldown` in the past.
+    // A single 1.5 s sweeping turn = +1. A wobbly phone in a cup
+    // holder = 0.
     var hardCorners = prev.hardCornersCount;
     final movingFastEnoughToCorner =
         prev.currentSpeedKmh >= AppConstants.hardCornerMinSpeedKmh;
     if (movingFastEnoughToCorner && g >= AppConstants.hardCornerG) {
-      if (!_inHardCorner) {
+      _cornerSustainedSamples += 1;
+      final now = DateTime.now();
+      final offCooldown = _lastCornerAt == null ||
+          now.difference(_lastCornerAt!) >=
+              AppConstants.hardCornerCooldown;
+      if (_cornerSustainedSamples >=
+              AppConstants.hardCornerSustainedSamples &&
+          offCooldown) {
         hardCorners += 1;
-        _inHardCorner = true;
+        _lastCornerAt = now;
+        // Force the next event to build up sustained-sample credit
+        // from scratch — otherwise we'd tally another tick every
+        // frame the load stayed above threshold after cooldown.
+        _cornerSustainedSamples = 0;
       }
     } else {
-      _inHardCorner = false;
+      _cornerSustainedSamples = 0;
     }
 
-    final newMax = g > prev.maxGforce ? g : prev.maxGforce;
+    // Safety belt: samples that slipped through `SensorService`'s
+    // noise ceiling shouldn't be recorded as the trip's peak either.
+    // Anything past 3 g under normal driving is a bump / phone drop.
+    final clampedG =
+        g > AppConstants.gForceNoiseCeiling ? prev.maxGforce : g;
+    final newMax = clampedG > prev.maxGforce ? clampedG : prev.maxGforce;
     if (newMax == prev.maxGforce && hardCorners == prev.hardCornersCount) {
       return; // nothing changed; avoid a redundant emit per tick
     }

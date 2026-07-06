@@ -53,6 +53,39 @@ class AppConstants {
   /// source of phantom hard-corner counts on stationary tests.
   static const double hardCornerMinSpeedKmh = 10;
 
+  /// Absolute g-force ceiling above which a sample is treated as sensor
+  /// noise and dropped entirely. Aggressive street driving stays under
+  /// ~1.5 g; road cars near their traction limit peak around 1.2 g
+  /// laterally. Anything above 3 g under normal driving is a phone
+  /// drop, tap, or pocket twist — recording it once pinned `maxGforce`
+  /// at absurd values (12+ g on tester screenshots).
+  static const double gForceNoiseCeiling = 3;
+
+  /// Consecutive samples the g-force must stay above `hardCornerG`
+  /// before a corner event counts. At the throttled 10 Hz output rate
+  /// this is ~300 ms of sustained lateral load, filtering the sensor
+  /// noise that used to jitter around the threshold and produce
+  /// thousands of phantom transitions on a single real corner.
+  static const int hardCornerSustainedSamples = 3;
+
+  /// Minimum gap between two counted hard-corner events. A cornering
+  /// motion physically takes at least a second even in a switchback,
+  /// so anything closer than this is a re-count of the same event.
+  static const Duration hardCornerCooldown = Duration(seconds: 2);
+
+  /// Exponential-moving-average factor for smoothing the g-force
+  /// stream at the source. 0.35 keeps enough responsiveness to catch
+  /// real corners while damping the ±0.1 g white-noise floor that
+  /// modern MEMS accelerometers report even at rest.
+  static const double gForceEmaAlpha = 0.35;
+
+  /// Cap on the sensor stream's output rate. `sensors_plus` treats its
+  /// `samplingPeriod` as a hint — on many Android drivers the raw
+  /// stream fires at 100 Hz+, which is what turned a real corner into
+  /// hundreds of counted transitions. Explicit rate cap in the service
+  /// layer is the durable fix.
+  static const int gForceMaxOutputHz = 10;
+
   // ---- Auto trip detection ----
   /// Speed threshold (km/h) above which a candidate trip start is registered.
   static const double tripStartSpeedKmh = 15;

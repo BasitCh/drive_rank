@@ -1,4 +1,5 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
+import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
@@ -292,7 +293,13 @@ class _FooterRow extends StatelessWidget {
               const Text('⚡', style: TextStyle(fontSize: 10)),
               const SizedBox(width: 4),
               Text(
-                '${maxGforce.toStringAsFixed(1)}'
+                // Safety net for trips recorded before v1.1.6, when a
+                // single sensor spike could pin `maxGforce` at absurd
+                // values (12+ g on tester screenshots). Clamp at the
+                // same noise ceiling the recorder now enforces so old
+                // trips read plausibly and new ones are already sane.
+                '${maxGforce.clamp(0.0, AppConstants.gForceNoiseCeiling)
+                    .toStringAsFixed(1)}'
                 '${AppStrings.tripSummaryGforcePeakSuffix}',
                 style: const TextStyle(
                   fontFamily: 'JetBrainsMono',

@@ -37,13 +37,19 @@ class AnalyticsGrid extends StatelessWidget {
         Row(
           children: [
             _Item(
-              value: hardCorners.toString(),
+              // Display cap for trips recorded before v1.1.6 fixed the
+              // corner-detection debouncer — a noisy 100 Hz sensor
+              // stream produced 10 000+ "corners" on short trips and
+              // testers were screenshotting the taunt. Cap the shown
+              // value at 999 with a "+" so old rows read plausibly;
+              // new trips are already sane at source.
+              value: hardCorners > 999 ? '999+' : hardCorners.toString(),
               label: AppStrings.tripSummaryHardCorners,
               color: AppColors.orange,
             ),
             const SizedBox(width: 6),
             _Item(
-              value: hardBrakes.toString(),
+              value: hardBrakes > 999 ? '999+' : hardBrakes.toString(),
               label: AppStrings.tripSummaryHardBrakes,
               color: AppColors.blue,
             ),
