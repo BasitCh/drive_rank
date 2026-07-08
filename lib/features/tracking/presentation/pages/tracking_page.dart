@@ -216,52 +216,75 @@ class _IdleSurface extends StatelessWidget {
         // same hero, same 6-stat grid (all placeholders), same map
         // strip showing the selected theme, then a teal Start Trip
         // CTA where End Trip would normally sit.
-        return Column(
-          children: [
-            const _Header(showLiveBadge: false),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.md,
-                AppSpacing.xl,
-                AppSpacing.xs,
+        //
+        // On short Android phones (small foldables, older 720p Samsungs)
+        // this column overflowed and the Start Trip CTA sat below the
+        // viewport, unreachable. LayoutBuilder + minHeight + Intrinsic
+        // Height keeps the intended "spread to fill" look on tall
+        // phones AND makes it scrollable when the content doesn't fit.
+        return LayoutBuilder(
+          builder: (context, viewport) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints:
+                    BoxConstraints(minHeight: viewport.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    children: [
+                      const _Header(showLiveBadge: false),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.xl,
+                          AppSpacing.md,
+                          AppSpacing.xl,
+                          AppSpacing.xs,
+                        ),
+                        child: _SpeedHero(
+                          speedKmh: 0,
+                          locale: locale,
+                          hasFix: false,
+                          idleLabel: AppStrings.homeReadyToDriveTagline,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg - 2,
+                        ),
+                        child: _IdleStatsGrid(),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      RouteStrip(theme: theme, points: const []),
+                      const SizedBox(height: AppSpacing.sm),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg - 2,
+                        ),
+                        child: _StartTripButton(
+                          isExhausted: isExhausted,
+                          onTap: () => _onStart(context, isExhausted),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                        ),
+                        child: _FreeTripsLabel(
+                          isPro: isPro,
+                          remaining: remaining,
+                          total: limit,
+                          isLast: isLast,
+                          isExhausted: isExhausted,
+                        ),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
               ),
-              child: _SpeedHero(
-                speedKmh: 0,
-                locale: locale,
-                hasFix: false,
-                idleLabel: AppStrings.homeReadyToDriveTagline,
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg - 2),
-              child: _IdleStatsGrid(),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            RouteStrip(theme: theme, points: const []),
-            const SizedBox(height: AppSpacing.sm),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg - 2,
-              ),
-              child: _StartTripButton(
-                isExhausted: isExhausted,
-                onTap: () => _onStart(context, isExhausted),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-              child: _FreeTripsLabel(
-                isPro: isPro,
-                remaining: remaining,
-                total: limit,
-                isLast: isLast,
-                isExhausted: isExhausted,
-              ),
-            ),
-            const Spacer(),
-          ],
+            );
+          },
         );
       },
     );

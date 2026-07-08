@@ -34,7 +34,15 @@ class JourneyMap extends StatelessWidget {
         : const LatLng(0, 0);
     final start = _firstPoint(bundle);
     final end = _lastPoint(bundle);
-    return FlutterMap(
+    // Dark backdrop behind the map. FlutterMap paints on top of whatever
+    // its parent provides — before OSM tiles land on a slow connection
+    // the map area was flashing bright white against our dark card
+    // (~1 s on cold cache). Painting the underlying region dark first
+    // means the same window shows a subtle "loading" surface in the
+    // brand palette instead of a jarring white square.
+    return ColoredBox(
+      color: _mapBackdrop,
+      child: FlutterMap(
       options: MapOptions(
         initialCenter: centre,
         initialZoom: 12,
@@ -119,8 +127,14 @@ class JourneyMap extends StatelessWidget {
           ],
         ),
       ],
+      ),
     );
   }
+
+  /// Matches AppColors.bg2 (#0D0D12) — a shade darker than the section
+  /// card so the "loading" surface reads as its own region under the
+  /// tiles rather than blending with the card background.
+  static const Color _mapBackdrop = Color(0xFF0D0D12);
 
   LatLngBounds? _boundsForSegments(InsightsBundle bundle) {
     if (bundle.segments.isEmpty) return null;

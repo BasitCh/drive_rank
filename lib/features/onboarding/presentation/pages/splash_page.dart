@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:drive_rank/core/constants/app_colors.dart';
@@ -378,18 +379,40 @@ class _Wordmark extends StatelessWidget {
 
   final String text;
 
+  /// Widest we ever want the wordmark to be, in logical pixels. Matches
+  /// the radial-glow diameter (320 dp) minus a little breathing room so
+  /// the text sits comfortably inside the glow even at its widest.
+  static const double _glowFriendlyWidth = 280;
+
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontFamily: 'BebasNeue',
-        fontSize: 64,
-        height: 1,
-        letterSpacing: 4,
-        color: Colors.white,
-        // Inlined for const-correctness — keep ~55% alpha of AppColors.teal.
-        shadows: [Shadow(color: Color(0x8C3ECFBF), blurRadius: 28)],
+    // On narrow phones (older Samsungs / small Android devices) the
+    // 64 pt "DRIVERANK" wordmark rendered at ~400 dp wide — well past
+    // the glow AND past the screen edge. Constrain it to the glow's
+    // inner width and let FittedBox scale down when the intrinsic
+    // text is still too wide for that budget. scaleDown never scales
+    // *up*, so wider phones look identical to before.
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxWidth =
+        math.min(_glowFriendlyWidth, screenWidth * 0.78);
+    return SizedBox(
+      width: maxWidth,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          maxLines: 1,
+          softWrap: false,
+          style: const TextStyle(
+            fontFamily: 'BebasNeue',
+            fontSize: 64,
+            height: 1,
+            letterSpacing: 4,
+            color: Colors.white,
+            // Inlined for const-correctness — ~55 % alpha of AppColors.teal.
+            shadows: [Shadow(color: Color(0x8C3ECFBF), blurRadius: 28)],
+          ),
+        ),
       ),
     );
   }
