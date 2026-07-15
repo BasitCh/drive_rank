@@ -22,9 +22,19 @@ class AppConstants {
   static const double minReliableSpeedKmh = 6;
 
   /// Reported GPS accuracy worse than this (m) → ignore the speed
-  /// reading and clamp to zero. 20m is around the threshold where car
-  /// motion stops being resolvable.
-  static const double maxReliableAccuracyMeters = 20;
+  /// reading and clamp to zero.
+  ///
+  /// Bumped from 20 → 40 after a user report: 10 minutes into a bus
+  /// ride the app stopped tracking speed entirely, even with the phone
+  /// held in hand. Bus interiors (metal roof + tinted windows) attenuate
+  /// GPS signal enough that a mounted-on-dashboard threshold of 20 m
+  /// filters out perfectly valid passenger readings. At 40 m accuracy
+  /// a real 60 km/h reading (~17 m/s → position moves ~17 m per sample)
+  /// is still distinguishable from the ~0.5 m/s drift bounce of a
+  /// stationary phone, so we get more legit captures without letting
+  /// phantom speed anchor `topSpeedKmh` (the [minReliableSpeedKmh]
+  /// floor still clamps low-speed drift to zero).
+  static const double maxReliableAccuracyMeters = 40;
 
   /// A speed delta greater than this (km/h) between consecutive samples
   /// is a GPS glitch — discard and keep the previous reading. 100 km/h
@@ -33,6 +43,18 @@ class AppConstants {
   /// auto-recovers after 3 consecutive rejections — see
   /// `GpsService._denoiseSpeed`.
   static const double maxSpeedDeltaPerSampleKmh = 100;
+
+  /// Absolute physical cap on road-vehicle speed. Anything above this is
+  /// a GPS glitch — multipath at tunnel exits, cold-start stale-vector
+  /// misprojection, cellular-triangulation nonsense when satellites drop
+  /// out. Set at 300 km/h: fastest production supercars just clear
+  /// 350 km/h and DriveRank users aren't driving those on public roads.
+  ///
+  /// Guards against the case where the delta spike filter can't help —
+  /// when previous speed is 0 (post-accuracy-drift, tunnel exit, cold
+  /// start), the delta check is skipped and a single 363 km/h reading
+  /// would otherwise land unfiltered as the trip's top speed.
+  static const double maxPlausibleRoadSpeedKmh = 300;
 
   // ---- Driving-event thresholds (hard brake / hard corner) ----
   /// Speed drop (km/h) between consecutive samples that counts as a

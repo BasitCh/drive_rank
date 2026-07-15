@@ -207,6 +207,17 @@ class GpsService {
     }
     final candidate = rawSpeedMetresPerSecond * 3.6;
 
+    // Absolute physical cap — no consumer road vehicle exceeds this
+    // legitimately. Applies before every other filter, including the
+    // recovery path, so a single 363 km/h glitch (a real user report
+    // on a bus after 10 min of poor-accuracy readings) can NEVER
+    // become the trip's top speed. Delta-based filters can't catch
+    // this case because previous speed was 0 the whole time.
+    if (candidate > AppConstants.maxPlausibleRoadSpeedKmh) {
+      _stuckRejectionStreak = 0;
+      return _previousSpeedKmh;
+    }
+
     // Drift filter — too slow or accuracy too poor → treat as stationary.
     if (candidate < AppConstants.minReliableSpeedKmh ||
         accuracyMeters > AppConstants.maxReliableAccuracyMeters) {

@@ -94,7 +94,18 @@ class StatCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _TopSpeedHero(
-                            valueText: locale.formatSpeedValue(topSpeedKmh),
+                            // Safety net for trips saved before v1.1.9
+                            // clamped GPS spikes at source. Users
+                            // screenshotted a phantom 363 km/h from a
+                            // bus ride. Clamp the display to the same
+                            // physical road-vehicle cap the recorder
+                            // now enforces so old trips read plausibly.
+                            valueText: locale.formatSpeedValue(
+                              topSpeedKmh.clamp(
+                                0.0,
+                                AppConstants.maxPlausibleRoadSpeedKmh,
+                              ),
+                            ),
                             unitLabel: locale.speedUnitLabel,
                             rankBadge: rankBadge,
                           ),

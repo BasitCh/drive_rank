@@ -204,31 +204,54 @@ Future<void> _replace<T extends Object>(T Function() factory) async {
 Future<void> _maybeInitFirebase() async {
   try {
     if (Firebase.apps.isNotEmpty) return; // already initialised in tests
-    await Firebase.initializeApp();
+    // Users reported the Android launch screen "hanging" for many
+    // seconds — the culprit is `Firebase.initializeApp()` blocking on
+    // a cold-start network round-trip when the network is slow or
+    // dead. Cap at 4 s so bootstrap always completes and the Flutter
+    // engine hands over to `runApp` on a predictable schedule; if
+    // the cap trips, we fall back to `ConsoleTelemetryService` and
+    // the app still works, just without cloud analytics for that
+    // launch.
+    await Firebase.initializeApp().timeout(
+      const Duration(seconds: 4),
+    );
     if (kDebugMode) debugPrint('[bootstrap] Firebase initialised');
 
     final auth = FirebaseAuthService(fb.FirebaseAuth.instance);
-    // Stable per-install identity. Cheap on a warm cache (the FB SDK
-    // re-uses the persisted session uid); only round-trips on a fresh
-    // install. We use the uid for telemetry attribution + RC app user
-    // matching — no Firestore writes gate on it any more.
-    await auth.ensureSignedIn();
-
     final analytics = FirebaseAnalytics.instance;
     final crashlytics = FirebaseCrashlytics.instance;
 
     if (!kDebugMode) {
-      await crashlytics.setCrashlyticsCollectionEnabled(true);
+      // Non-awaited — Crashlytics collection is a local flag toggle,
+      // no reason to gate boot on it.
+      unawaited(crashlytics.setCrashlyticsCollectionEnabled(true));
     }
 
     final telemetry = FirebaseTelemetryService(analytics, crashlytics);
     await _replace<AuthService>(() => auth);
     await _replace<TelemetryService>(() => telemetry);
 
-    final authUid = auth.currentUser.uid;
-    if (authUid.isNotEmpty && authUid != 'pending') {
-      await telemetry.setUser(uid: authUid);
-    }
+    // Anonymous sign-in is the other slow leg — round-trips to Firebase
+    // Auth on a fresh install and can hang on flaky networks. Kick it
+    // off in the background instead of awaiting so bootstrap completes
+    // even with no connectivity. Once the sign-in resolves we push the
+    // uid to telemetry for attribution.
+    unawaited(
+      auth
+          .ensureSignedIn()
+          .timeout(const Duration(seconds: 6))
+          .then((_) {
+            final uid = auth.currentUser.uid;
+            if (uid.isNotEmpty && uid != 'pending') {
+              return telemetry.setUser(uid: uid);
+            }
+            return null;
+          })
+          .catchError((_) {
+            // Sign-in didn't land — telemetry events fire without user
+            // attribution until the next launch. Non-fatal.
+          }),
+    );
   } catch (e) {
     if (kDebugMode) {
       debugPrint(
