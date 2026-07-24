@@ -58,29 +58,39 @@ class MainShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: child,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.bg,
-          border: Border(top: BorderSide(color: AppColors.border)),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.sm,
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.only(
-              top: AppSpacing.sm,
-              bottom: AppSpacing.md,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                for (var i = 0; i < _tabs.length; i++)
-                  _NavTab(
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.xs),
+          decoration: BoxDecoration(
+            color: AppColors.card2,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            border: Border.all(color: AppColors.border2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              for (var i = 0; i < _tabs.length; i++)
+                Expanded(
+                  child: _NavTab(
                     tab: _tabs[i],
                     isActive: i == active,
                     onTap: () => context.go(_tabs[i].path),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
@@ -113,33 +123,30 @@ class _NavTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive ? AppColors.teal : AppColors.textTertiary;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(tab.icon, size: 22, color: color),
-            const SizedBox(height: 3),
-            Text(
-              tab.label.toUpperCase(),
-              style: AppTextStyles.microLabel.copyWith(color: color),
-            ),
-            const SizedBox(height: 3),
-            Container(
-              width: 3,
-              height: 3,
-              decoration: BoxDecoration(
-                color: isActive ? AppColors.teal : Colors.transparent,
-                borderRadius: BorderRadius.circular(2),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.tealDim : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(tab.icon, size: 22, color: color),
+              const SizedBox(height: 3),
+              Text(
+                tab.label.toUpperCase(),
+                style: AppTextStyles.microLabel.copyWith(color: color),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
