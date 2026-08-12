@@ -2,6 +2,7 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_bloc.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_event.dart';
@@ -19,17 +20,64 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// reminders but before the welcome — keeping it last means a user who
 /// quits mid-onboarding hasn't been asked yet (we re-prompt on first
 /// Start in that case).
-class OnboardingLocationStep extends StatelessWidget {
+class OnboardingLocationStep extends StatefulWidget {
   const OnboardingLocationStep({super.key});
+
+  @override
+  State<OnboardingLocationStep> createState() =>
+      _OnboardingLocationStepState();
+}
+
+class _OnboardingLocationStepState extends State<OnboardingLocationStep>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Once the OS permission or location toggle is "stuck", the only way
+  // out is the Settings app — and the system permission dialog never
+  // fires again for `deniedForever`, so nothing else re-checks the
+  // status for us. Without this, a user who grants location from
+  // Settings and switches back sees the exact same "stuck" screen they
+  // left, because nothing ever re-reads the OS state. Re-request on
+  // resume so a real fix (permission granted, GPS re-enabled) is
+  // picked up immediately — `_onRequestPermission` in the bloc already
+  // no-ops the system dialog when the status isn't a plain "denied",
+  // and auto-advances on grant.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<OnboardingBloc>().add(
+        const OnboardingLocationPermissionRequested(),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<OnboardingBloc, OnboardingState>(
       buildWhen: (a, b) => a.locationStatus != b.locationStatus,
       builder: (context, state) {
-        final denied =
-            state.locationStatus == LocationPermissionStatus.denied ||
+        final servicesOff =
+            state.locationStatus == LocationPermissionStatus.servicesDisabled;
+        final deniedForever =
             state.locationStatus == LocationPermissionStatus.deniedForever;
+        final denied =
+            servicesOff ||
+            deniedForever ||
+            state.locationStatus == LocationPermissionStatus.denied;
+        // Once the OS won't show its own prompt again (deniedForever) or
+        // there's nothing to prompt for (the location toggle itself is
+        // off), the CTA has to route to Settings instead of re-asking.
+        final needsSettings = servicesOff || deniedForever;
         return Column(
           children: [
             Expanded(
@@ -101,9 +149,11 @@ class OnboardingLocationStep extends StatelessWidget {
                             color: AppColors.red.withValues(alpha: 0.35),
                           ),
                         ),
-                        child: const Text(
-                          AppStrings.locationDisclosureDeniedHelp,
-                          style: TextStyle(
+                        child: Text(
+                          servicesOff
+                              ? AppStrings.locationDisclosureServicesOffHelp
+                              : AppStrings.locationDisclosureDeniedHelp,
+                          style: const TextStyle(
                             fontSize: 11.5,
                             color: AppColors.red,
                             height: 1.4,
@@ -116,10 +166,14 @@ class OnboardingLocationStep extends StatelessWidget {
               ),
             ),
             TealButton(
-              label: AppStrings.locationDisclosureCta,
+              label: needsSettings
+                  ? AppStrings.locationDisclosureOpenSettingsCta
+                  : AppStrings.locationDisclosureCta,
               enabled: true,
-              onPressed: () => context.read<OnboardingBloc>().add(
-                const OnboardingLocationPermissionRequested(),
+              onPressed: () => _onCtaPressed(
+                context,
+                servicesOff: servicesOff,
+                deniedForever: deniedForever,
               ),
             ),
             const SizedBox(height: 8),
@@ -139,6 +193,28 @@ class OnboardingLocationStep extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _onCtaPressed(
+    BuildContext context, {
+    required bool servicesOff,
+    required bool deniedForever,
+  }) async {
+    // Neither case has an in-app prompt left to show — Settings is the
+    // only place that can fix them (see `didChangeAppLifecycleState`
+    // above for how we notice when the user comes back).
+    if (servicesOff) {
+      await getIt<PermissionService>().openLocationSettings();
+      return;
+    }
+    if (deniedForever) {
+      await getIt<PermissionService>().openSettings();
+      return;
+    }
+    if (!context.mounted) return;
+    context.read<OnboardingBloc>().add(
+      const OnboardingLocationPermissionRequested(),
     );
   }
 }

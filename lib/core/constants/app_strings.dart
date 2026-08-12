@@ -125,10 +125,14 @@ class AppStrings {
   static const String locationDisclosureRevoke =
       "You can revoke access any time from your phone's settings.";
   static const String locationDisclosureCta = 'Allow location access';
+  static const String locationDisclosureOpenSettingsCta = 'Open Settings';
   static const String locationDisclosureSkip = 'Skip for now';
   static const String locationDisclosureDeniedHelp =
       'Location access is needed to record trips. You can grant it from '
       "your phone's app settings.";
+  static const String locationDisclosureServicesOffHelp =
+      'Location is turned off on your device. Turn it on from your '
+      'phone settings to continue.';
 
   // Onboarding — community popup numbers (computed at runtime).
   static const String onboardCommunityMostPopularPrefix = '#';

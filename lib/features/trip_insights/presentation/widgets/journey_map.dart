@@ -18,13 +18,67 @@ import 'package:latlong2/latlong.dart';
 /// tile per frame. Dark tiles render natively, no filter required.
 /// Attribution rendered bottom-right via flutter_map's
 /// `RichAttributionWidget`.
-class JourneyMap extends StatelessWidget {
+class JourneyMap extends StatefulWidget {
   const JourneyMap({required this.bundle, super.key});
 
   final InsightsBundle bundle;
 
   @override
+  State<JourneyMap> createState() => _JourneyMapState();
+}
+
+class _JourneyMapState extends State<JourneyMap>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _replayController;
+  late List<LatLng> _routePoints;
+
+  @override
+  void initState() {
+    super.initState();
+    _replayController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+    _routePoints = _flattenPoints(widget.bundle);
+  }
+
+  @override
+  void didUpdateWidget(covariant JourneyMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.bundle != widget.bundle) {
+      _routePoints = _flattenPoints(widget.bundle);
+      _replayController.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _replayController.dispose();
+    super.dispose();
+  }
+
+  void _replay() {
+    if (_routePoints.length < 2) return;
+    _replayController.forward(from: 0);
+  }
+
+  /// Points revealed by the current replay progress. Keyed off point
+  /// *index* rather than geographic distance — waypoints are logged at
+  /// a roughly fixed sampling interval, so index position already
+  /// tracks elapsed trip time (a highway segment isn't sampled any
+  /// denser than a slow one), which is what a "replay" should follow.
+  List<LatLng> _revealedPoints(double progress) {
+    if (_routePoints.length < 2) return _routePoints;
+    final count = (_routePoints.length * progress).ceil().clamp(
+      1,
+      _routePoints.length,
+    );
+    return _routePoints.sublist(0, count);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final bundle = widget.bundle;
     final bounds = _boundsForSegments(bundle);
     final centre = bounds != null
         ? LatLng(
@@ -42,91 +96,137 @@ class JourneyMap extends StatelessWidget {
     // brand palette instead of a jarring white square.
     return ColoredBox(
       color: _mapBackdrop,
-      child: FlutterMap(
-      options: MapOptions(
-        initialCenter: centre,
-        initialZoom: 12,
-        initialCameraFit: bounds == null
-            ? null
-            : CameraFit.bounds(
-                bounds: bounds,
-                padding: const EdgeInsets.all(28),
-              ),
-        interactionOptions: const InteractionOptions(
-          // Drag + pinch only — no rotation / doubletap. The user can
-          // reframe before screenshotting but accidental gestures
-          // can't unmoor the camera.
-          flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom,
-        ),
-      ),
-      children: [
-        TileLayer(
-          // {r} expands to "@2x" on retina screens. CartoDB ships
-          // 512 px @2x dark tiles that render city / country labels
-          // crisp white against the dark base — exactly the look the
-          // user pointed at on TripRank. The non-retina path looked
-          // soft and grey on high-DPI Android, which is what they
-          // were seeing.
-          urlTemplate:
-              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-          subdomains: const ['a', 'b', 'c', 'd'],
-          retinaMode: true,
-          userAgentPackageName: 'com.bytse.drive_rank',
-          // Keep one extra ring of tiles prefetched around the viewport
-          // so panning / zooming during framing reveals already-loaded
-          // labels instead of grey squares.
-          keepBuffer: 2,
-          maxZoom: 19,
-        ),
-        PolylineLayer(
-          polylines: [
-            for (final s in bundle.segments)
-              Polyline(
-                points: s.points,
-                color: s.bucket.color,
-                strokeWidth: 5,
-                borderColor: Colors.black.withValues(alpha: 0.45),
-                borderStrokeWidth: 1.5,
-              ),
-          ],
-        ),
-        if (start != null || end != null)
-          MarkerLayer(
-            markers: [
-              if (start != null)
-                Marker(
-                  point: start,
-                  width: 64,
-                  height: 28,
-                  alignment: Alignment.center,
-                  child: const _EndpointMarker(
-                    label: 'Start',
-                    dotColor: AppColors.green,
+      child: Stack(
+        children: [
+          AnimatedBuilder(
+            animation: _replayController,
+            builder: (context, _) {
+              final progress = _replayController.value;
+              final isReplaying = progress > 0 && progress < 1;
+              final revealed = isReplaying
+                  ? _revealedPoints(progress)
+                  : const <LatLng>[];
+              return FlutterMap(
+                options: MapOptions(
+                  initialCenter: centre,
+                  initialZoom: 12,
+                  initialCameraFit: bounds == null
+                      ? null
+                      : CameraFit.bounds(
+                          bounds: bounds,
+                          padding: const EdgeInsets.all(28),
+                        ),
+                  interactionOptions: const InteractionOptions(
+                    // Drag + pinch only — no rotation / doubletap. The
+                    // user can reframe before screenshotting but
+                    // accidental gestures can't unmoor the camera.
+                    flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom,
                   ),
                 ),
-              if (end != null)
-                Marker(
-                  point: end,
-                  width: 56,
-                  height: 28,
-                  alignment: Alignment.center,
-                  child: const _EndpointMarker(
-                    label: 'End',
-                    dotColor: AppColors.red,
+                children: [
+                  TileLayer(
+                    // {r} expands to "@2x" on retina screens. CartoDB
+                    // ships 512 px @2x dark tiles that render city /
+                    // country labels crisp white against the dark base
+                    // — exactly the look the user pointed at on
+                    // TripRank. The non-retina path looked soft and
+                    // grey on high-DPI Android, which is what they
+                    // were seeing.
+                    urlTemplate:
+                        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                    subdomains: const ['a', 'b', 'c', 'd'],
+                    retinaMode: true,
+                    userAgentPackageName: 'com.bytse.drive_rank',
+                    // Keep one extra ring of tiles prefetched around the
+                    // viewport so panning / zooming during framing
+                    // reveals already-loaded labels instead of grey
+                    // squares.
+                    keepBuffer: 2,
+                    maxZoom: 19,
                   ),
-                ),
-            ],
+                  PolylineLayer(
+                    polylines: [
+                      for (final s in bundle.segments)
+                        Polyline(
+                          points: s.points,
+                          color: isReplaying
+                              ? s.bucket.color.withValues(alpha: 0.25)
+                              : s.bucket.color,
+                          strokeWidth: 5,
+                          borderColor: Colors.black.withValues(
+                            alpha: isReplaying ? 0.15 : 0.45,
+                          ),
+                          borderStrokeWidth: 1.5,
+                        ),
+                      if (isReplaying && revealed.length > 1)
+                        Polyline(
+                          points: revealed,
+                          color: AppColors.teal,
+                          strokeWidth: 5,
+                          borderColor: Colors.black.withValues(alpha: 0.45),
+                          borderStrokeWidth: 1.5,
+                        ),
+                    ],
+                  ),
+                  if (start != null || end != null)
+                    MarkerLayer(
+                      markers: [
+                        if (start != null)
+                          Marker(
+                            point: start,
+                            width: 64,
+                            height: 28,
+                            alignment: Alignment.center,
+                            child: const _EndpointMarker(
+                              label: 'Start',
+                              dotColor: AppColors.green,
+                            ),
+                          ),
+                        if (end != null)
+                          Marker(
+                            point: end,
+                            width: 56,
+                            height: 28,
+                            alignment: Alignment.center,
+                            child: const _EndpointMarker(
+                              label: 'End',
+                              dotColor: AppColors.red,
+                            ),
+                          ),
+                      ],
+                    ),
+                  if (isReplaying && revealed.isNotEmpty)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: revealed.last,
+                          width: 18,
+                          height: 18,
+                          alignment: Alignment.center,
+                          child: const _ReplayPuck(),
+                        ),
+                      ],
+                    ),
+                  RichAttributionWidget(
+                    showFlutterMapAttribution: false,
+                    alignment: AttributionAlignment.bottomRight,
+                    popupBorderRadius: BorderRadius.circular(8),
+                    attributions: const [
+                      TextSourceAttribution('OpenStreetMap'),
+                      TextSourceAttribution('CARTO'),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
-        RichAttributionWidget(
-          showFlutterMapAttribution: false,
-          alignment: AttributionAlignment.bottomRight,
-          popupBorderRadius: BorderRadius.circular(8),
-          attributions: const [
-            TextSourceAttribution('OpenStreetMap'),
-            TextSourceAttribution('CARTO'),
-          ],
-        ),
-      ],
+          if (_routePoints.length > 1)
+            Positioned(
+              right: AppSpacing.md,
+              bottom: AppSpacing.md,
+              child: _ReplayButton(onTap: _replay),
+            ),
+        ],
       ),
     );
   }
@@ -135,6 +235,12 @@ class JourneyMap extends StatelessWidget {
   /// card so the "loading" surface reads as its own region under the
   /// tiles rather than blending with the card background.
   static const Color _mapBackdrop = Color(0xFF0D0D12);
+
+  List<LatLng> _flattenPoints(InsightsBundle bundle) {
+    return [
+      for (final s in bundle.segments) ...s.points,
+    ];
+  }
 
   LatLngBounds? _boundsForSegments(InsightsBundle bundle) {
     if (bundle.segments.isEmpty) return null;
@@ -158,7 +264,72 @@ class JourneyMap extends StatelessWidget {
     }
     return null;
   }
+}
 
+/// Small dot marking the replay's current position while animating.
+class _ReplayPuck extends StatelessWidget {
+  const _ReplayPuck();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.teal,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.teal.withValues(alpha: 0.6),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Circular "replay route" trigger, bottom-right of the map — dark
+/// translucent so it reads as part of the map chrome (same idiom as
+/// [_EndpointMarker]'s pill) rather than a floating app button.
+class _ReplayButton extends StatelessWidget {
+  const _ReplayButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  static const double _size = 40;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: _size,
+          height: _size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.bg.withValues(alpha: 0.85),
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.border2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.play_arrow_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _EndpointMarker extends StatelessWidget {
