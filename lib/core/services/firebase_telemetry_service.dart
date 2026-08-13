@@ -40,9 +40,20 @@ class FirebaseTelemetryService implements TelemetryService {
   }) async {
     final params = <String, Object>{
       for (final entry in properties.entries)
-        if (entry.value != null) entry.key: entry.value!,
+        if (entry.value != null) entry.key: _analyticsSafe(entry.value!),
     };
     await _analytics.logEvent(name: event, parameters: params);
+  }
+
+  /// Firebase Analytics' `logEvent` asserts every parameter is a
+  /// `String` or `num` — anything else (bools are the common one; call
+  /// sites pass `is_pro`, `was_recovered`, etc.) fails that assertion
+  /// and the event is silently dropped, not just logged oddly. Every
+  /// other telemetry backend accepts bools natively, so the coercion
+  /// belongs here, not in the shared `TelemetryService.track` contract.
+  Object _analyticsSafe(Object value) {
+    if (value is bool) return value.toString();
+    return value;
   }
 
   @override
