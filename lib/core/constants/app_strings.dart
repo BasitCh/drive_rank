@@ -249,8 +249,7 @@ class AppStrings {
   static const String journeyCardCta = 'Journey';
   static const String journeyCardCtaSub = 'Route story card';
   static const String journeyCardShareCta = 'Share Journey';
-  static const String journeyCardShareSubject =
-      'My DriveRank journey card';
+  static const String journeyCardShareSubject = 'My DriveRank journey card';
   static const String journeyCardLoadError =
       'Could not build the journey card for this trip.';
 
@@ -262,6 +261,17 @@ class AppStrings {
   static const String historyFilterBest = 'Personal Best';
   static const String historyEmpty = 'No trips yet — go for a drive';
   static const String historyTripFallbackName = 'Trip';
+  // Shown instead of `historyEmpty` when the free-trial counter (synced
+  // to this device, survives reinstall) says trips were driven, but the
+  // local trip table is empty — i.e. this is very likely a reinstall,
+  // not a first launch. Explains the empty list AND why the paywall
+  // doesn't grant a fresh free trial, in one message.
+  static const String historyReinstallTitle =
+      "Your trip history didn't survive the reinstall";
+  static const String historyReinstallBody =
+      'Trips are saved only on this device, so deleting the app deletes '
+      'them for good. Your free-trial usage is remembered separately, '
+      "so it won't reset.";
 
   // Monthly report.
   static const String monthlyReportTitle = 'Your Driving Month';
@@ -342,6 +352,20 @@ class AppStrings {
   static const String paywallLoadingPrices = 'Loading prices…';
   static const String paywallUnavailable =
       'Pricing is temporarily unavailable. Please try again later.';
+  // Shown in place of the best-trip speed readout when there's no local
+  // personal best but the free-trial count is already exhausted — the
+  // paywall is only reachable after `freeTripLimit` trips, so this
+  // combination only happens after a reinstall wiped local history.
+  static const String paywallDeviceRecognized =
+      'Free trials already used on this device';
+
+  // Purchase success screen.
+  static const String paywallSuccessTag = 'DRIVERANK PRO';
+  static const String paywallSuccessTitle = "You're subscribed to Pro";
+  static const String paywallSuccessSubtitle =
+      'Thanks for supporting DriveRank!';
+  static const String paywallSuccessManage = 'Manage Subscription';
+  static const String paywallSuccessDone = 'Done';
   // Feature card titles (mock's swipeable cards).
   static const String paywallFeature1Title = '🏁 Unlimited Trip Recaps';
   static const String paywallFeature1Body =

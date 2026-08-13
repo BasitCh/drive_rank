@@ -37,17 +37,29 @@ class HistoryState {
     required this.isLoading,
     required this.filter,
     required this.allTrips,
+    required this.freeTripsUsed,
   });
 
   factory HistoryState.initial() => const HistoryState(
     isLoading: true,
     filter: TripFilter.all,
     allTrips: <TripRow>[],
+    freeTripsUsed: 0,
   );
 
   final bool isLoading;
   final TripFilter filter;
   final List<TripRow> allTrips;
+
+  /// Synced to Firestore (survives reinstall) — see `UserSettingsRepository
+  /// .syncFreeTripsWithCloud`. Trips themselves are local-only and don't
+  /// survive a reinstall, so a nonzero count here alongside an empty
+  /// [allTrips] means "this is a reinstall," not "first launch."
+  final int freeTripsUsed;
+
+  /// True when the local trip table is empty but the device's free-trial
+  /// counter says otherwise — the signal a fresh install can't produce.
+  bool get looksLikeReinstall => allTrips.isEmpty && freeTripsUsed > 0;
 
   List<TripRow> get visibleTrips {
     switch (filter) {
@@ -75,11 +87,13 @@ class HistoryState {
     bool? isLoading,
     TripFilter? filter,
     List<TripRow>? allTrips,
+    int? freeTripsUsed,
   }) {
     return HistoryState(
       isLoading: isLoading ?? this.isLoading,
       filter: filter ?? this.filter,
       allTrips: allTrips ?? this.allTrips,
+      freeTripsUsed: freeTripsUsed ?? this.freeTripsUsed,
     );
   }
 }
@@ -101,10 +115,10 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
     Emitter<HistoryState> emit,
   ) async {
     final settings = await _settings.read();
+    emit(state.copyWith(freeTripsUsed: settings.freeTripsUsed));
     await emit.forEach<List<TripRow>>(
       _trips.watchAll(uid: settings.uid),
-      onData: (rows) =>
-          state.copyWith(isLoading: false, allTrips: rows),
+      onData: (rows) => state.copyWith(isLoading: false, allTrips: rows),
     );
   }
 

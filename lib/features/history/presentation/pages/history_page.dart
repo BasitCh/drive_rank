@@ -95,14 +95,16 @@ class _Body extends StatelessWidget {
     }
     final trips = state.visibleTrips;
     if (trips.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(AppSpacing.xxl),
-          child: Text(
-            AppStrings.historyEmpty,
-            style: AppTextStyles.body,
-            textAlign: TextAlign.center,
-          ),
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: state.looksLikeReinstall
+              ? const _ReinstallEmptyState()
+              : const Text(
+                  AppStrings.historyEmpty,
+                  style: AppTextStyles.body,
+                  textAlign: TextAlign.center,
+                ),
         ),
       );
     }
@@ -148,6 +150,41 @@ class _Body extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Empty-state copy shown instead of [AppStrings.historyEmpty] when
+/// `HistoryState.looksLikeReinstall` is true — explains that the trip
+/// list is genuinely empty (local-only storage, wiped by the reinstall)
+/// rather than looking like a bug, and preempts "why does the paywall
+/// say I've used trips already."
+class _ReinstallEmptyState extends StatelessWidget {
+  const _ReinstallEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.history_toggle_off_rounded,
+          color: AppColors.textTertiary,
+          size: 32,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        const Text(
+          AppStrings.historyReinstallTitle,
+          style: AppTextStyles.title,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          AppStrings.historyReinstallBody,
+          style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }
