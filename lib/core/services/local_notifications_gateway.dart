@@ -31,7 +31,6 @@ class LocalNotificationsGateway {
   /// and the notification framework needs a drawable.
   static const _statusBarIcon = 'ic_stat_drive';
 
-  bool _initialised = false;
   final List<void Function(NotificationResponse)> _listeners = [];
 
   /// Registers a tap/action-button handler. Every registered listener
@@ -43,10 +42,21 @@ class LocalNotificationsGateway {
     _listeners.add(listener);
   }
 
-  /// Idempotent — safe to call from every feature that needs the
-  /// plugin ready; only the first call actually initialises it.
-  Future<void> ensureInitialised() async {
-    if (_initialised) return;
+  /// Idempotent AND concurrency-safe — bootstrap's deferred retention
+  /// init and a user tapping Start right after cold launch can both
+  /// call this within the same event loop turn. A plain `if
+  /// (_initialised) return` check-then-await-then-set left a window
+  /// where both callers would pass the guard before either finished,
+  /// firing `plugin.initialize()` twice concurrently (the plugin
+  /// channel doesn't tolerate that). Memoizing the in-flight Future
+  /// makes every concurrent caller await the same single call.
+  Future<void>? _initFuture;
+
+  Future<void> ensureInitialised() {
+    return _initFuture ??= _initialise();
+  }
+
+  Future<void> _initialise() async {
     const initSettings = InitializationSettings(
       android: AndroidInitializationSettings(_statusBarIcon),
       iOS: DarwinInitializationSettings(
@@ -55,11 +65,17 @@ class LocalNotificationsGateway {
         requestSoundPermission: false,
       ),
     );
-    await plugin.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _dispatch,
-    );
-    _initialised = true;
+    try {
+      await plugin.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _dispatch,
+      );
+    } catch (e) {
+      // Let the next caller retry instead of permanently caching a
+      // failed init.
+      _initFuture = null;
+      rethrow;
+    }
   }
 
   void _dispatch(NotificationResponse response) {
