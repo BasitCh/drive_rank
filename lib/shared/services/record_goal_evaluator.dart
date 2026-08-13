@@ -74,12 +74,25 @@ class RecordGoalEvaluator {
     final distanceGoalAchieved =
         activeDistanceGoalKm != null && tripDistanceKm >= activeDistanceGoalKm;
 
-    final nextSpeedGoalKmh = (activeSpeedGoalKmh == null || speedGoalAchieved)
+    // GoalCalculator returns 0 when there's nothing real to build a goal
+    // from (e.g. a trip with no GPS fix, so bestSpeedNow/bestDistanceNow
+    // stayed at 0) — that's a "no goal yet" signal, not a goal of 0, so
+    // it must not be persisted (a stored 0.0 is indistinguishable from a
+    // real goal and would render as a useless "0 -> 0" card forever).
+    final computedSpeedGoal = (activeSpeedGoalKmh == null || speedGoalAchieved)
         ? GoalCalculator.nextSpeedGoalKmh(bestSpeedNow)
         : null;
-    final nextDistanceGoalKm =
+    final nextSpeedGoalKmh =
+        (computedSpeedGoal != null && computedSpeedGoal > 0)
+        ? computedSpeedGoal
+        : null;
+    final computedDistanceGoal =
         (activeDistanceGoalKm == null || distanceGoalAchieved)
         ? GoalCalculator.nextDistanceGoalKm(bestDistanceNow)
+        : null;
+    final nextDistanceGoalKm =
+        (computedDistanceGoal != null && computedDistanceGoal > 0)
+        ? computedDistanceGoal
         : null;
 
     return RecordGoalEvaluation(

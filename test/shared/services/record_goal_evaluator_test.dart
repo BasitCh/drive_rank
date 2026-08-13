@@ -36,6 +36,29 @@ void main() {
       expect(result.speedGoalAchieved, isFalse);
       expect(result.distanceGoalAchieved, isFalse);
     });
+
+    test(
+      'a trip with no GPS fix (0 speed/distance) does not produce a goal',
+      () {
+        // A trip that never got a real GPS fix (e.g. GPS unavailable
+        // for the whole drive) saves with 0 top speed and 0 distance.
+        // GoalCalculator.nextSpeedGoalKmh(0)/nextDistanceGoalKm(0) both
+        // return 0 for that input — that must read as "no goal yet",
+        // not get persisted as a literal 0, or Trip Summary renders a
+        // useless "0 -> 0" goal card forever.
+        final result = RecordGoalEvaluator.evaluate(
+          isFirstTrip: true,
+          priorBestSpeedKmh: 0,
+          priorLongestKm: 0,
+          activeSpeedGoalKmh: null,
+          activeDistanceGoalKm: null,
+          tripSpeedKmh: 0,
+          tripDistanceKm: 0,
+        );
+        expect(result.nextSpeedGoalKmh, isNull);
+        expect(result.nextDistanceGoalKm, isNull);
+      },
+    );
   });
 
   group('later trips', () {

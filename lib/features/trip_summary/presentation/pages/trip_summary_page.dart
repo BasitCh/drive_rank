@@ -114,8 +114,8 @@ class _Loaded extends StatelessWidget {
                   durationSeconds: trip.durationSeconds,
                   fuelCostFormatted: _fuelLabel(locale, trip),
                 ),
-                if (state.speedGoalKmh != null ||
-                    state.distanceGoalKm != null) ...[
+                if ((state.speedGoalKmh ?? 0) > 0 ||
+                    (state.distanceGoalKm ?? 0) > 0) ...[
                   const SizedBox(height: AppSpacing.md),
                   _GoalNudge(state: state, locale: locale),
                 ],
@@ -326,8 +326,10 @@ class _GoalNudge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final speedGoal = state.speedGoalKmh;
-    final distanceGoal = state.distanceGoalKm;
+    final speedGoal = (state.speedGoalKmh ?? 0) > 0 ? state.speedGoalKmh : null;
+    final distanceGoal = (state.distanceGoalKm ?? 0) > 0
+        ? state.distanceGoalKm
+        : null;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
