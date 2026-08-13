@@ -84,6 +84,9 @@ _i174.GetIt $initGetIt(
   gh.singleton<_i901.AppRouter>(() => _i901.AppRouter());
   gh.singleton<_i375.GpsService>(() => _i375.GpsService());
   gh.singleton<_i125.SensorService>(() => _i125.SensorService());
+  gh.lazySingleton<_i833.DeviceInfoPlugin>(
+    () => injectionModule.deviceInfoPlugin(),
+  );
   gh.lazySingleton<_i595.BatteryOptimizationService>(
     () => const _i595.BatteryOptimizationService(),
   );
