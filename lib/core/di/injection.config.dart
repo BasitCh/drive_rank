@@ -142,20 +142,20 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i634.TripRepository>(
     () => _i634.TripRepository(gh<_i425.AppDatabase>()),
   );
+  gh.factory<_i284.PaywallBloc>(
+    () => _i284.PaywallBloc(
+      gh<_i495.PaywallService>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i634.TripRepository>(),
+      gh<_i46.TelemetryService>(),
+      gh<_i488.PushService>(),
+    ),
+  );
   gh.lazySingleton<_i337.InsightsRepository>(
     () => _i337.InsightsRepository(
       gh<_i425.AppDatabase>(),
       gh<_i634.TripRepository>(),
       gh<_i486.BuildInsights>(),
-    ),
-  );
-  gh.factory<_i162.OnboardingBloc>(
-    () => _i162.OnboardingBloc(
-      gh<_i972.CarRepository>(),
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i447.LocaleService>(),
-      gh<_i576.PermissionService>(),
-      gh<_i46.TelemetryService>(),
     ),
   );
   gh.lazySingleton<_i183.RetentionNotificationService>(
@@ -172,6 +172,16 @@ _i174.GetIt $initGetIt(
       gh<_i634.TripRepository>(),
       gh<_i727.UserSettingsRepository>(),
       gh<_i261.CardExportService>(),
+    ),
+  );
+  gh.factory<_i162.OnboardingBloc>(
+    () => _i162.OnboardingBloc(
+      gh<_i972.CarRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i447.LocaleService>(),
+      gh<_i576.PermissionService>(),
+      gh<_i46.TelemetryService>(),
+      gh<_i488.PushService>(),
     ),
   );
   gh.lazySingleton<_i67.TripStatsService>(
@@ -207,14 +217,6 @@ _i174.GetIt $initGetIt(
     () => _i586.HistoryBloc(
       gh<_i634.TripRepository>(),
       gh<_i727.UserSettingsRepository>(),
-    ),
-  );
-  gh.factory<_i284.PaywallBloc>(
-    () => _i284.PaywallBloc(
-      gh<_i495.PaywallService>(),
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i634.TripRepository>(),
-      gh<_i46.TelemetryService>(),
     ),
   );
   gh.factory<_i314.PersonalBestsBloc>(

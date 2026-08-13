@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/services/paywall_service.dart';
+import 'package:drive_rank/core/services/push_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/features/paywall/domain/entities/paywall_offering.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
@@ -107,8 +110,13 @@ class PaywallState {
 
 @injectable
 class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
-  PaywallBloc(this._paywall, this._settings, this._trips, this._telemetry)
-    : super(PaywallState.initial()) {
+  PaywallBloc(
+    this._paywall,
+    this._settings,
+    this._trips,
+    this._telemetry,
+    this._push,
+  ) : super(PaywallState.initial()) {
     on<PaywallStarted>(_onStarted);
     on<PaywallPackageSelected>(_onSelected);
     on<PaywallFeatureScrolled>(_onScroll);
@@ -120,6 +128,7 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
   final UserSettingsRepository _settings;
   final TripRepository _trips;
   final TelemetryService _telemetry;
+  final PushService _push;
 
   Future<void> _onStarted(
     PaywallStarted event,
@@ -167,6 +176,7 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
     switch (result) {
       case PurchaseResult.granted:
         await _settings.patch(_proGrantedPatch());
+        unawaited(_push.tag('is_pro', 'true'));
         await _telemetry.track(
           TelemetryEvents.paywallPurchaseSucceeded,
           properties: <String, Object?>{'sku': sku},
@@ -199,6 +209,7 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
     final restored = await _paywall.restorePurchases();
     if (restored) {
       await _settings.patch(_proGrantedPatch());
+      unawaited(_push.tag('is_pro', 'true'));
       await _telemetry.track(TelemetryEvents.paywallRestored);
       emit(state.copyWith(status: PaywallStatus.success));
     }

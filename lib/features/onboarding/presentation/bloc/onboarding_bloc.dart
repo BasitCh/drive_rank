@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
+import 'package:drive_rank/core/services/push_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/features/onboarding/domain/repositories/car_repository.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_event.dart';
@@ -32,6 +35,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     this._locale,
     this._permissions,
     this._telemetry,
+    this._push,
   ) : super(OnboardingState.initial()) {
     on<OnboardingStarted>(_onStarted);
     on<OnboardingStepNext>(_onNext);
@@ -54,6 +58,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   final LocaleService _locale;
   final PermissionService _permissions;
   final TelemetryService _telemetry;
+  final PushService _push;
 
   /// Local format rules used to gate the Continue button on the
   /// username step. Mirrors what the spec calls "minimum 3 characters,
@@ -183,6 +188,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     Emitter<OnboardingState> emit,
   ) async {
     await _settings.setCountry(event.country.code);
+    unawaited(_push.tag('country', event.country.code));
 
     // Derive units from the picked country so a Pakistani user on an
     // English-US-locale phone gets km/h after picking Pakistan, etc.
@@ -215,6 +221,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     Emitter<OnboardingState> emit,
   ) async {
     await _settings.setVehicleType(event.vehicleType);
+    unawaited(_push.tag('vehicle_type', event.vehicleType.id));
     // Swapping vehicle types invalidates the picker list (and any
     // previously selected make/model — a Toyota Corolla isn't a
     // motorbike). Reload makes for the new type from the country we

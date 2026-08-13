@@ -334,9 +334,41 @@ Future<void> _maybeInitOneSignal() async {
     final push = OneSignalPushService(appId);
     await _replace<PushService>(() => push);
     if (kDebugMode) debugPrint('[bootstrap] OneSignal initialised');
+    // Only meaningful once `push` is the real OneSignal implementation
+    // — calling it any earlier would hit the no-op default and go
+    // nowhere.
+    await _syncPushUserProperties();
   } catch (e) {
     if (kDebugMode) {
       debugPrint('[bootstrap] OneSignal init failed: $e');
+    }
+  }
+}
+
+/// Binds the anonymous/local uid and pushes segmentation tags (country,
+/// vehicle type, pro status) to OneSignal — mirrors
+/// [_syncAnalyticsUserProperties] but targets [PushService] instead of
+/// [TelemetryService]. Without this, OneSignal registers the device but
+/// has no way to address it ("users in Pakistan," "Pro users," …) from
+/// the dashboard beyond an untargeted blast to everyone.
+///
+/// Only covers what's known at boot; `OnboardingBloc` and `PaywallBloc`
+/// re-tag country/vehicle/pro individually the moment those change
+/// within a session, same as bootstrap does for the analytics side.
+Future<void> _syncPushUserProperties() async {
+  try {
+    final push = getIt<PushService>();
+    final row = await getIt<UserSettingsRepository>().ensureExists();
+    await push.setExternalId(row.uid);
+    final country = row.country;
+    await Future.wait<void>([
+      if (country != null) push.tag('country', country),
+      push.tag('vehicle_type', row.vehicleType),
+      push.tag('is_pro', row.isPro ? 'true' : 'false'),
+    ]);
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('[bootstrap] push user-properties sync skipped: $e');
     }
   }
 }
