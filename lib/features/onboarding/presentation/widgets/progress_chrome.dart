@@ -28,9 +28,7 @@ class ProgressChrome extends StatelessWidget {
                     onTap: onBack,
                     customBorder: const CircleBorder(),
                     child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 8,
-                      ),
+                      padding: EdgeInsets.symmetric(vertical: 8),
                       child: Icon(
                         Icons.chevron_left_rounded,
                         color: AppColors.textPrimary,

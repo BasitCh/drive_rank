@@ -26,8 +26,7 @@ class RouteNames {
   static String tripSummaryFor(int tripId) => '$tripSummary/$tripId';
 
   /// Helper — build a performance share page path for a given trip id.
-  static String performanceCardFor(int tripId) =>
-      '$performanceCard/$tripId';
+  static String performanceCardFor(int tripId) => '$performanceCard/$tripId';
 
   /// Helper — build a journey share page path for a given trip id.
   static String journeyCardFor(int tripId) => '$journeyCard/$tripId';

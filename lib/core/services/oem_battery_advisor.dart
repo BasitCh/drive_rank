@@ -20,7 +20,7 @@ import 'package:injectable/injectable.dart';
 @lazySingleton
 class OemBatteryAdvisor {
   OemBatteryAdvisor([DeviceInfoPlugin? plugin])
-      : _info = plugin ?? DeviceInfoPlugin();
+    : _info = plugin ?? DeviceInfoPlugin();
 
   final DeviceInfoPlugin _info;
 

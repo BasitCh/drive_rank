@@ -36,7 +36,8 @@ class CarSilhouette extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasPhoto = photoPath != null &&
+    final hasPhoto =
+        photoPath != null &&
         photoPath!.trim().isNotEmpty &&
         File(photoPath!).existsSync();
 

@@ -29,11 +29,9 @@ class JourneyCardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<InsightsBloc>(
-      create: (_) => getIt<InsightsBloc>()
-        ..add(InsightsLoaded(
-          tripId: tripId,
-          kind: CardKind.journey,
-        )),
+      create: (_) =>
+          getIt<InsightsBloc>()
+            ..add(InsightsLoaded(tripId: tripId, kind: CardKind.journey)),
       child: const _Body(),
     );
   }
@@ -72,9 +70,9 @@ class _BodyState extends State<_Body> {
   }
 
   Future<void> _onShare(BuildContext context) async {
-    context
-        .read<InsightsBloc>()
-        .add(const InsightsShareRequested(CardKind.journey));
+    context.read<InsightsBloc>().add(
+      const InsightsShareRequested(CardKind.journey),
+    );
     // OSM tiles are the most fragile part of the export — without
     // letting the network settle first the screenshot frequently
     // shows a grey grid where the basemap should be.
@@ -87,9 +85,7 @@ class _BodyState extends State<_Body> {
     );
     if (ok) {
       unawaited(
-        getIt<TelemetryService>().track(
-          TelemetryEvents.journeyCardExported,
-        ),
+        getIt<TelemetryService>().track(TelemetryEvents.journeyCardExported),
       );
     }
     if (!context.mounted) return;
@@ -125,26 +121,21 @@ class _BodyState extends State<_Body> {
                 Expanded(
                   child: switch (state.status) {
                     InsightsStatus.loading => const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.teal,
-                        ),
-                      ),
+                      child: CircularProgressIndicator(color: AppColors.teal),
+                    ),
                     InsightsStatus.notFound ||
-                    InsightsStatus.error =>
-                      const _ErrorSurface(),
+                    InsightsStatus.error => const _ErrorSurface(),
                     InsightsStatus.ready => SingleChildScrollView(
-                        padding: const EdgeInsets.only(
-                          bottom: AppSpacing.xxl,
-                        ),
-                        child: RepaintBoundary(
-                          key: _boundaryKey,
-                          child: JourneyCardView(
-                            bundle: state.bundle!,
-                            locale: locale,
-                            vehicleLabel: _vehicleLabel ?? 'My Car',
-                          ),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                      child: RepaintBoundary(
+                        key: _boundaryKey,
+                        child: JourneyCardView(
+                          bundle: state.bundle!,
+                          locale: locale,
+                          vehicleLabel: _vehicleLabel ?? 'My Car',
                         ),
                       ),
+                    ),
                   },
                 ),
               ],

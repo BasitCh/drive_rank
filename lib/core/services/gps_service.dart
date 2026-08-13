@@ -54,16 +54,15 @@ class GpsService {
     _previousSpeedKmh = 0;
     _stuckRejectionStreak = 0;
 
-    _sub = Geolocator.getPositionStream(
-      locationSettings: _platformSettings(),
-    ).listen(
-      _onPosition,
-      onError: (Object e, StackTrace st) {
-        if (kDebugMode) {
-          debugPrint('GpsService stream error: $e');
-        }
-      },
-    );
+    _sub = Geolocator.getPositionStream(locationSettings: _platformSettings())
+        .listen(
+          _onPosition,
+          onError: (Object e, StackTrace st) {
+            if (kDebugMode) {
+              debugPrint('GpsService stream error: $e');
+            }
+          },
+        );
 
     // Skip the cold-start wait by emitting a TripPoint built from the
     // device's last known position right away — the live stream will

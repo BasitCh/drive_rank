@@ -25,14 +25,16 @@ class AssetCarRepository implements CarRepository {
     required String countryCode,
     required VehicleType vehicleType,
   }) async {
-    final cache =
-        _cacheByType[vehicleType] ??= await _loadFromAsset(vehicleType);
-    final sorted = [...cache]..sort((a, b) {
-      final aLocal = a.isPopularIn(countryCode) ? 0 : 1;
-      final bLocal = b.isPopularIn(countryCode) ? 0 : 1;
-      if (aLocal != bLocal) return aLocal.compareTo(bLocal);
-      return a.name.compareTo(b.name);
-    });
+    final cache = _cacheByType[vehicleType] ??= await _loadFromAsset(
+      vehicleType,
+    );
+    final sorted = [...cache]
+      ..sort((a, b) {
+        final aLocal = a.isPopularIn(countryCode) ? 0 : 1;
+        final bLocal = b.isPopularIn(countryCode) ? 0 : 1;
+        if (aLocal != bLocal) return aLocal.compareTo(bLocal);
+        return a.name.compareTo(b.name);
+      });
     return sorted;
   }
 

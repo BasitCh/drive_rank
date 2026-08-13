@@ -45,8 +45,7 @@ class PerformanceChart extends StatelessWidget {
       for (var i = 0; i < speeds.length; i++)
         FlSpot(
           times[i].toDouble(),
-          (isImperial ? speeds[i] * 0.621371 : speeds[i])
-              .clamp(0, ceiling),
+          (isImperial ? speeds[i] * 0.621371 : speeds[i]).clamp(0, ceiling),
         ),
     ];
     final maxTime = (times.isEmpty ? 1 : times.last).toDouble();
@@ -68,10 +67,8 @@ class PerformanceChart extends StatelessWidget {
             show: true,
             drawVerticalLine: false,
             horizontalInterval: step,
-            getDrawingHorizontalLine: (_) => const FlLine(
-              color: AppColors.border,
-              strokeWidth: 1,
-            ),
+            getDrawingHorizontalLine: (_) =>
+                const FlLine(color: AppColors.border, strokeWidth: 1),
           ),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(

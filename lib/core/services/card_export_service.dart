@@ -38,18 +38,14 @@ class CardExportService {
   /// Write [bytes] to a temp file and call the OS share sheet.
   Future<void> share(Uint8List bytes, {String? subject}) async {
     final file = await _writeTempPng(bytes);
-    await Share.shareXFiles(
-      [XFile(file.path, mimeType: 'image/png')],
-      subject: subject ?? AppStrings.tripSummaryShareSubject,
-    );
+    await Share.shareXFiles([
+      XFile(file.path, mimeType: 'image/png'),
+    ], subject: subject ?? AppStrings.tripSummaryShareSubject);
   }
 
   /// Capture-and-share in one call. Returns false if capture failed (boundary
   /// not mounted yet) — the caller can surface a toast.
-  Future<bool> captureAndShare(
-    GlobalKey boundaryKey, {
-    String? subject,
-  }) async {
+  Future<bool> captureAndShare(GlobalKey boundaryKey, {String? subject}) async {
     final bytes = await capture(boundaryKey);
     if (bytes == null) return false;
     await share(bytes, subject: subject);

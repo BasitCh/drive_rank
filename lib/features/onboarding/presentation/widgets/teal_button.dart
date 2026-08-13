@@ -36,9 +36,7 @@ class TealButton extends StatelessWidget {
               child: Text(
                 label,
                 style: AppTextStyles.button.copyWith(
-                  color: disabled
-                      ? const Color(0xFF666666)
-                      : AppColors.bg,
+                  color: disabled ? const Color(0xFF666666) : AppColors.bg,
                 ),
               ),
             ),

@@ -94,8 +94,9 @@ class LocaleService {
   /// symbol is looked up via `NumberFormat.simpleCurrency` so we never
   /// hardcode glyphs.
   String formatCurrency(double amount, String currencyCode) {
-    final symbol =
-        NumberFormat.simpleCurrency(name: currencyCode).currencySymbol;
+    final symbol = NumberFormat.simpleCurrency(
+      name: currencyCode,
+    ).currencySymbol;
     return NumberFormat.currency(
       locale: _locale.toLanguageTag(),
       symbol: symbol,

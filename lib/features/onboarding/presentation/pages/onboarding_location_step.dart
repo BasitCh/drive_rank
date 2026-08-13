@@ -24,8 +24,7 @@ class OnboardingLocationStep extends StatefulWidget {
   const OnboardingLocationStep({super.key});
 
   @override
-  State<OnboardingLocationStep> createState() =>
-      _OnboardingLocationStepState();
+  State<OnboardingLocationStep> createState() => _OnboardingLocationStepState();
 }
 
 class _OnboardingLocationStepState extends State<OnboardingLocationStep>
@@ -87,10 +86,7 @@ class _OnboardingLocationStepState extends State<OnboardingLocationStep>
                   children: [
                     const SizedBox(height: AppSpacing.md),
                     const Center(
-                      child: Text(
-                        '📍',
-                        style: TextStyle(fontSize: 32),
-                      ),
+                      child: Text('📍', style: TextStyle(fontSize: 32)),
                     ),
                     const SizedBox(height: 6),
                     const Center(
@@ -143,8 +139,9 @@ class _OnboardingLocationStepState extends State<OnboardingLocationStep>
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.red.withValues(alpha: 0.10),
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusSm),
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusSm,
+                          ),
                           border: Border.all(
                             color: AppColors.red.withValues(alpha: 0.35),
                           ),

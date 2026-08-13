@@ -6,11 +6,7 @@ import 'package:flutter/material.dart';
 /// Temporary scaffold used during Session 1 (Foundation) so the router has
 /// something to render. Each feature replaces this with a real page later.
 class PlaceholderPage extends StatelessWidget {
-  const PlaceholderPage({
-    required this.title,
-    this.subtitle,
-    super.key,
-  });
+  const PlaceholderPage({required this.title, this.subtitle, super.key});
 
   final String title;
   final String? subtitle;

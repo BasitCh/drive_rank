@@ -70,12 +70,7 @@ void main() {
       'id': 's1',
       'name': 'Segment 1',
       'country': 'PK',
-      'bbox': {
-        'minLat': 33.0,
-        'maxLat': 34.0,
-        'minLng': 72.0,
-        'maxLng': 73.0,
-      },
+      'bbox': {'minLat': 33.0, 'maxLat': 34.0, 'minLng': 72.0, 'maxLng': 73.0},
     });
     expect(s.id, 's1');
     expect(s.country, 'PK');

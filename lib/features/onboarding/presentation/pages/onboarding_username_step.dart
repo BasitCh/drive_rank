@@ -19,8 +19,7 @@ class OnboardingUsernameStep extends StatefulWidget {
   const OnboardingUsernameStep({super.key});
 
   @override
-  State<OnboardingUsernameStep> createState() =>
-      _OnboardingUsernameStepState();
+  State<OnboardingUsernameStep> createState() => _OnboardingUsernameStepState();
 }
 
 class _OnboardingUsernameStepState extends State<OnboardingUsernameStep> {
@@ -115,9 +114,9 @@ class _OnboardingUsernameStepState extends State<OnboardingUsernameStep> {
                           ),
                           suffixIcon: _StatusIcon(status: state.usernameStatus),
                         ),
-                        onChanged: (v) => context
-                            .read<OnboardingBloc>()
-                            .add(OnboardingUsernameChanged(v)),
+                        onChanged: (v) => context.read<OnboardingBloc>().add(
+                          OnboardingUsernameChanged(v),
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
@@ -146,9 +145,9 @@ class _OnboardingUsernameStepState extends State<OnboardingUsernameStep> {
             TealButton(
               label: AppStrings.continueAction,
               enabled: state.canAdvance,
-              onPressed: () => context
-                  .read<OnboardingBloc>()
-                  .add(const OnboardingStepNext()),
+              onPressed: () => context.read<OnboardingBloc>().add(
+                const OnboardingStepNext(),
+              ),
             ),
           ],
         );
@@ -180,16 +179,10 @@ class _StatusIcon extends StatelessWidget {
           ),
         );
       case UsernameCheckStatus.available:
-        return const Icon(
-          Icons.check_circle_rounded,
-          color: AppColors.green,
-        );
+        return const Icon(Icons.check_circle_rounded, color: AppColors.green);
       case UsernameCheckStatus.taken:
       case UsernameCheckStatus.error:
-        return const Icon(
-          Icons.cancel_rounded,
-          color: AppColors.red,
-        );
+        return const Icon(Icons.cancel_rounded, color: AppColors.red);
       case UsernameCheckStatus.tooShort:
       case UsernameCheckStatus.invalidFormat:
         return const Icon(
@@ -229,33 +222,32 @@ class _HelperText extends StatelessWidget {
   static (String?, Color) _resolve(
     String username,
     UsernameCheckStatus status,
-  ) =>
-      switch (status) {
-        UsernameCheckStatus.idle => (null, AppColors.textSecondary),
-        UsernameCheckStatus.checking => (
-          AppStrings.onboardUsernameChecking,
-          AppColors.textSecondary,
-        ),
-        UsernameCheckStatus.available => (
-          '@${username.trim().toLowerCase()}'
-              '${AppStrings.onboardUsernameAvailableSuffix}',
-          AppColors.green,
-        ),
-        UsernameCheckStatus.taken => (
-          AppStrings.onboardUsernameTaken,
-          AppColors.red,
-        ),
-        UsernameCheckStatus.tooShort => (
-          AppStrings.onboardUsernameTooShort,
-          AppColors.textSecondary,
-        ),
-        UsernameCheckStatus.invalidFormat => (
-          AppStrings.onboardUsernameInvalid,
-          AppColors.textSecondary,
-        ),
-        UsernameCheckStatus.error => (
-          AppStrings.onboardUsernameError,
-          AppColors.red,
-        ),
-      };
+  ) => switch (status) {
+    UsernameCheckStatus.idle => (null, AppColors.textSecondary),
+    UsernameCheckStatus.checking => (
+      AppStrings.onboardUsernameChecking,
+      AppColors.textSecondary,
+    ),
+    UsernameCheckStatus.available => (
+      '@${username.trim().toLowerCase()}'
+          '${AppStrings.onboardUsernameAvailableSuffix}',
+      AppColors.green,
+    ),
+    UsernameCheckStatus.taken => (
+      AppStrings.onboardUsernameTaken,
+      AppColors.red,
+    ),
+    UsernameCheckStatus.tooShort => (
+      AppStrings.onboardUsernameTooShort,
+      AppColors.textSecondary,
+    ),
+    UsernameCheckStatus.invalidFormat => (
+      AppStrings.onboardUsernameInvalid,
+      AppColors.textSecondary,
+    ),
+    UsernameCheckStatus.error => (
+      AppStrings.onboardUsernameError,
+      AppColors.red,
+    ),
+  };
 }

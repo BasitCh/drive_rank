@@ -68,11 +68,7 @@ class CardChromeBar extends StatelessWidget {
               ),
             ),
           ),
-          _ShareButton(
-            label: shareLabel,
-            isSharing: isSharing,
-            onTap: onShare,
-          ),
+          _ShareButton(label: shareLabel, isSharing: isSharing, onTap: onShare),
         ],
       ),
     );

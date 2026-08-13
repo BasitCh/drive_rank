@@ -9,11 +9,7 @@ import 'package:flutter/material.dart';
 /// a teal arc that fills proportionally to the speed value. The `value`
 /// parameter is normalised 0..1 (animated by the parent on screen entry).
 class SplashRing extends StatelessWidget {
-  const SplashRing({
-    required this.child,
-    required this.value,
-    super.key,
-  });
+  const SplashRing({required this.child, required this.value, super.key});
 
   /// 0..1 — controls how far the teal arc has swept.
   final double value;

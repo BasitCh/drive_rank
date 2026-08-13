@@ -25,20 +25,20 @@ enum RecordKind {
   personalRecord;
 
   String get title => switch (this) {
-        newPersonalBest => 'New Personal Best',
-        longestRide => 'Longest Ride',
-        bestAverageSpeed => 'Best Average Speed',
-        fastestThisMonth => 'Fastest This Month',
-        personalRecord => 'Personal Record',
-      };
+    newPersonalBest => 'New Personal Best',
+    longestRide => 'Longest Ride',
+    bestAverageSpeed => 'Best Average Speed',
+    fastestThisMonth => 'Fastest This Month',
+    personalRecord => 'Personal Record',
+  };
 
   String get emoji => switch (this) {
-        newPersonalBest => '🏆',
-        longestRide => '🛣',
-        bestAverageSpeed => '⚡',
-        fastestThisMonth => '📅',
-        personalRecord => '⭐',
-      };
+    newPersonalBest => '🏆',
+    longestRide => '🛣',
+    bestAverageSpeed => '⚡',
+    fastestThisMonth => '📅',
+    personalRecord => '⭐',
+  };
 }
 
 /// One badge displayed in the records list. `valueDisplay` is the
@@ -47,10 +47,7 @@ enum RecordKind {
 /// happens in the use case.
 @immutable
 class PersonalRecord {
-  const PersonalRecord({
-    required this.kind,
-    required this.valueDisplay,
-  });
+  const PersonalRecord({required this.kind, required this.valueDisplay});
 
   final RecordKind kind;
   final String valueDisplay;

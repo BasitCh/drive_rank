@@ -27,10 +27,7 @@ class OnboardingSafetyStep extends StatelessWidget {
                   children: [
                     const SizedBox(height: AppSpacing.md),
                     const Center(
-                      child: Text(
-                        '⚠️',
-                        style: TextStyle(fontSize: 32),
-                      ),
+                      child: Text('⚠️', style: TextStyle(fontSize: 32)),
                     ),
                     const SizedBox(height: 6),
                     const Center(

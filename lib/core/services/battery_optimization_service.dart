@@ -39,8 +39,7 @@ class BatteryOptimizationService {
   Future<bool> requestIgnoreOptimizations() async {
     if (!Platform.isAndroid) return true;
     try {
-      final status =
-          await Permission.ignoreBatteryOptimizations.request();
+      final status = await Permission.ignoreBatteryOptimizations.request();
       return status.isGranted;
     } catch (e) {
       if (kDebugMode) {

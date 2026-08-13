@@ -133,9 +133,8 @@ class _Header extends StatelessWidget {
             ),
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: () => context.canPop()
-                  ? context.pop()
-                  : context.go('/profile'),
+              onTap: () =>
+                  context.canPop() ? context.pop() : context.go('/profile'),
               child: const SizedBox(
                 width: 30,
                 height: 30,
@@ -250,10 +249,7 @@ class _HeroNumber extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: AppTextStyles.label.copyWith(fontSize: 10),
-        ),
+        Text(label, style: AppTextStyles.label.copyWith(fontSize: 10)),
       ],
     );
   }

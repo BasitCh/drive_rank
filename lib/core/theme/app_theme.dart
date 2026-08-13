@@ -102,9 +102,7 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(
-            Radius.circular(AppSpacing.radiusMd),
-          ),
+          borderRadius: BorderRadius.all(Radius.circular(AppSpacing.radiusMd)),
         ),
       ),
 

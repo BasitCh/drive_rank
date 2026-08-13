@@ -83,10 +83,7 @@ class _ReviewsContent extends StatelessWidget {
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            '⭐⭐⭐⭐⭐',
-                            style: TextStyle(fontSize: 20),
-                          ),
+                          Text('⭐⭐⭐⭐⭐', style: TextStyle(fontSize: 20)),
                           SizedBox(height: 2),
                           Text(
                             AppStrings.reviewsAppStoreSource,
@@ -128,9 +125,8 @@ class _ReviewsContent extends StatelessWidget {
         ),
         TealButton(
           label: AppStrings.continueAction,
-          onPressed: () => context.read<OnboardingBloc>().add(
-            const OnboardingStepNext(),
-          ),
+          onPressed: () =>
+              context.read<OnboardingBloc>().add(const OnboardingStepNext()),
         ),
       ],
     );
@@ -191,10 +187,7 @@ class _ReviewCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             text,
-            style: AppTextStyles.bodySmall.copyWith(
-              fontSize: 12,
-              height: 1.5,
-            ),
+            style: AppTextStyles.bodySmall.copyWith(fontSize: 12, height: 1.5),
           ),
         ],
       ),

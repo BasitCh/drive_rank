@@ -129,8 +129,7 @@ class OnboardingState {
     OnboardingStep.splash => true,
     OnboardingStep.countryAndVehicle => country != null,
     OnboardingStep.car => carMake != null && carModel != null,
-    OnboardingStep.username =>
-      usernameStatus == UsernameCheckStatus.available,
+    OnboardingStep.username => usernameStatus == UsernameCheckStatus.available,
     OnboardingStep.carPhoto => true, // Skip is always valid.
     OnboardingStep.community => true,
     OnboardingStep.mapTheme => true,
@@ -171,8 +170,9 @@ class OnboardingState {
       vehicleType: vehicleType ?? this.vehicleType,
       carMake: clearCarMake ? null : (carMake ?? this.carMake),
       carModel: clearCarModel ? null : (carModel ?? this.carModel),
-      carPhotoPath:
-          clearCarPhotoPath ? null : (carPhotoPath ?? this.carPhotoPath),
+      carPhotoPath: clearCarPhotoPath
+          ? null
+          : (carPhotoPath ?? this.carPhotoPath),
       username: username ?? this.username,
       usernameStatus: usernameStatus ?? this.usernameStatus,
       availableMakes: availableMakes ?? this.availableMakes,

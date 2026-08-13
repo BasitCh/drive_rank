@@ -21,26 +21,26 @@ enum SpeedBucket {
 
   /// Inclusive lower bound (km/h).
   double get minKmh => switch (this) {
-        walking => 0,
-        cruising => 40,
-        fast => 80,
-        highway => 120,
-      };
+    walking => 0,
+    cruising => 40,
+    fast => 80,
+    highway => 120,
+  };
 
   /// Exclusive upper bound (km/h); null for the open-ended top bucket.
   double? get maxKmh => switch (this) {
-        walking => 40,
-        cruising => 80,
-        fast => 120,
-        highway => null,
-      };
+    walking => 40,
+    cruising => 80,
+    fast => 120,
+    highway => null,
+  };
 
   Color get color => switch (this) {
-        walking => AppColors.red,
-        cruising => AppColors.orange,
-        fast => AppColors.green,
-        highway => AppColors.teal,
-      };
+    walking => AppColors.red,
+    cruising => AppColors.orange,
+    fast => AppColors.green,
+    highway => AppColors.teal,
+  };
 
   /// Classifies a single speed sample. Anything negative or NaN falls
   /// into the `walking` bucket (it's the lowest — a no-op rather than

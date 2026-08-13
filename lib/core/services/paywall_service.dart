@@ -44,8 +44,7 @@ class PreviewPaywallService implements PaywallService {
     final code = _locale.defaultCurrencyCode;
     final (annual, monthly) = _previewPricesFor(code);
 
-    final symbol =
-        NumberFormat.simpleCurrency(name: code).currencySymbol;
+    final symbol = NumberFormat.simpleCurrency(name: code).currencySymbol;
     String fmt(double v) {
       // Whole-number prices look more like real store prices than ".00".
       final hasFraction = v != v.roundToDouble();

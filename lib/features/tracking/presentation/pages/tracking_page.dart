@@ -136,8 +136,7 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
             //
             // Handled FIRST so the modal opens off a fresh BuildContext
             // — none of the other branches above can have awaited yet.
-            if (state.phase ==
-                TrackingPhase.needsLocationDisclosure) {
+            if (state.phase == TrackingPhase.needsLocationDisclosure) {
               final proceed = await _showLocationDisclosureSheet(context);
               if (!context.mounted) return;
               context.read<TrackingBloc>().add(
@@ -177,8 +176,7 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
               // The modal sits on top of the idle surface so the user
               // sees the home screen behind it — no jarring blackout.
               TrackingPhase.idle ||
-              TrackingPhase.needsLocationDisclosure =>
-                const _IdleSurface(),
+              TrackingPhase.needsLocationDisclosure => const _IdleSurface(),
             };
           },
         ),
@@ -227,8 +225,7 @@ class _IdleSurface extends StatelessWidget {
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: ConstrainedBox(
-                constraints:
-                    BoxConstraints(minHeight: viewport.maxHeight),
+                constraints: BoxConstraints(minHeight: viewport.maxHeight),
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
@@ -483,10 +480,7 @@ class _ActiveSurface extends StatelessWidget {
             state.recoveryStatus == TripRecoveryStatus.interruptedByOs;
         return Column(
           children: [
-            _Header(
-              showLiveBadge: !isPaused,
-              showPausedBadge: isPaused,
-            ),
+            _Header(showLiveBadge: !isPaused, showPausedBadge: isPaused),
             if (showRecoveryBanner) const _InterruptionBanner(),
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -499,7 +493,9 @@ class _ActiveSurface extends StatelessWidget {
                 speedKmh: stats.currentSpeedKmh,
                 locale: locale,
                 hasFix: hasFix,
-                idleLabel: isPaused ? AppStrings.trackingPausedSpeedLabel : null,
+                idleLabel: isPaused
+                    ? AppStrings.trackingPausedSpeedLabel
+                    : null,
               ),
             ),
             Padding(
@@ -773,7 +769,9 @@ class _TripControls extends StatelessWidget {
           child: _PillButton(
             color: AppColors.card2,
             icon: isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-            label: isPaused ? AppStrings.trackingResume : AppStrings.trackingPause,
+            label: isPaused
+                ? AppStrings.trackingResume
+                : AppStrings.trackingPause,
             onPressed: isPaused ? onResume : onPause,
           ),
         ),
@@ -870,10 +868,7 @@ class _PausedBadge extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _Header extends StatelessWidget {
-  const _Header({
-    required this.showLiveBadge,
-    this.showPausedBadge = false,
-  });
+  const _Header({required this.showLiveBadge, this.showPausedBadge = false});
 
   final bool showLiveBadge;
   final bool showPausedBadge;
@@ -1109,11 +1104,7 @@ class _InterruptionBanner extends StatelessWidget {
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            color: AppColors.orange,
-            size: 18,
-          ),
+          Icon(Icons.warning_amber_rounded, color: AppColors.orange, size: 18),
           SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -1183,9 +1174,7 @@ class _LocationDisclosureSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          const Center(
-            child: Text('📍', style: TextStyle(fontSize: 30)),
-          ),
+          const Center(child: Text('📍', style: TextStyle(fontSize: 30))),
           const SizedBox(height: 6),
           const Center(
             child: Text(

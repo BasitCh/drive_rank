@@ -53,10 +53,7 @@ class JourneyFooterStats extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: _Cell(
-                  label: 'FUEL COST',
-                  value: _fuelLabel(),
-                ),
+                child: _Cell(label: 'FUEL COST', value: _fuelLabel()),
               ),
             ],
           ),
@@ -135,8 +132,7 @@ class _Badge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.teal.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        border:
-            Border.all(color: AppColors.teal.withValues(alpha: 0.35)),
+        border: Border.all(color: AppColors.teal.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [

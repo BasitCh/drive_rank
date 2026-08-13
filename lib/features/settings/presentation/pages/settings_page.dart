@@ -23,13 +23,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 import 'package:url_launcher/url_launcher.dart';
 
-
 const String _kPlayStoreSubscriptionUrl =
     'https://play.google.com/store/account/subscriptions'
     '?sku=driverank_pro_annual&package=com.bytse.drive_rank';
 const String _kAppleSubscriptionUrl =
     'https://apps.apple.com/account/subscriptions';
-const String _kPrivacyUrl = 'https://doc-hosting.flycricket.io/drive-rank-privacy-policy/3a6ae044-e764-43cd-98f8-fd96a55555b0/privacy';
+const String _kPrivacyUrl =
+    'https://doc-hosting.flycricket.io/drive-rank-privacy-policy/3a6ae044-e764-43cd-98f8-fd96a55555b0/privacy';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -103,9 +103,7 @@ class _Body extends StatelessWidget {
               label: AppStrings.settingsCarColour,
               value: settings.carColour ?? '',
               onChanged: (v) => repo.patch(
-                UserSettingsCompanion(
-                  carColour: Value(v.isEmpty ? null : v),
-                ),
+                UserSettingsCompanion(carColour: Value(v.isEmpty ? null : v)),
               ),
             ),
           ],
@@ -122,10 +120,8 @@ class _Body extends StatelessWidget {
             ),
             _PickerRow(
               label: AppStrings.settingsCountry,
-              valueText:
-                  countryFromCode(settings.country ?? 'US')?.name ?? '—',
-              leading:
-                  countryFromCode(settings.country ?? 'US')?.flag ?? '🏳️',
+              valueText: countryFromCode(settings.country ?? 'US')?.name ?? '—',
+              leading: countryFromCode(settings.country ?? 'US')?.flag ?? '🏳️',
               onTap: () async {
                 final picked = await _pickCountry(context);
                 if (picked != null) await repo.setCountry(picked.code);
@@ -152,9 +148,8 @@ class _Body extends StatelessWidget {
           children: [
             _FuelTypeRow(
               current: settings.fuelType,
-              onChanged: (type) => repo.patch(
-                UserSettingsCompanion(fuelType: Value(type)),
-              ),
+              onChanged: (type) =>
+                  repo.patch(UserSettingsCompanion(fuelType: Value(type))),
             ),
             _TextFieldRow(
               label: AppStrings.settingsFuelConsumption,
@@ -292,9 +287,9 @@ class _Body extends StatelessWidget {
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't open the link.")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Couldn't open the link.")));
     }
   }
 
@@ -326,9 +321,7 @@ class _Body extends StatelessWidget {
       // Session 5 (auth) owns the real teardown — for now we reset
       // onboarding so the user lands back at the start of the flow.
       await repo.patch(
-        const UserSettingsCompanion(
-          onboardingComplete: Value(false),
-        ),
+        const UserSettingsCompanion(onboardingComplete: Value(false)),
       );
       if (context.mounted) context.go(RouteNames.splash);
     }
@@ -645,9 +638,7 @@ class _Segmented extends StatelessWidget {
         children: [
           for (var i = 0; i < options.length; i++)
             Material(
-              color: i == selectedIndex
-                  ? AppColors.teal
-                  : Colors.transparent,
+              color: i == selectedIndex ? AppColors.teal : Colors.transparent,
               borderRadius: BorderRadius.circular(50),
               child: InkWell(
                 borderRadius: BorderRadius.circular(50),
@@ -738,9 +729,7 @@ class _Chip extends StatelessWidget {
     return Material(
       color: isSelected ? AppColors.teal : AppColors.bg2,
       shape: StadiumBorder(
-        side: BorderSide(
-          color: isSelected ? AppColors.teal : AppColors.border,
-        ),
+        side: BorderSide(color: isSelected ? AppColors.teal : AppColors.border),
       ),
       child: InkWell(
         customBorder: const StadiumBorder(),
@@ -900,8 +889,7 @@ class _CarPhotoRow extends StatelessWidget {
                     color: AppColors.teal,
                   ),
                   title: const Text(AppStrings.onboardCarPhotoCamera),
-                  onTap: () =>
-                      Navigator.of(ctx).pop(_PhotoSheetChoice.camera),
+                  onTap: () => Navigator.of(ctx).pop(_PhotoSheetChoice.camera),
                 ),
                 ListTile(
                   leading: const Icon(
@@ -909,8 +897,7 @@ class _CarPhotoRow extends StatelessWidget {
                     color: AppColors.teal,
                   ),
                   title: const Text(AppStrings.onboardCarPhotoGallery),
-                  onTap: () =>
-                      Navigator.of(ctx).pop(_PhotoSheetChoice.gallery),
+                  onTap: () => Navigator.of(ctx).pop(_PhotoSheetChoice.gallery),
                 ),
                 if (hasPhoto)
                   ListTile(
@@ -1049,9 +1036,7 @@ Future<void> _pickCurrency(
     builder: (_) => _CurrencyPickerSheet(selectedCode: currentCode),
   );
   if (picked == null) return;
-  await repo.patch(
-    UserSettingsCompanion(currencyCode: Value(picked.code)),
-  );
+  await repo.patch(UserSettingsCompanion(currencyCode: Value(picked.code)));
 }
 
 /// One ISO 4217 entry shown in the currency picker.
@@ -1177,9 +1162,7 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
   Widget build(BuildContext context) {
     final height = MediaQuery.sizeOf(context).height * 0.7;
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -1197,9 +1180,7 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
               ),
               const SizedBox(height: AppSpacing.md),
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 child: TextField(
                   controller: _query,
                   autofocus: false,

@@ -65,7 +65,7 @@ class BuildInsights {
       chartEligible: waypoints.length >= _chartMinWaypoints,
       breakdownEligible:
           trip.durationSeconds >= _breakdownMinDurationSeconds &&
-              heavy.breakdown.any((slice) => slice.secondsInBucket > 0),
+          heavy.breakdown.any((slice) => slice.secondsInBucket > 0),
       // User adjustment: records show as soon as there is even one
       // previous trip to compare against (was previously <2).
       recordsEligible: otherTrips.isNotEmpty,
@@ -84,9 +84,9 @@ class BuildInsights {
     final bestTopSpeed = _maxOrZero(otherTrips.map((t) => t.topSpeedKmh));
     final bestDistance = _maxOrZero(otherTrips.map((t) => t.distanceKm));
     final bestAvgSpeed = _maxOrZero(
-      otherTrips.where(
-        (t) => t.durationSeconds >= _bestAvgMinDurationSeconds,
-      ).map((t) => t.avgSpeedKmh),
+      otherTrips
+          .where((t) => t.durationSeconds >= _bestAvgMinDurationSeconds)
+          .map((t) => t.avgSpeedKmh),
     );
 
     if (trip.topSpeedKmh > bestTopSpeed) {
@@ -227,8 +227,7 @@ const int _chartTargetBuckets = 400;
 /// instance state. Safe to call from any isolate.
 _HeavyOutput _runHeavyCompute(_HeavyInput input) {
   final waypoints = input.waypoints;
-  final rawSpeeds =
-      waypoints.map((p) => p.speedKmh).toList(growable: false);
+  final rawSpeeds = waypoints.map((p) => p.speedKmh).toList(growable: false);
   final smoothed = _smooth(rawSpeeds);
   final seconds = _secondsFromStart(waypoints);
   final (decSpeeds, decSeconds) = _decimate(
@@ -340,16 +339,12 @@ List<SpeedSegment> _groupSegments(List<TripPoint> waypoints) {
     // upcoming point as its terminal vertex so the colour transition
     // is gap-free, then start the new segment at the same vertex.
     currentPoints.add(point);
-    segments.add(
-      SpeedSegment(bucket: currentBucket, points: currentPoints),
-    );
+    segments.add(SpeedSegment(bucket: currentBucket, points: currentPoints));
     currentBucket = bucket;
     currentPoints = <LatLng>[point];
   }
   if (currentPoints.length >= 2) {
-    segments.add(
-      SpeedSegment(bucket: currentBucket, points: currentPoints),
-    );
+    segments.add(SpeedSegment(bucket: currentBucket, points: currentPoints));
   }
   return segments;
 }
@@ -360,14 +355,11 @@ List<SpeedSegment> _groupSegments(List<TripPoint> waypoints) {
 /// dropouts or paused-and-resumed segments, both of which would
 /// inflate the bucket the user happened to be in when paused.
 List<SpeedBreakdownSlice> _bucketTimes(List<TripPoint> waypoints) {
-  final acc = <SpeedBucket, double>{
-    for (final b in SpeedBucket.values) b: 0,
-  };
+  final acc = <SpeedBucket, double>{for (final b in SpeedBucket.values) b: 0};
   for (var i = 0; i < waypoints.length - 1; i++) {
     final a = waypoints[i];
     final b = waypoints[i + 1];
-    final dt =
-        b.timestamp.difference(a.timestamp).inMilliseconds / 1000.0;
+    final dt = b.timestamp.difference(a.timestamp).inMilliseconds / 1000.0;
     if (dt <= 0 || dt > 60) continue;
     final mean = (a.speedKmh + b.speedKmh) / 2;
     final bucket = SpeedBucket.from(mean);
@@ -377,11 +369,7 @@ List<SpeedBreakdownSlice> _bucketTimes(List<TripPoint> waypoints) {
   if (total <= 0) {
     return [
       for (final b in SpeedBucket.values)
-        SpeedBreakdownSlice(
-          bucket: b,
-          secondsInBucket: 0,
-          percentage: 0,
-        ),
+        SpeedBreakdownSlice(bucket: b, secondsInBucket: 0, percentage: 0),
     ];
   }
   return [

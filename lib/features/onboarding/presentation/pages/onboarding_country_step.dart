@@ -95,10 +95,9 @@ class OnboardingCountryStep extends StatelessWidget {
             TealButton(
               label: AppStrings.continueAction,
               enabled: state.canAdvance,
-              onPressed: () =>
-                  context.read<OnboardingBloc>().add(
-                    const OnboardingStepNext(),
-                  ),
+              onPressed: () => context.read<OnboardingBloc>().add(
+                const OnboardingStepNext(),
+              ),
             ),
           ],
         );
@@ -143,9 +142,7 @@ class _VehicleCard extends StatelessWidget {
                 type.label,
                 style: AppTextStyles.bodySmall.copyWith(
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected
-                      ? Colors.white
-                      : AppColors.textSecondary,
+                  color: selected ? Colors.white : AppColors.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -200,9 +197,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               ),
               const SizedBox(height: AppSpacing.lg),
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 child: TextField(
                   autofocus: false,
                   decoration: const InputDecoration(

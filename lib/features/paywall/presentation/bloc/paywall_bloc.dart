@@ -130,9 +130,7 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
     final best = await _trips.getPersonalBest(uid: settings.uid);
     emit(
       state.copyWith(
-        status: offering == null
-            ? PaywallStatus.error
-            : PaywallStatus.ready,
+        status: offering == null ? PaywallStatus.error : PaywallStatus.ready,
         offering: offering,
         snapshot: PaywallSnapshot(
           bestTopSpeedKmh: best?.topSpeedKmh ?? 0,
@@ -144,17 +142,11 @@ class PaywallBloc extends Bloc<PaywallEvent, PaywallState> {
     await _telemetry.track(TelemetryEvents.paywallViewed);
   }
 
-  void _onSelected(
-    PaywallPackageSelected event,
-    Emitter<PaywallState> emit,
-  ) {
+  void _onSelected(PaywallPackageSelected event, Emitter<PaywallState> emit) {
     emit(state.copyWith(selected: event.period));
   }
 
-  void _onScroll(
-    PaywallFeatureScrolled event,
-    Emitter<PaywallState> emit,
-  ) {
+  void _onScroll(PaywallFeatureScrolled event, Emitter<PaywallState> emit) {
     emit(state.copyWith(featureIndex: event.index));
   }
 

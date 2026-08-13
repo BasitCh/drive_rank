@@ -13,11 +13,11 @@ class InsightsState {
   });
 
   factory InsightsState.initial() => const InsightsState(
-        status: InsightsStatus.loading,
-        bundle: null,
-        isSharing: false,
-        errorMessage: null,
-      );
+    status: InsightsStatus.loading,
+    bundle: null,
+    isSharing: false,
+    errorMessage: null,
+  );
 
   final InsightsStatus status;
   final InsightsBundle? bundle;

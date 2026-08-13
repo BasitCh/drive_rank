@@ -20,10 +20,8 @@ class Trips extends Table {
   IntColumn get stoppedSeconds => integer().withDefault(const Constant(0))();
 
   RealColumn get maxGforce => real().withDefault(const Constant(0))();
-  IntColumn get hardCornersCount =>
-      integer().withDefault(const Constant(0))();
-  IntColumn get hardBrakesCount =>
-      integer().withDefault(const Constant(0))();
+  IntColumn get hardCornersCount => integer().withDefault(const Constant(0))();
+  IntColumn get hardBrakesCount => integer().withDefault(const Constant(0))();
 
   /// Fuel cost in the user's local currency at trip time. Null if the user
   /// hasn't configured fuel price/consumption — the UI shows "—" then.
@@ -48,8 +46,7 @@ class Trips extends Table {
   /// join table because the v1 leaderboard query is "find me a trip's
   /// segments", not "find me all trips on a segment" — and the comma list
   /// loads with the row, no extra query.
-  TextColumn get roadSegmentIds =>
-      text().withDefault(const Constant(''))();
+  TextColumn get roadSegmentIds => text().withDefault(const Constant(''))();
 
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime().nullable()();

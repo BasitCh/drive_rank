@@ -40,8 +40,7 @@ class NetworkInfo {
 
   bool _hasNetwork(List<ConnectivityResult> results) {
     return results.any(
-      (r) =>
-          r != ConnectivityResult.none && r != ConnectivityResult.bluetooth,
+      (r) => r != ConnectivityResult.none && r != ConnectivityResult.bluetooth,
     );
   }
 }

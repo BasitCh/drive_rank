@@ -91,7 +91,9 @@ class _SplashPageState extends State<SplashPage> {
     // covers devices without the Play Store app installed (web Play).
     const pkg = 'com.bytse.drive_rank';
     final marketUri = Uri.parse('market://details?id=$pkg');
-    final webUri = Uri.parse('https://play.google.com/store/apps/details?id=$pkg');
+    final webUri = Uri.parse(
+      'https://play.google.com/store/apps/details?id=$pkg',
+    );
     final ok = await launchUrl(marketUri, mode: LaunchMode.externalApplication);
     if (!ok) {
       await launchUrl(webUri, mode: LaunchMode.externalApplication);
@@ -393,8 +395,7 @@ class _Wordmark extends StatelessWidget {
     // text is still too wide for that budget. scaleDown never scales
     // *up*, so wider phones look identical to before.
     final screenWidth = MediaQuery.of(context).size.width;
-    final maxWidth =
-        math.min(_glowFriendlyWidth, screenWidth * 0.78);
+    final maxWidth = math.min(_glowFriendlyWidth, screenWidth * 0.78);
     return SizedBox(
       width: maxWidth,
       child: FittedBox(

@@ -99,11 +99,7 @@ class MainShell extends StatelessWidget {
 }
 
 class _Tab {
-  const _Tab({
-    required this.label,
-    required this.icon,
-    required this.path,
-  });
+  const _Tab({required this.label, required this.icon, required this.path});
   final String label;
   final IconData icon;
   final String path;

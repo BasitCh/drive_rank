@@ -30,11 +30,7 @@ class InsightsRepository {
       excludingTripId: tripId,
     );
 
-    return _build(
-      trip: trip,
-      waypoints: waypoints,
-      otherTrips: otherTrips,
-    );
+    return _build(trip: trip, waypoints: waypoints, otherTrips: otherTrips);
   }
 
   /// All saved trips for this anonymous install except the one we're
@@ -44,9 +40,7 @@ class InsightsRepository {
     required int excludingTripId,
   }) {
     return (_db.select(_db.trips)
-          ..where((t) =>
-              t.uid.equals(uid) &
-              t.id.equals(excludingTripId).not())
+          ..where((t) => t.uid.equals(uid) & t.id.equals(excludingTripId).not())
           ..orderBy([(t) => OrderingTerm.desc(t.startedAt)]))
         .get();
   }

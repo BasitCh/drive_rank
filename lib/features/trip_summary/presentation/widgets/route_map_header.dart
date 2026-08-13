@@ -40,10 +40,7 @@ class RouteMapHeader extends StatelessWidget {
           ),
           Positioned.fill(
             child: CustomPaint(
-              painter: _RoutePainter(
-                points: points,
-                color: theme.routeColor,
-              ),
+              painter: _RoutePainter(points: points, color: theme.routeColor),
             ),
           ),
           // Bottom-blend overlay — fades the gradient into the card body.
@@ -62,19 +59,12 @@ class RouteMapHeader extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
-            top: 8,
-            left: 10,
-            child: _PillTag(text: carTag),
-          ),
+          Positioned(top: 8, left: 10, child: _PillTag(text: carTag)),
           if (weatherTag != null)
             Positioned(
               top: 8,
               right: 10,
-              child: _PillTag(
-                text: weatherTag!,
-                textOpacity: 0.8,
-              ),
+              child: _PillTag(text: weatherTag!, textOpacity: 0.8),
             ),
         ],
       ),

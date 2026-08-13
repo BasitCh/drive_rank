@@ -16,10 +16,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// top track which slide you're on; tapping Next advances slides until the
 /// last one, where it forwards to step 2 via the OnboardingBloc.
 class OnboardingSplashStep extends StatefulWidget {
-  const OnboardingSplashStep({
-    required this.locale,
-    super.key,
-  });
+  const OnboardingSplashStep({required this.locale, super.key});
 
   final LocaleService locale;
 

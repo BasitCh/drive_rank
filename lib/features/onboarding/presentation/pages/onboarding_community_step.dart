@@ -103,17 +103,12 @@ class OnboardingCommunityStep extends StatelessWidget {
                   Container(
                     decoration: BoxDecoration(
                       color: AppColors.card,
-                      borderRadius: BorderRadius.circular(
-                        AppSpacing.radiusLg,
-                      ),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                     ),
                     child: Column(
                       children: [
                         for (var i = 0; i < bars.length; i++)
-                          _BrandRow(
-                            bar: bars[i],
-                            isLast: i == bars.length - 1,
-                          ),
+                          _BrandRow(bar: bars[i], isLast: i == bars.length - 1),
                       ],
                     ),
                   ),
@@ -226,9 +221,7 @@ class _BrandRow extends StatelessWidget {
                     widthFactor: bar.fillRatio,
                     child: Container(
                       height: 6,
-                      color: AppColors.teal.withValues(
-                        alpha: isHl ? 1.0 : 0.4,
-                      ),
+                      color: AppColors.teal.withValues(alpha: isHl ? 1.0 : 0.4),
                     ),
                   ),
                 ],

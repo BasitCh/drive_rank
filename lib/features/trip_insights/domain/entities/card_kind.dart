@@ -13,17 +13,17 @@ enum CardKind {
   journey;
 
   String get viewedEvent => switch (this) {
-        performance => TelemetryEvents.performanceCardViewed,
-        journey => TelemetryEvents.journeyCardViewed,
-      };
+    performance => TelemetryEvents.performanceCardViewed,
+    journey => TelemetryEvents.journeyCardViewed,
+  };
 
   String get sharedEvent => switch (this) {
-        performance => TelemetryEvents.performanceCardShared,
-        journey => TelemetryEvents.journeyCardShared,
-      };
+    performance => TelemetryEvents.performanceCardShared,
+    journey => TelemetryEvents.journeyCardShared,
+  };
 
   String get exportedEvent => switch (this) {
-        performance => TelemetryEvents.performanceCardExported,
-        journey => TelemetryEvents.journeyCardExported,
-      };
+    performance => TelemetryEvents.performanceCardExported,
+    journey => TelemetryEvents.journeyCardExported,
+  };
 }

@@ -237,16 +237,12 @@ class _JourneyMapState extends State<JourneyMap>
   static const Color _mapBackdrop = Color(0xFF0D0D12);
 
   List<LatLng> _flattenPoints(InsightsBundle bundle) {
-    return [
-      for (final s in bundle.segments) ...s.points,
-    ];
+    return [for (final s in bundle.segments) ...s.points];
   }
 
   LatLngBounds? _boundsForSegments(InsightsBundle bundle) {
     if (bundle.segments.isEmpty) return null;
-    final all = <LatLng>[
-      for (final s in bundle.segments) ...s.points,
-    ];
+    final all = <LatLng>[for (final s in bundle.segments) ...s.points];
     if (all.isEmpty) return null;
     return LatLngBounds.fromPoints(all);
   }
@@ -418,12 +414,8 @@ class JourneyMapLegend extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           for (var i = 0; i < SpeedBucket.values.length; i++) ...[
-            _Row(
-              bucket: SpeedBucket.values[i],
-              locale: locale,
-            ),
-            if (i != SpeedBucket.values.length - 1)
-              const SizedBox(height: 10),
+            _Row(bucket: SpeedBucket.values[i], locale: locale),
+            if (i != SpeedBucket.values.length - 1) const SizedBox(height: 10),
           ],
         ],
       ),

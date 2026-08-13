@@ -99,10 +99,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     );
   }
 
-  void _onSettings(
-    _ProfileSettingsReceived event,
-    Emitter<ProfileState> emit,
-  ) {
+  void _onSettings(_ProfileSettingsReceived event, Emitter<ProfileState> emit) {
     emit(state.copyWith(settings: event.row));
   }
 }

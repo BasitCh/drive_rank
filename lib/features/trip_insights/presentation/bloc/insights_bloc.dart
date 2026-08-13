@@ -18,8 +18,7 @@ import 'package:injectable/injectable.dart';
 /// telemetry.
 @injectable
 class InsightsBloc extends Bloc<InsightsEvent, InsightsState> {
-  InsightsBloc(this._repo, this._telemetry)
-      : super(InsightsState.initial()) {
+  InsightsBloc(this._repo, this._telemetry) : super(InsightsState.initial()) {
     on<InsightsLoaded>(_onLoaded);
     on<InsightsShareRequested>(_onShareRequested);
     on<InsightsShareFinished>(_onShareFinished);
@@ -38,17 +37,21 @@ class InsightsBloc extends Bloc<InsightsEvent, InsightsState> {
         emit(state.copyWith(status: InsightsStatus.notFound));
         return;
       }
-      emit(state.copyWith(
-        status: InsightsStatus.ready,
-        bundle: bundle,
-        clearError: true,
-      ));
+      emit(
+        state.copyWith(
+          status: InsightsStatus.ready,
+          bundle: bundle,
+          clearError: true,
+        ),
+      );
       unawaited(_telemetry.track(event.kind.viewedEvent));
     } catch (e) {
-      emit(state.copyWith(
-        status: InsightsStatus.error,
-        errorMessage: 'Could not load card: $e',
-      ));
+      emit(
+        state.copyWith(
+          status: InsightsStatus.error,
+          errorMessage: 'Could not load card: $e',
+        ),
+      );
     }
   }
 

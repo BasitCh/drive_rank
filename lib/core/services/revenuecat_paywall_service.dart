@@ -56,13 +56,9 @@ class RevenueCatPaywallService implements PaywallService {
   }) async {
     if (androidApiKey.isEmpty && iosApiKey.isEmpty) return null;
     try {
-      await Purchases.setLogLevel(
-        kDebugMode ? LogLevel.info : LogLevel.error,
-      );
+      await Purchases.setLogLevel(kDebugMode ? LogLevel.info : LogLevel.error);
       final config = PurchasesConfiguration(
-        defaultTargetPlatform == TargetPlatform.iOS
-            ? iosApiKey
-            : androidApiKey,
+        defaultTargetPlatform == TargetPlatform.iOS ? iosApiKey : androidApiKey,
       );
       if (appUserId != null && appUserId.isNotEmpty) {
         config.appUserID = appUserId;
@@ -95,10 +91,12 @@ class RevenueCatPaywallService implements PaywallService {
       final current = offerings.current;
       if (current == null) return null;
 
-      final annual = current.annual ?? _fallback(current.availablePackages,
-          PackageType.annual);
-      final monthly = current.monthly ?? _fallback(current.availablePackages,
-          PackageType.monthly);
+      final annual =
+          current.annual ??
+          _fallback(current.availablePackages, PackageType.annual);
+      final monthly =
+          current.monthly ??
+          _fallback(current.availablePackages, PackageType.monthly);
       if (annual == null || monthly == null) return null;
 
       return PaywallOffering(
@@ -130,8 +128,9 @@ class RevenueCatPaywallService implements PaywallService {
       // with our own enum) — type inference lets us drill into its
       // `customerInfo.entitlements.active` map without naming the type.
       final result = await Purchases.purchase(PurchaseParams.package(match));
-      final isActive =
-          result.customerInfo.entitlements.active.containsKey(entitlementId);
+      final isActive = result.customerInfo.entitlements.active.containsKey(
+        entitlementId,
+      );
       return isActive ? PurchaseResult.granted : PurchaseResult.failed;
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);

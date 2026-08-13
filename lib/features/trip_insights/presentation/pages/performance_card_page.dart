@@ -31,11 +31,9 @@ class PerformanceCardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<InsightsBloc>(
-      create: (_) => getIt<InsightsBloc>()
-        ..add(InsightsLoaded(
-          tripId: tripId,
-          kind: CardKind.performance,
-        )),
+      create: (_) =>
+          getIt<InsightsBloc>()
+            ..add(InsightsLoaded(tripId: tripId, kind: CardKind.performance)),
       child: const _Body(),
     );
   }
@@ -74,9 +72,9 @@ class _BodyState extends State<_Body> {
   }
 
   Future<void> _onShare(BuildContext context) async {
-    context
-        .read<InsightsBloc>()
-        .add(const InsightsShareRequested(CardKind.performance));
+    context.read<InsightsBloc>().add(
+      const InsightsShareRequested(CardKind.performance),
+    );
     // Let the spinner paint + give fl_chart's gradient one more frame
     // to settle before we hand the boundary to toImage. Shorter than
     // the Journey card delay because there are no tiles to wait on.
@@ -127,26 +125,21 @@ class _BodyState extends State<_Body> {
                 Expanded(
                   child: switch (state.status) {
                     InsightsStatus.loading => const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.teal,
-                        ),
-                      ),
+                      child: CircularProgressIndicator(color: AppColors.teal),
+                    ),
                     InsightsStatus.notFound ||
-                    InsightsStatus.error =>
-                      const _ErrorSurface(),
+                    InsightsStatus.error => const _ErrorSurface(),
                     InsightsStatus.ready => SingleChildScrollView(
-                        padding: const EdgeInsets.only(
-                          bottom: AppSpacing.xxl,
-                        ),
-                        child: RepaintBoundary(
-                          key: _boundaryKey,
-                          child: PerformanceCardView(
-                            bundle: state.bundle!,
-                            locale: locale,
-                            vehicleLabel: _vehicleLabel ?? 'My Car',
-                          ),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                      child: RepaintBoundary(
+                        key: _boundaryKey,
+                        child: PerformanceCardView(
+                          bundle: state.bundle!,
+                          locale: locale,
+                          vehicleLabel: _vehicleLabel ?? 'My Car',
                         ),
                       ),
+                    ),
                   },
                 ),
               ],

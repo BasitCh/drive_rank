@@ -53,8 +53,7 @@ void main() {
     expect(received.single.speedKmh, 0);
   });
 
-  test('low accuracy (>20m) is clamped to zero regardless of speed',
-      () async {
+  test('low accuracy (>20m) is clamped to zero regardless of speed', () async {
     // 60 km/h raw but the fix is junk.
     gps.debugInject(make(speedMps: 16.67, accuracy: 35));
     await Future<void>.delayed(Duration.zero);
@@ -71,7 +70,9 @@ void main() {
     gps.debugInject(make(speedMps: 16.67, accuracy: 5)); // 60 km/h
     await Future<void>.delayed(Duration.zero);
     final stableTime = DateTime.now();
-    gps.debugInject(make(speedMps: 50, accuracy: 5, at: stableTime)); // 180 km/h
+    gps.debugInject(
+      make(speedMps: 50, accuracy: 5, at: stableTime),
+    ); // 180 km/h
     await Future<void>.delayed(Duration.zero);
     expect(received.length, 2);
     // Second emission should hold the previous speed, not the spike.

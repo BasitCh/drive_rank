@@ -191,8 +191,8 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     // the swap, the change wouldn't show until the next launch.
     final newUnit =
         AppConstants.imperialCountryCodes.contains(event.country.code)
-            ? UnitSystem.imperial
-            : UnitSystem.metric;
+        ? UnitSystem.imperial
+        : UnitSystem.metric;
     await _settings.setUnitSystem(newUnit);
     final swapped = getIt<LocaleService>().withOverride(newUnit);
     if (getIt.isRegistered<LocaleService>()) {
@@ -277,10 +277,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     emit(state.copyWith(mapTheme: event.theme));
   }
 
-  void _onSafety(
-    OnboardingSafetyToggled event,
-    Emitter<OnboardingState> emit,
-  ) {
+  void _onSafety(OnboardingSafetyToggled event, Emitter<OnboardingState> emit) {
     emit(state.copyWith(safetyAccepted: event.accepted));
   }
 

@@ -50,8 +50,7 @@ class SensorService {
 
   /// Wallclock of the last sample we forwarded downstream. Used for
   /// the rate cap.
-  DateTime _lastEmitted =
-      DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastEmitted = DateTime.fromMillisecondsSinceEpoch(0);
 
   Future<void> start() async {
     if (_sub != null) return;
@@ -62,36 +61,40 @@ class SensorService {
       milliseconds: 1000 ~/ AppConstants.gForceMaxOutputHz,
     );
 
-    _sub = userAccelerometerEventStream(
-      // Nominal request — real cadence varies by device. We enforce
-      // the cap ourselves via the wallclock check below.
-      samplingPeriod: const Duration(milliseconds: 100),
-    ).listen(
-      (e) {
-        final magnitude =
-            math.sqrt(e.x * e.x + e.y * e.y + e.z * e.z);
-        final rawG = magnitude / _gravity;
+    _sub =
+        userAccelerometerEventStream(
+          // Nominal request — real cadence varies by device. We enforce
+          // the cap ourselves via the wallclock check below.
+          samplingPeriod: const Duration(milliseconds: 100),
+        ).listen(
+          (e) {
+            final magnitude = math.sqrt(e.x * e.x + e.y * e.y + e.z * e.z);
+            final rawG = magnitude / _gravity;
 
-        // 1. Noise ceiling — an impact / phone drop shows up as a
-        //    single-sample spike. Drop it entirely so it can't
-        //    contaminate the EMA or the peak.
-        if (rawG.isNaN || rawG < 0 ||
-            rawG > AppConstants.gForceNoiseCeiling) {
-          return;
-        }
+            // 1. Noise ceiling — an impact / phone drop shows up as a
+            //    single-sample spike. Drop it entirely so it can't
+            //    contaminate the EMA or the peak.
+            if (rawG.isNaN ||
+                rawG < 0 ||
+                rawG > AppConstants.gForceNoiseCeiling) {
+              return;
+            }
 
-        // 2. EMA smoothing.
-        _emaG = AppConstants.gForceEmaAlpha * rawG +
-            (1 - AppConstants.gForceEmaAlpha) * _emaG;
+            // 2. EMA smoothing.
+            _emaG =
+                AppConstants.gForceEmaAlpha * rawG +
+                (1 - AppConstants.gForceEmaAlpha) * _emaG;
 
-        // 3. Rate cap — enforce the 10 Hz maximum publish rate.
-        final now = DateTime.now();
-        if (now.difference(_lastEmitted) < minInterval) return;
-        _lastEmitted = now;
-        _gforceController.add(_emaG);
-      },
-      onError: (_) {/* sensor missing — silently ignore */},
-    );
+            // 3. Rate cap — enforce the 10 Hz maximum publish rate.
+            final now = DateTime.now();
+            if (now.difference(_lastEmitted) < minInterval) return;
+            _lastEmitted = now;
+            _gforceController.add(_emaG);
+          },
+          onError: (_) {
+            /* sensor missing — silently ignore */
+          },
+        );
   }
 
   Future<void> stop() async {

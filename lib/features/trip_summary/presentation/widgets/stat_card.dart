@@ -55,9 +55,7 @@ class StatCard extends StatelessWidget {
           end: Alignment(0.6, 1),
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.teal.withValues(alpha: 0.12),
-        ),
+        border: Border.all(color: AppColors.teal.withValues(alpha: 0.12)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
@@ -293,9 +291,7 @@ class _FooterRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: AppColors.orange.withValues(alpha: 0.1),
-            border: Border.all(
-              color: AppColors.orange.withValues(alpha: 0.2),
-            ),
+            border: Border.all(color: AppColors.orange.withValues(alpha: 0.2)),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -309,8 +305,7 @@ class _FooterRow extends StatelessWidget {
                 // values (12+ g on tester screenshots). Clamp at the
                 // same noise ceiling the recorder now enforces so old
                 // trips read plausibly and new ones are already sane.
-                '${maxGforce.clamp(0.0, AppConstants.gForceNoiseCeiling)
-                    .toStringAsFixed(1)}'
+                '${maxGforce.clamp(0.0, AppConstants.gForceNoiseCeiling).toStringAsFixed(1)}'
                 '${AppStrings.tripSummaryGforcePeakSuffix}',
                 style: const TextStyle(
                   fontFamily: 'JetBrainsMono',

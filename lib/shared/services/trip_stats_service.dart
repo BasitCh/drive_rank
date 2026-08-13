@@ -48,11 +48,7 @@ class TripStatsService {
     );
   }
 
-  MonthlyReport _aggregateMonthly(
-    List<TripRow> trips,
-    int year,
-    int month,
-  ) {
+  MonthlyReport _aggregateMonthly(List<TripRow> trips, int year, int month) {
     var distance = 0.0;
     var duration = 0;
     var topSpeed = 0.0;
@@ -63,11 +59,7 @@ class TripStatsService {
       duration += t.durationSeconds;
       if (t.topSpeedKmh > topSpeed) topSpeed = t.topSpeedKmh;
       if (t.maxGforce > bestG) bestG = t.maxGforce;
-      perWeekday.update(
-        t.startedAt.weekday,
-        (n) => n + 1,
-        ifAbsent: () => 1,
-      );
+      perWeekday.update(t.startedAt.weekday, (n) => n + 1, ifAbsent: () => 1);
     }
     int? mostActive;
     var bestCount = -1;

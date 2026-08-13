@@ -50,8 +50,7 @@ class LiveTrips extends Table {
 
   /// Status — stored as the enum's `.name` so adding a new case in
   /// code doesn't break old rows. See [TripStatusEnum].
-  TextColumn get status =>
-      text().withDefault(const Constant('active'))();
+  TextColumn get status => text().withDefault(const Constant('active'))();
 
   /// Wall-clock start of the trip. Used for duration when ticking and
   /// preserved through Resume so paused intervals don't count.
@@ -63,25 +62,20 @@ class LiveTrips extends Table {
   RealColumn get distanceKm => real().withDefault(const Constant(0))();
   RealColumn get topSpeedKmh => real().withDefault(const Constant(0))();
   RealColumn get avgSpeedKmh => real().withDefault(const Constant(0))();
-  IntColumn get durationSeconds =>
-      integer().withDefault(const Constant(0))();
+  IntColumn get durationSeconds => integer().withDefault(const Constant(0))();
   RealColumn get maxGforce => real().withDefault(const Constant(0))();
-  IntColumn get hardCornersCount =>
-      integer().withDefault(const Constant(0))();
-  IntColumn get hardBrakesCount =>
-      integer().withDefault(const Constant(0))();
+  IntColumn get hardCornersCount => integer().withDefault(const Constant(0))();
+  IntColumn get hardBrakesCount => integer().withDefault(const Constant(0))();
 
   /// Number of times this single trip had to recover from an
   /// interrupted state. Surfaced on the saved trip card later as the
   /// foundation for a "Trip Quality" badge.
-  IntColumn get interruptionCount =>
-      integer().withDefault(const Constant(0))();
+  IntColumn get interruptionCount => integer().withDefault(const Constant(0))();
 
   /// True when the trip was sitting in `paused` at the moment the
   /// snapshot was taken — drives whether the recovery banner reads
   /// "you paused at 12:34" vs "your trip was interrupted at 12:34".
-  BoolColumn get wasPaused =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get wasPaused => boolean().withDefault(const Constant(false))();
 
   /// When this row was last written. The bloc uses
   /// `now - updatedAt > 30s` as the heuristic for "the OS killed us
