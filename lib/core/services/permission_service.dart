@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:injectable/injectable.dart';
@@ -68,12 +66,22 @@ class PermissionService {
     await Geolocator.openLocationSettings();
   }
 
-  /// Best-effort POST_NOTIFICATIONS request.
+  /// Best-effort notification-permission request — Android's
+  /// POST_NOTIFICATIONS and iOS's UNUserNotificationCenter authorization
+  /// both go through `permission_handler`'s single cross-platform API.
   ///
   /// Android 13+: surfaces the system runtime dialog if the permission has
   /// never been answered. Older Android: silently granted (no runtime
-  /// dialog exists). iOS: handled by APNS/local-notification plugins
-  /// separately; this path is a no-op.
+  /// dialog exists). iOS: surfaces the system dialog once ever — a second
+  /// `.request()` after the user has already answered (either way) just
+  /// returns the existing status without re-prompting, so it's safe to
+  /// call this on every trip start.
+  ///
+  /// `flutter_local_notifications`' own Darwin init flags
+  /// (`requestAlertPermission` etc., see `LocalNotificationsGateway`) are
+  /// deliberately left off — this is the single place that asks, so the
+  /// prompt fires at a contextual moment (starting a trip) instead of
+  /// immediately on cold launch.
   ///
   /// Returns whether the permission is granted *after* the request. We
   /// don't block the trip start on `false` — the live notification just
@@ -81,7 +89,6 @@ class PermissionService {
   /// work (geolocator's own notification doesn't need POST_NOTIFICATIONS
   /// because it's tied to the foreground service).
   Future<bool> requestNotifications() async {
-    if (!Platform.isAndroid) return true;
     try {
       final status = await ph.Permission.notification.status;
       if (status.isGranted) return true;
