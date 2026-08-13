@@ -58,5 +58,14 @@ class UserSettings extends Table {
   BoolColumn get bgLocationDisclosureAcked =>
       boolean().withDefault(const Constant(false))();
 
+  /// The user's current "beat this" targets, recomputed by
+  /// `TrackingBloc` after every trip (see `GoalCalculator`). Null until
+  /// the first trip completes. Only two fields, not a table, because
+  /// there is exactly one active goal per metric at a time — no
+  /// history of past goals is needed, `Trips` already has the record
+  /// of what was actually driven.
+  RealColumn get speedGoalKmh => real().nullable()();
+  RealColumn get distanceGoalKm => real().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
 }

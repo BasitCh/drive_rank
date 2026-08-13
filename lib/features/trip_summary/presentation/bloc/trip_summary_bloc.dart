@@ -45,6 +45,12 @@ class TripSummaryBloc extends Bloc<TripSummaryEvent, TripSummaryState> {
       settings.carModel,
       settings.carYear,
     );
+    // The goal nudge shows "previous best -> next goal" — the current
+    // personal-best trip, not necessarily *this* trip, since a user
+    // browsing an old trip from History should still see today's real
+    // best, not this one trip's numbers passed off as their record.
+    final bestSpeed = await _trips.getPersonalBest(uid: settings.uid);
+    final bestDistance = await _trips.getLongestTrip(uid: settings.uid);
 
     emit(
       state.copyWith(
@@ -52,6 +58,10 @@ class TripSummaryBloc extends Bloc<TripSummaryEvent, TripSummaryState> {
         trip: trip,
         points: points,
         carLabel: carLabel,
+        speedGoalKmh: settings.speedGoalKmh,
+        distanceGoalKm: settings.distanceGoalKm,
+        bestTopSpeedKmh: bestSpeed?.topSpeedKmh,
+        bestDistanceKm: bestDistance?.distanceKm,
       ),
     );
   }

@@ -83,6 +83,20 @@ class TripRepository {
     });
   }
 
+  /// Lifetime count of this user's saved trips. Used right after
+  /// `saveTrip` to detect the 1st/2nd-trip retention milestones — the
+  /// paywall's `freeTripsUsed` counter isn't a substitute here since
+  /// it's freemium-gate state, not a lifetime trip count (it can reset
+  /// independently of how many trips the user has actually driven).
+  Future<int> countAll({required String uid}) async {
+    final countExp = _db.trips.id.count();
+    final query = _db.selectOnly(_db.trips)
+      ..addColumns([countExp])
+      ..where(_db.trips.uid.equals(uid));
+    final row = await query.getSingle();
+    return row.read(countExp) ?? 0;
+  }
+
   Stream<List<TripRow>> watchAll({required String uid}) {
     return (_db.select(_db.trips)
           ..where((t) => t.uid.equals(uid))
@@ -105,10 +119,11 @@ class TripRepository {
   }
 
   Future<List<TripPoint>> getWaypoints(int tripId) async {
-    final rows = await (_db.select(_db.waypoints)
-          ..where((w) => w.tripId.equals(tripId))
-          ..orderBy([(w) => OrderingTerm.asc(w.timestamp)]))
-        .get();
+    final rows =
+        await (_db.select(_db.waypoints)
+              ..where((w) => w.tripId.equals(tripId))
+              ..orderBy([(w) => OrderingTerm.asc(w.timestamp)]))
+            .get();
     return rows
         .map(
           (r) => TripPoint(
@@ -153,6 +168,44 @@ class TripRepository {
           ..orderBy([(t) => OrderingTerm.desc(t.topSpeedKmh)])
           ..limit(1))
         .getSingleOrNull();
+  }
+
+  /// The user's most recently started trip, or null if none. The anchor
+  /// the retention scheduler reschedules the "haven't driven in 7 days"
+  /// nudge from.
+  Future<TripRow?> getLatestTrip({required String uid}) {
+    return (_db.select(_db.trips)
+          ..where((t) => t.uid.equals(uid))
+          ..orderBy([(t) => OrderingTerm.desc(t.startedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  /// Returns the user's single longest trip by distance, or null if none.
+  /// The distance-goal baseline — mirrors [getPersonalBest]'s shape.
+  Future<TripRow?> getLongestTrip({required String uid}) {
+    return (_db.select(_db.trips)
+          ..where((t) => t.uid.equals(uid))
+          ..orderBy([(t) => OrderingTerm.desc(t.distanceKm)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  /// Trips started at or after [since], most recent first. Used by the
+  /// weekly-recap notification to aggregate "this week's" stats — a
+  /// rolling window anchored to whenever the recap fires, not a
+  /// calendar week, so it works the same regardless of which day the
+  /// recap is scheduled for.
+  Future<List<TripRow>> getTripsSince({
+    required String uid,
+    required DateTime since,
+  }) {
+    return (_db.select(_db.trips)
+          ..where(
+            (t) => t.uid.equals(uid) & t.startedAt.isBiggerOrEqualValue(since),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.startedAt)]))
+        .get();
   }
 
   /// Trip starts at 9 PM – 5 AM local time → night drive. Used for the

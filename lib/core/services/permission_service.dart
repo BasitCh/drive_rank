@@ -95,12 +95,29 @@ class PermissionService {
     }
   }
 
+  /// Reads the current notification-permission state without prompting
+  /// — unlike [requestNotifications], this is safe to call on iOS too
+  /// (status reads don't trigger the system dialog on either platform,
+  /// only `.request()` does). Used by the retention scheduler to skip
+  /// scheduling anything for a user who has notifications off, instead
+  /// of finding out only when the OS silently drops the notification.
+  Future<bool> currentNotificationStatus() async {
+    try {
+      final status = await ph.Permission.notification.status;
+      return status.isGranted;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[PermissionService] notification status read failed: $e');
+      }
+      return false;
+    }
+  }
+
   LocationPermissionStatus _map(LocationPermission p) => switch (p) {
     LocationPermission.always => LocationPermissionStatus.grantedAlways,
     LocationPermission.whileInUse => LocationPermissionStatus.granted,
     LocationPermission.denied => LocationPermissionStatus.denied,
-    LocationPermission.deniedForever =>
-      LocationPermissionStatus.deniedForever,
+    LocationPermission.deniedForever => LocationPermissionStatus.deniedForever,
     LocationPermission.unableToDetermine => LocationPermissionStatus.denied,
   };
 }

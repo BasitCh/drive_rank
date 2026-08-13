@@ -106,14 +106,21 @@ jobs:
         env:
           REVENUECAT_API_KEY_ANDROID: ${{ secrets.REVENUECAT_API_KEY_ANDROID }}
           ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         # --build-number overrides the +N from pubspec.yaml so the CI
         # always wins. dart-defines are passed inline; the runtime
         # `String.fromEnvironment` reads them at build time.
+        #
+        # POSTHOG_HOST isn't passed — bootstrap.dart defaults it to the
+        # US cloud host, which is where this project's PostHog instance
+        # lives. Add a POSTHOG_HOST secret + dart-define here only if
+        # that ever changes (EU cloud / self-hosted).
         run: |
           flutter build appbundle --release \
             --build-number="$VERSION_CODE" \
             --dart-define=REVENUECAT_API_KEY_ANDROID="$REVENUECAT_API_KEY_ANDROID" \
-            --dart-define=ONESIGNAL_APP_ID="$ONESIGNAL_APP_ID"
+            --dart-define=ONESIGNAL_APP_ID="$ONESIGNAL_APP_ID" \
+            --dart-define=POSTHOG_API_KEY="$POSTHOG_API_KEY"
 
       - name: Upload AAB to Play (closed testing, Draft)
         # Status: draft means the AAB lands in Play Console but isn't

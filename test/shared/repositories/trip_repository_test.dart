@@ -175,11 +175,72 @@ void main() {
       endedAt: DateTime(2026, 6, 1, 1),
       mapTheme: 'regular',
     );
-    final may = await repo.getTripsInMonth(
-      uid: 'local',
-      year: 2026,
-      month: 5,
-    );
+    final may = await repo.getTripsInMonth(uid: 'local', year: 2026, month: 5);
     expect(may.length, 2);
+  });
+
+  test('getLongestTrip returns the trip with the greatest distance', () async {
+    await repo.saveTrip(
+      uid: 'local',
+      stats: statsOf(distanceKm: 12),
+      startedAt: DateTime(2026, 5, 10),
+      endedAt: DateTime(2026, 5, 10, 1),
+      mapTheme: 'regular',
+    );
+    await repo.saveTrip(
+      uid: 'local',
+      stats: statsOf(distanceKm: 51.3),
+      startedAt: DateTime(2026, 5, 12),
+      endedAt: DateTime(2026, 5, 12, 1),
+      mapTheme: 'regular',
+    );
+    final longest = await repo.getLongestTrip(uid: 'local');
+    expect(longest!.distanceKm, 51.3);
+  });
+
+  test('getLongestTrip returns null when the user has no trips', () async {
+    expect(await repo.getLongestTrip(uid: 'local'), isNull);
+  });
+
+  test('getLatestTrip returns the most recently started trip', () async {
+    await repo.saveTrip(
+      uid: 'local',
+      stats: statsOf(topSpeed: 90),
+      startedAt: DateTime(2026, 5, 1),
+      endedAt: DateTime(2026, 5, 1, 1),
+      mapTheme: 'regular',
+    );
+    await repo.saveTrip(
+      uid: 'local',
+      stats: statsOf(topSpeed: 110),
+      startedAt: DateTime(2026, 5, 20),
+      endedAt: DateTime(2026, 5, 20, 1),
+      mapTheme: 'regular',
+    );
+    final latest = await repo.getLatestTrip(uid: 'local');
+    expect(latest!.topSpeedKmh, 110);
+  });
+
+  test('getTripsSince only returns trips on/after the given date', () async {
+    await repo.saveTrip(
+      uid: 'local',
+      stats: statsOf(),
+      startedAt: DateTime(2026, 5, 1),
+      endedAt: DateTime(2026, 5, 1, 1),
+      mapTheme: 'regular',
+    );
+    await repo.saveTrip(
+      uid: 'local',
+      stats: statsOf(),
+      startedAt: DateTime(2026, 5, 10),
+      endedAt: DateTime(2026, 5, 10, 1),
+      mapTheme: 'regular',
+    );
+    final since = await repo.getTripsSince(
+      uid: 'local',
+      since: DateTime(2026, 5, 5),
+    );
+    expect(since.length, 1);
+    expect(since.single.startedAt, DateTime(2026, 5, 10));
   });
 }

@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:drift/drift.dart' show Value;
-import 'package:drive_rank/core/database/app_database.dart' show UserSettingsCompanion;
+import 'package:drive_rank/core/database/app_database.dart'
+    show UserSettingsCompanion;
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/firebase_auth_service.dart';
@@ -10,7 +11,9 @@ import 'package:drive_rank/core/services/firebase_telemetry_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/onesignal_push_service.dart';
 import 'package:drive_rank/core/services/paywall_service.dart';
+import 'package:drive_rank/core/services/posthog_telemetry_service.dart';
 import 'package:drive_rank/core/services/push_service.dart';
+import 'package:drive_rank/core/services/retention_notification_service.dart';
 import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
@@ -21,6 +24,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 
 /// One-shot async bootstrap: binding, DI, system chrome, then a
 /// best-effort, *offline-first* init of the production SDKs we still
@@ -126,7 +130,26 @@ Future<void> _initDeferredServices() async {
     _maybeInitOneSignal(),
     _maybeInitRevenueCat(),
     _maybeSyncFreeTripCounter(),
+    _initRetentionNotifications(),
   ]);
+}
+
+/// Wires the retention-notification system's app-open hook: tracks a
+/// cold start launched by tapping a notification, and — for a user who
+/// already has trip history — backfills/refreshes the inactivity-nudge
+/// and weekly-recap schedules. Deferred like the other services above
+/// so local-notification plugin init never delays first paint. Safe to
+/// call every launch (see `RetentionNotificationService.onAppStarted`).
+Future<void> _initRetentionNotifications() async {
+  try {
+    final uid = (await getIt<UserSettingsRepository>().read()).uid;
+    await getIt<RetentionNotificationService>().onAppStarted(uid: uid);
+    if (kDebugMode) debugPrint('[bootstrap] retention notifications ready');
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('[bootstrap] retention notifications init failed: $e');
+    }
+  }
 }
 
 /// Reconciles the local free-trip counter with the cloud value keyed
@@ -212,9 +235,7 @@ Future<void> _maybeInitFirebase() async {
     // the cap trips, we fall back to `ConsoleTelemetryService` and
     // the app still works, just without cloud analytics for that
     // launch.
-    await Firebase.initializeApp().timeout(
-      const Duration(seconds: 4),
-    );
+    await Firebase.initializeApp().timeout(const Duration(seconds: 4));
     if (kDebugMode) debugPrint('[bootstrap] Firebase initialised');
 
     final auth = FirebaseAuthService(fb.FirebaseAuth.instance);
@@ -227,7 +248,8 @@ Future<void> _maybeInitFirebase() async {
       unawaited(crashlytics.setCrashlyticsCollectionEnabled(true));
     }
 
-    final telemetry = FirebaseTelemetryService(analytics, crashlytics);
+    final firebaseTelemetry = FirebaseTelemetryService(analytics, crashlytics);
+    final telemetry = await _composeTelemetry(firebaseTelemetry);
     await _replace<AuthService>(() => auth);
     await _replace<TelemetryService>(() => telemetry);
 
@@ -259,6 +281,40 @@ Future<void> _maybeInitFirebase() async {
         '($e) — run `flutterfire configure` to enable Firebase.',
       );
     }
+  }
+}
+
+/// Adds PostHog into the mix alongside [base] (Firebase) when
+/// `POSTHOG_API_KEY` is configured. PostHog's funnel/cohort/retention
+/// tooling is what actually answers the install → 2nd-trip drop-off
+/// question; Firebase stays registered for Crashlytics and whatever
+/// else already depends on it. Falls back to [base] alone on any
+/// failure — a bad PostHog key must never take telemetry down.
+Future<TelemetryService> _composeTelemetry(TelemetryService base) async {
+  const apiKey = String.fromEnvironment('POSTHOG_API_KEY');
+  if (apiKey.isEmpty) {
+    if (kDebugMode) {
+      debugPrint(
+        '[bootstrap] PostHog disabled — pass '
+        '--dart-define=POSTHOG_API_KEY=... to enable it.',
+      );
+    }
+    return base;
+  }
+  try {
+    final config = PostHogConfig(apiKey)
+      ..host = const String.fromEnvironment(
+        'POSTHOG_HOST',
+        defaultValue: 'https://us.i.posthog.com',
+      )
+      ..captureApplicationLifecycleEvents = true
+      ..debug = kDebugMode;
+    await Posthog().setup(config);
+    if (kDebugMode) debugPrint('[bootstrap] PostHog initialised');
+    return CompositeTelemetryService([base, PosthogTelemetryService()]);
+  } catch (e) {
+    if (kDebugMode) debugPrint('[bootstrap] PostHog init failed: $e');
+    return base;
   }
 }
 

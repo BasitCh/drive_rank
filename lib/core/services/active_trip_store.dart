@@ -63,17 +63,20 @@ class ActiveTripStore {
     required DateTime startedAt,
   }) async {
     try {
-      final existing =
-          await (_db.select(_db.liveTrips)..limit(1)).getSingleOrNull();
+      final existing = await (_db.select(
+        _db.liveTrips,
+      )..limit(1)).getSingleOrNull();
       if (existing != null) return;
-      await _db.into(_db.liveTrips).insert(
-        LiveTripsCompanion.insert(
-          uid: uid,
-          startedAt: startedAt,
-          updatedAt: DateTime.now(),
-          status: const Value('active'),
-        ),
-      );
+      await _db
+          .into(_db.liveTrips)
+          .insert(
+            LiveTripsCompanion.insert(
+              uid: uid,
+              startedAt: startedAt,
+              updatedAt: DateTime.now(),
+              status: const Value('active'),
+            ),
+          );
     } catch (e) {
       if (kDebugMode) debugPrint('[ActiveTripStore] startTrip failed: $e');
     }
@@ -86,12 +89,13 @@ class ActiveTripStore {
     bool wasPaused = false,
   }) async {
     try {
-      final row = await (_db.select(_db.liveTrips)..limit(1))
-          .getSingleOrNull();
-      if (row == null) return; // no active trip — bloc should have called startTrip first
-      await (_db.update(_db.liveTrips)
-            ..where((t) => t.id.equals(row.id)))
-          .write(
+      final row = await (_db.select(_db.liveTrips)..limit(1)).getSingleOrNull();
+      if (row == null) {
+        return; // no active trip — bloc should have called startTrip first
+      }
+      await (_db.update(
+        _db.liveTrips,
+      )..where((t) => t.id.equals(row.id))).write(
         LiveTripsCompanion(
           distanceKm: Value(stats.distanceKm),
           topSpeedKmh: Value(stats.maxSpeedKmh),
@@ -113,19 +117,20 @@ class ActiveTripStore {
   /// adds to the polyline.
   Future<void> appendWaypoint(TripPoint point) async {
     try {
-      final row = await (_db.select(_db.liveTrips)..limit(1))
-          .getSingleOrNull();
+      final row = await (_db.select(_db.liveTrips)..limit(1)).getSingleOrNull();
       if (row == null) return;
-      await _db.into(_db.liveWaypoints).insert(
-        LiveWaypointsCompanion.insert(
-          tripLocalId: row.id,
-          lat: point.lat,
-          lng: point.lng,
-          speedKmh: point.speedKmh,
-          accuracyMeters: point.accuracyMeters,
-          timestamp: point.timestamp,
-        ),
-      );
+      await _db
+          .into(_db.liveWaypoints)
+          .insert(
+            LiveWaypointsCompanion.insert(
+              tripLocalId: row.id,
+              lat: point.lat,
+              lng: point.lng,
+              speedKmh: point.speedKmh,
+              accuracyMeters: point.accuracyMeters,
+              timestamp: point.timestamp,
+            ),
+          );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[ActiveTripStore] appendWaypoint failed: $e');
@@ -138,12 +143,11 @@ class ActiveTripStore {
   /// `recovered` when the user taps Resume.
   Future<void> setStatus(TripStatusEnum status) async {
     try {
-      final row = await (_db.select(_db.liveTrips)..limit(1))
-          .getSingleOrNull();
+      final row = await (_db.select(_db.liveTrips)..limit(1)).getSingleOrNull();
       if (row == null) return;
-      await (_db.update(_db.liveTrips)
-            ..where((t) => t.id.equals(row.id)))
-          .write(
+      await (_db.update(
+        _db.liveTrips,
+      )..where((t) => t.id.equals(row.id))).write(
         LiveTripsCompanion(
           status: Value(status.name),
           updatedAt: Value(DateTime.now()),
@@ -161,13 +165,13 @@ class ActiveTripStore {
   /// trip is active (the normal idle-state case).
   Future<ActiveTripSnapshot?> load() async {
     try {
-      final row = await (_db.select(_db.liveTrips)..limit(1))
-          .getSingleOrNull();
+      final row = await (_db.select(_db.liveTrips)..limit(1)).getSingleOrNull();
       if (row == null) return null;
-      final waypointRows = await (_db.select(_db.liveWaypoints)
-            ..where((t) => t.tripLocalId.equals(row.id))
-            ..orderBy([(t) => OrderingTerm.asc(t.id)]))
-          .get();
+      final waypointRows =
+          await (_db.select(_db.liveWaypoints)
+                ..where((t) => t.tripLocalId.equals(row.id))
+                ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+              .get();
       final points = [
         for (final w in waypointRows)
           TripPoint(

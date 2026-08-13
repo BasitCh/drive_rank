@@ -26,11 +26,15 @@ import 'package:drive_rank/core/services/free_trip_counter_service.dart'
 import 'package:drive_rank/core/services/gps_service.dart' as _i375;
 import 'package:drive_rank/core/services/live_trip_notification_service.dart'
     as _i201;
+import 'package:drive_rank/core/services/local_notifications_gateway.dart'
+    as _i750;
 import 'package:drive_rank/core/services/locale_service.dart' as _i447;
 import 'package:drive_rank/core/services/oem_battery_advisor.dart' as _i207;
 import 'package:drive_rank/core/services/paywall_service.dart' as _i495;
 import 'package:drive_rank/core/services/permission_service.dart' as _i576;
 import 'package:drive_rank/core/services/push_service.dart' as _i488;
+import 'package:drive_rank/core/services/retention_notification_service.dart'
+    as _i183;
 import 'package:drive_rank/core/services/sensor_service.dart' as _i125;
 import 'package:drive_rank/core/services/telemetry_service.dart' as _i46;
 import 'package:drive_rank/features/history/presentation/bloc/history_bloc.dart'
@@ -87,6 +91,9 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i529.DeviceIdentityService>(
     () => _i529.DeviceIdentityService(),
   );
+  gh.lazySingleton<_i750.LocalNotificationsGateway>(
+    () => _i750.LocalNotificationsGateway(),
+  );
   gh.lazySingleton<_i447.LocaleService>(() => _i447.LocaleService());
   gh.lazySingleton<_i576.PermissionService>(() => _i576.PermissionService());
   gh.lazySingleton<_i405.CarPhotoService>(() => _i405.CarPhotoService());
@@ -96,10 +103,6 @@ _i174.GetIt $initGetIt(
     () => _i207.OemBatteryAdvisor(gh<_i833.DeviceInfoPlugin>()),
   );
   gh.lazySingleton<_i488.PushService>(() => injectionModule.noopPush());
-  gh.lazySingleton<_i201.LiveTripNotificationService>(
-    () => _i201.LiveTripNotificationService(gh<_i447.LocaleService>()),
-    dispose: (i) => i.dispose(),
-  );
   gh.factory<_i486.BuildInsights>(
     () => _i486.BuildInsights(gh<_i447.LocaleService>()),
   );
@@ -123,6 +126,13 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i721.NetworkInfo>(
     () => _i721.NetworkInfo(gh<_i895.Connectivity>()),
   );
+  gh.lazySingleton<_i201.LiveTripNotificationService>(
+    () => _i201.LiveTripNotificationService(
+      gh<_i447.LocaleService>(),
+      gh<_i750.LocalNotificationsGateway>(),
+    ),
+    dispose: (i) => i.dispose(),
+  );
   gh.lazySingleton<_i766.ActiveTripStore>(
     () => _i766.ActiveTripStore(gh<_i425.AppDatabase>()),
   );
@@ -145,6 +155,15 @@ _i174.GetIt $initGetIt(
       gh<_i46.TelemetryService>(),
     ),
   );
+  gh.lazySingleton<_i183.RetentionNotificationService>(
+    () => _i183.RetentionNotificationService(
+      gh<_i750.LocalNotificationsGateway>(),
+      gh<_i447.LocaleService>(),
+      gh<_i576.PermissionService>(),
+      gh<_i46.TelemetryService>(),
+      gh<_i634.TripRepository>(),
+    ),
+  );
   gh.factory<_i990.TripSummaryBloc>(
     () => _i990.TripSummaryBloc(
       gh<_i634.TripRepository>(),
@@ -154,6 +173,12 @@ _i174.GetIt $initGetIt(
   );
   gh.lazySingleton<_i67.TripStatsService>(
     () => _i67.TripStatsService(gh<_i634.TripRepository>()),
+  );
+  gh.factory<_i723.InsightsBloc>(
+    () => _i723.InsightsBloc(
+      gh<_i337.InsightsRepository>(),
+      gh<_i46.TelemetryService>(),
+    ),
   );
   gh.factory<_i687.TrackingBloc>(
     () => _i687.TrackingBloc(
@@ -166,12 +191,7 @@ _i174.GetIt $initGetIt(
       gh<_i766.ActiveTripStore>(),
       gh<_i201.LiveTripNotificationService>(),
       gh<_i46.TelemetryService>(),
-    ),
-  );
-  gh.factory<_i723.InsightsBloc>(
-    () => _i723.InsightsBloc(
-      gh<_i337.InsightsRepository>(),
-      gh<_i46.TelemetryService>(),
+      gh<_i183.RetentionNotificationService>(),
     ),
   );
   gh.lazySingleton<_i244.PersonalBestsRepository>(

@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -69,6 +69,18 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE user_settings ADD COLUMN '
           'bg_location_disclosure_acked INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 6) {
+        // v6 adds UserSettings.speed_goal_kmh / distance_goal_km — the
+        // "beat this next" targets shown on Trip Summary and referenced
+        // in retention-notification copy. Nullable, no default: null
+        // means "no goal set yet" (before the user's first trip).
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN speed_goal_kmh REAL',
+        );
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN distance_goal_km REAL',
         );
       }
     },

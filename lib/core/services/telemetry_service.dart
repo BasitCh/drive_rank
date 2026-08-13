@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 ///
 /// One interface so feature code never has to decide whether to call
 /// Firebase Analytics, Crashlytics, or PostHog — it just calls
-/// `track(...)` / `recordError(...)`. Bootstrap registers either the
-/// console-only [ConsoleTelemetryService] (default) or a real
-/// `FirebaseTelemetryService` when Firebase is initialised.
+/// `track(...)` / `recordError(...)`. Bootstrap registers the
+/// console-only [ConsoleTelemetryService] (default), or a
+/// `FirebaseTelemetryService` once Firebase is initialised — wrapped in
+/// a [CompositeTelemetryService] alongside `PosthogTelemetryService`
+/// when a PostHog API key is configured.
 abstract class TelemetryService {
   /// Identify a user — keeps analytics events tied to the same anonymous
   /// or authenticated id over time.
@@ -16,10 +18,7 @@ abstract class TelemetryService {
   /// Used for country / vehicle / units / pro / map theme / onboarding,
   /// so any event-level breakdown can be sliced by these dimensions
   /// without having to re-attach them on every track() call.
-  Future<void> setUserProperty({
-    required String name,
-    required String? value,
-  });
+  Future<void> setUserProperty({required String name, required String? value});
 
   /// Fire-and-forget event. Property values must be primitives the
   /// underlying SDK can serialise (string / num / bool).
@@ -74,9 +73,7 @@ class ConsoleTelemetryService implements TelemetryService {
   Future<void> recordFlutterError(FlutterErrorDetails details) async {
     // FlutterError already prints to console in debug — don't double-log.
     if (kReleaseMode) {
-      _trace(
-        'telemetry/flutter_error ${details.exceptionAsString()}',
-      );
+      _trace('telemetry/flutter_error ${details.exceptionAsString()}');
     }
   }
 
@@ -99,6 +96,59 @@ class ConsoleTelemetryService implements TelemetryService {
   }
 }
 
+/// Fans every call out to multiple backends so bootstrap can run
+/// Firebase (Crashlytics + Analytics) and PostHog (funnel/retention
+/// analysis) side by side without any call site needing to know both
+/// exist. Each backend is isolated in a try/catch — one SDK choking
+/// (e.g. PostHog offline) must never take the other one down with it.
+class CompositeTelemetryService implements TelemetryService {
+  CompositeTelemetryService(this._services);
+
+  final List<TelemetryService> _services;
+
+  @override
+  Future<void> setUser({required String uid}) =>
+      _fanOut((s) => s.setUser(uid: uid));
+
+  @override
+  Future<void> setUserProperty({
+    required String name,
+    required String? value,
+  }) => _fanOut((s) => s.setUserProperty(name: name, value: value));
+
+  @override
+  Future<void> track(
+    String event, {
+    Map<String, Object?> properties = const {},
+  }) => _fanOut((s) => s.track(event, properties: properties));
+
+  @override
+  Future<void> recordFlutterError(FlutterErrorDetails details) =>
+      _fanOut((s) => s.recordFlutterError(details));
+
+  @override
+  Future<void> recordError(
+    Object error,
+    StackTrace stack, {
+    bool fatal = false,
+  }) => _fanOut((s) => s.recordError(error, stack, fatal: fatal));
+
+  @override
+  Future<void> log(String message) => _fanOut((s) => s.log(message));
+
+  Future<void> _fanOut(Future<void> Function(TelemetryService) call) async {
+    await Future.wait(
+      _services.map((s) async {
+        try {
+          await call(s);
+        } catch (e) {
+          if (kDebugMode) debugPrint('[telemetry] backend call failed: $e');
+        }
+      }),
+    );
+  }
+}
+
 /// Common event names. Centralising them here keeps analytics consistent
 /// across features — and the analytics dashboard can lock down the schema
 /// to exactly this set.
@@ -115,11 +165,72 @@ class TelemetryEvents {
   static const String tripDeleted = 'trip_deleted';
   static const String tripShared = 'trip_shared';
 
+  // Retention funnel milestones — fired once each, the first time a
+  // user's lifetime trip count crosses that threshold. This is the
+  // actual signal for the install → 2nd-trip drop-off analysis;
+  // `tripEnded` fires on every trip and can't answer "did they come
+  // back," only "did trips happen."
+  static const String firstTripCompleted = 'first_trip_completed';
+  static const String secondTripCompleted = 'second_trip_completed';
+
+  // ---- Engagement / retention-notification system ----
+  //
+  // Deliberately NOT duplicating events that already exist:
+  //   "trip_completed"                -> use `tripEnded` (fires with the
+  //                                       same trip stats already).
+  //   "first_trip_completed"          -> already exists above.
+  //   "notification_to_trip_conversion" -> not a discrete event. Build it
+  //                                       as a PostHog funnel/insight from
+  //                                       `notificationOpened` -> `tripStarted`
+  //                                       (windowed) instead — that's what
+  //                                       funnels are for, and it avoids a
+  //                                       bespoke "conversion" event that
+  //                                       would just duplicate what the two
+  //                                       existing events already say.
+
+  /// Fired the moment a just-saved trip beats a prior personal best
+  /// (see `TrackingBloc`'s lightweight top-speed check, run right after
+  /// `TripRepository.saveTrip` — deliberately NOT the full multi-kind
+  /// record system `BuildInsights` computes lazily on the Insights
+  /// page; that stays as-is for the detailed/on-demand view).
+  static const String personalRecordAchieved = 'personal_record_achieved';
+
+  /// Fired whenever `GoalCalculator` produces a new active goal — i.e.
+  /// on a user's first trip (goal didn't exist yet) or right after
+  /// `goalAchieved` fires for the previous one.
+  static const String goalCreated = 'goal_created';
+
+  /// Fired when a just-saved trip meets or beats the active
+  /// speed/distance goal.
+  static const String goalAchieved = 'goal_achieved';
+
+  /// Fired when the user opens/taps the weekly-recap notification —
+  /// the recap's content *is* the notification body, there's no
+  /// separate results screen, so "viewed" and "opened" are the same
+  /// moment for this one campaign specifically.
+  static const String weeklyRecapViewed = 'weekly_recap_viewed';
+
+  /// Fired when `RetentionNotificationService` schedules (time-based
+  /// campaigns) or shows (the immediate personal-record one) a
+  /// notification. For the three scheduled campaigns this is "sent"
+  /// in the sense of "successfully handed to the OS scheduler," not a
+  /// delivery confirmation — Dart isn't running to observe an actual
+  /// future delivery while the app is fully closed. Only the immediate
+  /// personal-record notification is delivery-accurate, since it's
+  /// shown synchronously in response to a real trip-completion.
+  static const String notificationSent = 'notification_sent';
+
+  /// Fired when the user taps a retention notification — covers both
+  /// a live tap (app already running, foreground or background) and a
+  /// cold-start-via-tap (checked once at bootstrap via
+  /// `getNotificationAppLaunchDetails()`). Carries a `campaign`
+  /// property so PostHog can slice/funnel per campaign type.
+  static const String notificationOpened = 'notification_opened';
+
   static const String paywallViewed = 'paywall_viewed';
   static const String paywallPlanSelected = 'paywall_plan_selected';
   static const String paywallPurchaseStarted = 'paywall_purchase_started';
-  static const String paywallPurchaseSucceeded =
-      'paywall_purchase_succeeded';
+  static const String paywallPurchaseSucceeded = 'paywall_purchase_succeeded';
   static const String paywallPurchaseFailed = 'paywall_purchase_failed';
   static const String paywallRestored = 'paywall_restored';
 

@@ -36,8 +36,9 @@ class UserSettingsRepository {
   /// (there's only ever one) rather than filtering by uid — the uid
   /// column isn't a foreign key in the MVP, it's just a label.
   Future<UserSettingsRow> ensureExists() async {
-    final existing =
-        await (_db.select(_db.userSettings)..limit(1)).getSingleOrNull();
+    final existing = await (_db.select(
+      _db.userSettings,
+    )..limit(1)).getSingleOrNull();
     if (existing != null) return existing;
 
     final defaults = UserSettingsCompanion.insert(
@@ -50,9 +51,9 @@ class UserSettingsRepository {
       createdAt: DateTime.now(),
     );
     final id = await _db.into(_db.userSettings).insert(defaults);
-    return (_db.select(_db.userSettings)
-          ..where((t) => t.id.equals(id)))
-        .getSingle();
+    return (_db.select(
+      _db.userSettings,
+    )..where((t) => t.id.equals(id))).getSingle();
   }
 
   Stream<UserSettingsRow> watch() {
@@ -66,8 +67,9 @@ class UserSettingsRepository {
 
   /// True once the user finishes the 7-step onboarding flow.
   Future<bool> isOnboardingComplete() async {
-    final row =
-        await (_db.select(_db.userSettings)..limit(1)).getSingleOrNull();
+    final row = await (_db.select(
+      _db.userSettings,
+    )..limit(1)).getSingleOrNull();
     return row?.onboardingComplete ?? false;
   }
 
@@ -76,9 +78,9 @@ class UserSettingsRepository {
   /// keeps working regardless of what the uid column is set to.
   Future<void> patch(UserSettingsCompanion patch) async {
     final row = await read();
-    await (_db.update(_db.userSettings)
-          ..where((t) => t.id.equals(row.id)))
-        .write(patch);
+    await (_db.update(
+      _db.userSettings,
+    )..where((t) => t.id.equals(row.id))).write(patch);
   }
 
   // ---- Typed setters used by onboarding + settings ----
@@ -141,6 +143,23 @@ class UserSettingsRepository {
   Future<void> markBgLocationDisclosureAcked() => patch(
     const UserSettingsCompanion(bgLocationDisclosureAcked: Value(true)),
   );
+
+  /// Persists the user's next "beat this" targets — see
+  /// `GoalCalculator`. Called by `TrackingBloc` right after a trip
+  /// saves. Either value may be omitted if that metric's goal didn't
+  /// change this trip — omitted means "leave the column alone"
+  /// ([Value.absent]), not "clear it".
+  Future<void> setGoals({double? speedGoalKmh, double? distanceGoalKm}) =>
+      patch(
+        UserSettingsCompanion(
+          speedGoalKmh: speedGoalKmh != null
+              ? Value(speedGoalKmh)
+              : const Value.absent(),
+          distanceGoalKm: distanceGoalKm != null
+              ? Value(distanceGoalKm)
+              : const Value.absent(),
+        ),
+      );
 
   // ---- Trip-counter helpers (used by the paywall in Session 4) ----
 

@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:drive_rank/core/constants/app_constants.dart';
+import 'package:drive_rank/core/database/app_database.dart'
+    show UserSettingsRow;
 import 'package:drive_rank/core/database/tables/live_trips_table.dart';
 import 'package:drive_rank/core/services/active_trip_store.dart';
 import 'package:drive_rank/core/services/gps_service.dart';
 import 'package:drive_rank/core/services/live_trip_notification_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
+import 'package:drive_rank/core/services/retention_notification_copy.dart';
+import 'package:drive_rank/core/services/retention_notification_service.dart';
 import 'package:drive_rank/core/services/sensor_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
@@ -14,6 +18,7 @@ import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.da
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_state.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/services/record_goal_evaluator.dart';
 import 'package:drive_rank/shared/services/road_segment_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
@@ -46,6 +51,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     this._activeTrip,
     this._notification,
     this._telemetry,
+    this._retention,
   ) : super(TrackingState.initial()) {
     on<TrackingStartRequested>(_onStartRequested);
     on<TrackingStopRequested>(_onStopRequested);
@@ -86,6 +92,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   final ActiveTripStore _activeTrip;
   final LiveTripNotificationService _notification;
   final TelemetryService _telemetry;
+  final RetentionNotificationService _retention;
 
   StreamSubscription<TripPoint>? _pointSub;
   StreamSubscription<double>? _gforceSub;
@@ -140,9 +147,10 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     // ~30 seconds we infer the OS killed the process mid-trip (the
     // hot path writes every second). Flip status → interrupted so the
     // UI can tell the user *why* the trip is paused.
-    final stale = DateTime.now().difference(snap.updatedAt) >
-        const Duration(seconds: 30);
-    final shouldMarkInterrupted = stale &&
+    final stale =
+        DateTime.now().difference(snap.updatedAt) > const Duration(seconds: 30);
+    final shouldMarkInterrupted =
+        stale &&
         snap.status != TripStatusEnum.interrupted &&
         snap.status != TripStatusEnum.failed;
     if (shouldMarkInterrupted) {
@@ -166,8 +174,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         recoveryStatus: shouldMarkInterrupted
             ? TripRecoveryStatus.interruptedByOs
             : (snap.wasPaused
-                ? TripRecoveryStatus.userPaused
-                : TripRecoveryStatus.fresh),
+                  ? TripRecoveryStatus.userPaused
+                  : TripRecoveryStatus.fresh),
       ),
     );
   }
@@ -258,10 +266,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       // already read above for the disclosure gate — reuse it instead
       // of a second round-trip.
       final settings = settingsRow;
-      await _activeTrip.startTrip(
-        uid: settings.uid,
-        startedAt: _startedAt!,
-      );
+      await _activeTrip.startTrip(uid: settings.uid, startedAt: _startedAt!);
       emit(
         state.copyWith(
           phase: TrackingPhase.active,
@@ -322,10 +327,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     if (state.phase != TrackingPhase.permissionDenied) return;
     final status = await _permissions.currentLocationStatus();
     if (_isGranted(status)) {
-      emit(state.copyWith(
-        phase: TrackingPhase.idle,
-        permissionStatus: status,
-      ));
+      emit(state.copyWith(phase: TrackingPhase.idle, permissionStatus: status));
       return;
     }
     // Still bad — surface the new status so the gate's button label
@@ -370,9 +372,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       _skipNextDistanceDelta = true;
       await _gps.start();
       await _sensors.start();
-      _pointSub = _gps.points.listen(
-        (p) => add(TrackingPointReceived(p)),
-      );
+      _pointSub = _gps.points.listen((p) => add(TrackingPointReceived(p)));
       _gforceSub = _sensors.gforce.listen(
         (g) => add(TrackingGforceReceived(g)),
       );
@@ -476,6 +476,14 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     try {
       final settings = await _settings.read();
       final detected = await _segments.detectFromTrip(state.stats.points);
+
+      // Snapshot the pre-trip bests before saving — needed to tell
+      // whether THIS trip is the one that just set a new record. Once
+      // `saveTrip` below lands, `getPersonalBest`/`getLongestTrip` would
+      // include this trip and the comparison would always be a tie.
+      final priorBestSpeed = await _trips.getPersonalBest(uid: settings.uid);
+      final priorLongest = await _trips.getLongestTrip(uid: settings.uid);
+
       final tripId = await _trips.saveTrip(
         uid: settings.uid,
         stats: state.stats,
@@ -491,8 +499,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       // recomputed locally from the trips table on demand.
 
       final after = await _settings.read();
-      final paywallDue = !after.isPro &&
-          after.freeTripsUsed >= AppConstants.freeTripLimit;
+      final paywallDue =
+          !after.isPro && after.freeTripsUsed >= AppConstants.freeTripLimit;
 
       _startedAt = null;
       // Trip durably saved to Drift — wipe the crash-recovery snapshot
@@ -514,6 +522,43 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
           },
         ),
       );
+      // Retention-funnel milestones — fire once each, the moment the
+      // user's lifetime trip count crosses the threshold. This is what
+      // actually measures install → 2nd-trip drop-off; `tripEnded`
+      // alone can't distinguish a returning user from a first-timer.
+      // Also drives the retention scheduler's first-trip-followup /
+      // inactivity-nudge / weekly-recap bookkeeping — same count query,
+      // reused rather than run twice.
+      unawaited(
+        _trips.countAll(uid: settings.uid).then((count) async {
+          if (count == 1) {
+            await _telemetry.track(TelemetryEvents.firstTripCompleted);
+          } else if (count == 2) {
+            await _telemetry.track(TelemetryEvents.secondTripCompleted);
+          }
+          await _retention.onTripCompleted(
+            uid: settings.uid,
+            tripCountIncludingThis: count,
+            tripEndedAt: DateTime.now(),
+          );
+        }),
+      );
+      unawaited(
+        _handleRecordsAndGoals(
+          settings: settings,
+          isFirstTrip: priorBestSpeed == null,
+          priorBestSpeedKmh: priorBestSpeed?.topSpeedKmh ?? 0,
+          priorLongestKm: priorLongest?.distanceKm ?? 0,
+          // Captured here, not read from `state` inside the helper —
+          // the `emit()` a few lines below resets `state.stats` to
+          // `LiveTripStats.initial()`, and this call is `unawaited`
+          // (fire-and-forget), so the helper could easily end up
+          // reading the reset value instead of this trip's actual
+          // stats depending on how its internal awaits interleave.
+          tripSpeedKmh: state.stats.maxSpeedKmh,
+          tripDistanceKm: state.stats.distanceKm,
+        ),
+      );
       emit(
         state.copyWith(
           phase: TrackingPhase.idle,
@@ -532,6 +577,95 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     }
   }
 
+  /// Compares the just-saved trip against the pre-trip bests/goals to
+  /// fire personal-record + goal telemetry, trigger the record
+  /// celebration notification, and persist the next goal.
+  ///
+  /// [isFirstTrip] guards against a false "personal record" on a
+  /// user's very first trip ever — `priorBestSpeedKmh`/`priorLongestKm`
+  /// are 0 with nothing to actually beat, so without this guard every
+  /// first trip would fire a record celebration for beating "0 km/h".
+  Future<void> _handleRecordsAndGoals({
+    required UserSettingsRow settings,
+    required bool isFirstTrip,
+    required double priorBestSpeedKmh,
+    required double priorLongestKm,
+    required double tripSpeedKmh,
+    required double tripDistanceKm,
+  }) async {
+    final result = RecordGoalEvaluator.evaluate(
+      isFirstTrip: isFirstTrip,
+      priorBestSpeedKmh: priorBestSpeedKmh,
+      priorLongestKm: priorLongestKm,
+      activeSpeedGoalKmh: settings.speedGoalKmh,
+      activeDistanceGoalKm: settings.distanceGoalKm,
+      tripSpeedKmh: tripSpeedKmh,
+      tripDistanceKm: tripDistanceKm,
+    );
+
+    if (result.newSpeedRecord) {
+      await _telemetry.track(
+        TelemetryEvents.personalRecordAchieved,
+        properties: <String, Object?>{
+          'kind': 'speed',
+          'value_kmh': tripSpeedKmh,
+        },
+      );
+    }
+    if (result.newDistanceRecord) {
+      await _telemetry.track(
+        TelemetryEvents.personalRecordAchieved,
+        properties: <String, Object?>{
+          'kind': 'distance',
+          'value_km': tripDistanceKm,
+        },
+      );
+    }
+    // At most one celebration per trip, even if both broke on the same
+    // drive — speed is the flashier metric and takes priority so the
+    // user isn't double-notified for one trip.
+    if (result.newSpeedRecord) {
+      await _retention.celebratePersonalRecord(
+        kind: RecordCelebrationKind.speed,
+        valueKmh: tripSpeedKmh,
+      );
+    } else if (result.newDistanceRecord) {
+      await _retention.celebratePersonalRecord(
+        kind: RecordCelebrationKind.distance,
+        valueKmh: tripDistanceKm,
+      );
+    }
+
+    if (result.speedGoalAchieved) {
+      await _telemetry.track(
+        TelemetryEvents.goalAchieved,
+        properties: <String, Object?>{'kind': 'speed'},
+      );
+    }
+    if (result.distanceGoalAchieved) {
+      await _telemetry.track(
+        TelemetryEvents.goalAchieved,
+        properties: <String, Object?>{'kind': 'distance'},
+      );
+    }
+
+    final nextSpeedGoal = result.nextSpeedGoalKmh;
+    final nextDistanceGoal = result.nextDistanceGoalKm;
+    if (nextSpeedGoal != null || nextDistanceGoal != null) {
+      await _settings.setGoals(
+        speedGoalKmh: nextSpeedGoal,
+        distanceGoalKm: nextDistanceGoal,
+      );
+      await _telemetry.track(
+        TelemetryEvents.goalCreated,
+        properties: <String, Object?>{
+          if (nextSpeedGoal != null) 'speed_goal_kmh': nextSpeedGoal,
+          if (nextDistanceGoal != null) 'distance_goal_km': nextDistanceGoal,
+        },
+      );
+    }
+  }
+
   Future<void> _onReset(
     TrackingReset event,
     Emitter<TrackingState> emit,
@@ -545,10 +679,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
   // ---------- internal stream-driven transitions ----------
 
-  void _onPoint(
-    TrackingPointReceived event,
-    Emitter<TrackingState> emit,
-  ) {
+  void _onPoint(TrackingPointReceived event, Emitter<TrackingState> emit) {
     if (state.phase != TrackingPhase.active) return;
     final p = event.point;
     final prev = state.stats;
@@ -574,10 +705,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     if (p.speedKmh == 0) {
       emit(
         state.copyWith(
-          stats: prev.copyWith(
-            currentSpeedKmh: 0,
-            hardBrakesCount: hardBrakes,
-          ),
+          stats: prev.copyWith(currentSpeedKmh: 0, hardBrakesCount: hardBrakes),
         ),
       );
       _persistSummary();
@@ -603,10 +731,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     // sample slipping past the denoiser can't anchor the saved
     // `topSpeedKmh` any more.
     final isSustainedMotion = prev.currentSpeedKmh > 0 && p.speedKmh > 0;
-    final newMaxSpeed =
-        (isSustainedMotion && p.speedKmh > prev.maxSpeedKmh)
-            ? p.speedKmh
-            : prev.maxSpeedKmh;
+    final newMaxSpeed = (isSustainedMotion && p.speedKmh > prev.maxSpeedKmh)
+        ? p.speedKmh
+        : prev.maxSpeedKmh;
 
     final durationSeconds = _startedAt == null
         ? prev.durationSeconds
@@ -632,10 +759,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _persistWaypointAndSummary(p);
   }
 
-  void _onGforce(
-    TrackingGforceReceived event,
-    Emitter<TrackingState> emit,
-  ) {
+  void _onGforce(TrackingGforceReceived event, Emitter<TrackingState> emit) {
     if (state.phase != TrackingPhase.active) return;
     final g = event.gforce;
     final prev = state.stats;
@@ -657,11 +781,10 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     if (movingFastEnoughToCorner && g >= AppConstants.hardCornerG) {
       _cornerSustainedSamples += 1;
       final now = DateTime.now();
-      final offCooldown = _lastCornerAt == null ||
-          now.difference(_lastCornerAt!) >=
-              AppConstants.hardCornerCooldown;
-      if (_cornerSustainedSamples >=
-              AppConstants.hardCornerSustainedSamples &&
+      final offCooldown =
+          _lastCornerAt == null ||
+          now.difference(_lastCornerAt!) >= AppConstants.hardCornerCooldown;
+      if (_cornerSustainedSamples >= AppConstants.hardCornerSustainedSamples &&
           offCooldown) {
         hardCorners += 1;
         _lastCornerAt = now;
@@ -677,18 +800,14 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     // Safety belt: samples that slipped through `SensorService`'s
     // noise ceiling shouldn't be recorded as the trip's peak either.
     // Anything past 3 g under normal driving is a bump / phone drop.
-    final clampedG =
-        g > AppConstants.gForceNoiseCeiling ? prev.maxGforce : g;
+    final clampedG = g > AppConstants.gForceNoiseCeiling ? prev.maxGforce : g;
     final newMax = clampedG > prev.maxGforce ? clampedG : prev.maxGforce;
     if (newMax == prev.maxGforce && hardCorners == prev.hardCornersCount) {
       return; // nothing changed; avoid a redundant emit per tick
     }
     emit(
       state.copyWith(
-        stats: prev.copyWith(
-          maxGforce: newMax,
-          hardCornersCount: hardCorners,
-        ),
+        stats: prev.copyWith(maxGforce: newMax, hardCornersCount: hardCorners),
       ),
     );
     _persistSummary();
@@ -699,9 +818,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     if (_startedAt == null) return;
     final seconds = DateTime.now().difference(_startedAt!).inSeconds;
     if (seconds == state.stats.durationSeconds) return;
-    emit(
-      state.copyWith(stats: state.stats.copyWith(durationSeconds: seconds)),
-    );
+    emit(state.copyWith(stats: state.stats.copyWith(durationSeconds: seconds)));
     _persistSummary();
   }
 
@@ -715,12 +832,8 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _startedAt = DateTime.now();
     await _gps.start();
     await _sensors.start();
-    _pointSub = _gps.points.listen(
-      (p) => add(TrackingPointReceived(p)),
-    );
-    _gforceSub = _sensors.gforce.listen(
-      (g) => add(TrackingGforceReceived(g)),
-    );
+    _pointSub = _gps.points.listen((p) => add(TrackingPointReceived(p)));
+    _gforceSub = _sensors.gforce.listen((g) => add(TrackingGforceReceived(g)));
     _ticker = Timer.periodic(
       const Duration(seconds: 1),
       (_) => add(const TrackingTicked()),

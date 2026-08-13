@@ -110,8 +110,7 @@ class AppStrings {
   // that the access continues in the background / while the screen is
   // off. Don't soften without re-checking the policy text — vague
   // disclosure copy is exactly what got the app rejected the first time.
-  static const String locationDisclosureTitle =
-      'DriveRank needs your location';
+  static const String locationDisclosureTitle = 'DriveRank needs your location';
   static const String locationDisclosureSub =
       'So we can track your trips accurately';
   static const String locationDisclosureItem1 =
@@ -227,6 +226,13 @@ class AppStrings {
   static const String tripSummaryGforcePeakSuffix = 'g peak';
   static const String tripSummaryNoRouteYet = 'No GPS fix recorded';
   static const String tripSummaryShareSubject = 'My DriveRank trip';
+
+  // Trip summary — goal nudge. Values are dynamic, formatted at the
+  // call site via `LocaleService`; these are just the surrounding copy.
+  static const String tripSummaryGoalTitle = 'Next Goal';
+  static const String tripSummaryPreviousTopSpeed = 'Previous top speed';
+  static const String tripSummaryPreviousDistance = 'Previous distance';
+  static const String tripSummaryGoalNextLabel = 'Next goal';
 
   // Social share cards — Performance.
   static const String performanceCardTitle = 'Performance';

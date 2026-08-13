@@ -71,6 +71,19 @@ dependencies:
   in_app_update: ^4.2.3
   url_launcher: ^6.3.0
   flutter_local_notifications: ^17.2.0
+  # Required by flutter_local_notifications' zonedSchedule (TZDateTime) —
+  # already resolved transitively at 0.9.4; declared directly so the
+  # retention scheduler can import it without a
+  # depend_on_referenced_packages lint, and so its version is pinned
+  # deliberately rather than incidentally.
+  timezone: ^0.9.4
+  # Reads the device's actual IANA timezone identifier so the weekly
+  # recap notification fires at the right local time and survives DST
+  # transitions. Hand-rolling this from `DateTime.now().timeZoneOffset`
+  # alone can't distinguish zones that share an offset and silently
+  # breaks across DST — a single-purpose, no-UI package is the correct
+  # tradeoff here, not scope creep.
+  flutter_timezone: ^3.0.0
   device_info_plus: ^11.1.0
   crypto: ^3.0.5
 

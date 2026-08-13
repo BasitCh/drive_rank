@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:drive_rank/core/services/local_notifications_gateway.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:flutter/foundation.dart';
@@ -28,11 +29,10 @@ import 'package:injectable/injectable.dart';
 /// no equivalent lock-screen widget on Apple's platform yet).
 @lazySingleton
 class LiveTripNotificationService {
-  LiveTripNotificationService(this._locale)
-      : _plugin = FlutterLocalNotificationsPlugin();
+  LiveTripNotificationService(this._locale, this._gateway);
 
   final LocaleService _locale;
-  final FlutterLocalNotificationsPlugin _plugin;
+  final LocalNotificationsGateway _gateway;
 
   static const _channelId = 'live_trip';
   static const _channelName = 'Live trip';
@@ -67,31 +67,26 @@ class LiveTripNotificationService {
   bool _awaitingConfirmTap = false;
   bool _initialised = false;
 
-  /// Idempotent — initialises the plugin + creates the channel.
+  /// Idempotent — initialises the shared plugin (via
+  /// [LocalNotificationsGateway], see its doc comment for why this
+  /// can't own its own `FlutterLocalNotificationsPlugin.initialize()`
+  /// call) + creates this feature's notification channel.
   ///
   /// POST_NOTIFICATIONS is requested elsewhere (PermissionService) via
   /// `permission_handler` so the dialog surfaces from a stable Activity
   /// context. Don't re-request here.
   Future<void> ensureInitialised() async {
     if (_initialised) return;
-    const initSettings = InitializationSettings(
-      android: AndroidInitializationSettings(_statusBarIcon),
-      iOS: DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      ),
-    );
-    await _plugin.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onResponse,
-    );
+    await _gateway.ensureInitialised();
+    _gateway.addResponseListener(_onResponse);
 
     if (Platform.isAndroid) {
       // Channel needs to exist before the first show() call — without
       // it, Android <O drops the notification silently.
-      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidImpl = _gateway.plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       await androidImpl?.createNotificationChannel(
         const AndroidNotificationChannel(
           _channelId,
@@ -109,8 +104,7 @@ class LiveTripNotificationService {
 
   Future<void> _onResponse(NotificationResponse response) async {
     final actionId = response.actionId;
-    if (actionId != _endRequestActionId &&
-        actionId != _endConfirmActionId) {
+    if (actionId != _endRequestActionId && actionId != _endConfirmActionId) {
       return;
     }
     if (_awaitingConfirmTap) {
@@ -161,8 +155,9 @@ class LiveTripNotificationService {
     final title = paused
         ? 'Trip paused'
         : '${_locale.formatSpeedValue(stats.currentSpeedKmh)} '
-            '${_locale.speedUnitLabel}';
-    final body = '${_locale.formatDistance(stats.distanceKm)} · '
+              '${_locale.speedUnitLabel}';
+    final body =
+        '${_locale.formatDistance(stats.distanceKm)} · '
         '${_locale.formatDuration(stats.durationSeconds)}';
     final action = AndroidNotificationAction(
       confirming ? _endConfirmActionId : _endRequestActionId,
@@ -171,7 +166,7 @@ class LiveTripNotificationService {
       cancelNotification: false,
     );
     try {
-      await _plugin.show(
+      await _gateway.plugin.show(
         _notificationId,
         title,
         body,
@@ -217,7 +212,7 @@ class LiveTripNotificationService {
     _awaitingConfirmTap = false;
     _lastStats = null;
     try {
-      await _plugin.cancel(_notificationId);
+      await _gateway.plugin.cancel(_notificationId);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[LiveTripNotification] dismiss failed: $e');

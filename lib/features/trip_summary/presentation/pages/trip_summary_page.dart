@@ -24,8 +24,7 @@ class TripSummaryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<TripSummaryBloc>(
-      create: (_) =>
-          getIt<TripSummaryBloc>()..add(TripSummaryLoaded(tripId)),
+      create: (_) => getIt<TripSummaryBloc>()..add(TripSummaryLoaded(tripId)),
       child: const _TripSummaryBody(),
     );
   }
@@ -82,9 +81,9 @@ class _Loaded extends StatelessWidget {
       children: [
         _Header(
           isSharing: state.isSharing,
-          onShare: () => context
-              .read<TripSummaryBloc>()
-              .add(const TripSummaryShareRequested()),
+          onShare: () => context.read<TripSummaryBloc>().add(
+            const TripSummaryShareRequested(),
+          ),
           onDelete: () => _confirmDelete(context),
         ),
         Expanded(
@@ -115,6 +114,11 @@ class _Loaded extends StatelessWidget {
                   durationSeconds: trip.durationSeconds,
                   fuelCostFormatted: _fuelLabel(locale, trip),
                 ),
+                if (state.speedGoalKmh != null ||
+                    state.distanceGoalKm != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _GoalNudge(state: state, locale: locale),
+                ],
                 const SizedBox(height: AppSpacing.md),
                 _ShareCardsRow(
                   tripId: trip.id,
@@ -180,9 +184,7 @@ class _Loaded extends StatelessWidget {
     );
     if (ok ?? false) {
       if (!context.mounted) return;
-      context
-          .read<TripSummaryBloc>()
-          .add(const TripSummaryDeleteRequested());
+      context.read<TripSummaryBloc>().add(const TripSummaryDeleteRequested());
     }
   }
 }
@@ -210,9 +212,7 @@ class _Header extends StatelessWidget {
               color: AppColors.textPrimary,
               size: 18,
             ),
-            onTap: () => context.canPop()
-                ? context.pop()
-                : context.go('/home'),
+            onTap: () => context.canPop() ? context.pop() : context.go('/home'),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -291,8 +291,11 @@ class _ShareCtaButton extends StatelessWidget {
                   ),
                 )
               else
-                const Icon(Icons.ios_share_rounded, color: AppColors.bg,
-                    size: 14),
+                const Icon(
+                  Icons.ios_share_rounded,
+                  color: AppColors.bg,
+                  size: 14,
+                ),
               const SizedBox(width: 4),
               const Text(
                 AppStrings.tripSummaryShare,
@@ -307,6 +310,132 @@ class _ShareCtaButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// "Beat this next" card — one row per active goal (speed and/or
+/// distance). Shown whenever at least one goal exists; per-metric rows
+/// are independently optional since a user could be mid-way between
+/// achieving one goal and the other recomputing.
+class _GoalNudge extends StatelessWidget {
+  const _GoalNudge({required this.state, required this.locale});
+
+  final TripSummaryState state;
+  final LocaleService locale;
+
+  @override
+  Widget build(BuildContext context) {
+    final speedGoal = state.speedGoalKmh;
+    final distanceGoal = state.distanceGoalKm;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            AppStrings.tripSummaryGoalTitle,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (speedGoal != null)
+            _GoalRow(
+              previousLabel: AppStrings.tripSummaryPreviousTopSpeed,
+              previousValue: locale.formatSpeed(state.bestTopSpeedKmh ?? 0),
+              goalValue: locale.formatSpeed(speedGoal),
+            ),
+          if (speedGoal != null && distanceGoal != null)
+            const SizedBox(height: 12),
+          if (distanceGoal != null)
+            _GoalRow(
+              previousLabel: AppStrings.tripSummaryPreviousDistance,
+              previousValue: locale.formatDistance(state.bestDistanceKm ?? 0),
+              goalValue: locale.formatDistance(distanceGoal),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalRow extends StatelessWidget {
+  const _GoalRow({
+    required this.previousLabel,
+    required this.previousValue,
+    required this.goalValue,
+  });
+
+  final String previousLabel;
+  final String previousValue;
+  final String goalValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                previousLabel,
+                style: AppTextStyles.microLabel.copyWith(fontSize: 10),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                previousValue,
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Icon(
+          Icons.arrow_forward_rounded,
+          color: AppColors.teal,
+          size: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                AppStrings.tripSummaryGoalNextLabel,
+                style: AppTextStyles.microLabel.copyWith(
+                  fontSize: 10,
+                  color: AppColors.teal,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                goalValue,
+                style: const TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.teal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -337,10 +466,7 @@ class _NotFound extends StatelessWidget {
 /// to show — < 20 waypoints means a flatline export, and we'd rather
 /// not surface the CTA at all than ship a broken share.
 class _ShareCardsRow extends StatelessWidget {
-  const _ShareCardsRow({
-    required this.tripId,
-    required this.showPerformance,
-  });
+  const _ShareCardsRow({required this.tripId, required this.showPerformance});
 
   final int tripId;
   final bool showPerformance;
@@ -363,8 +489,7 @@ class _ShareCardsRow extends StatelessWidget {
             emoji: '📈',
             title: AppStrings.performanceCardCta,
             subtitle: AppStrings.performanceCardCtaSub,
-            onTap: () =>
-                context.push(RouteNames.performanceCardFor(tripId)),
+            onTap: () => context.push(RouteNames.performanceCardFor(tripId)),
           ),
         ),
         const SizedBox(width: AppSpacing.md),

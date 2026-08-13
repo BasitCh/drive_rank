@@ -1920,6 +1920,28 @@ class $UserSettingsTable extends UserSettings
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _speedGoalKmhMeta = const VerificationMeta(
+    'speedGoalKmh',
+  );
+  @override
+  late final GeneratedColumn<double> speedGoalKmh = GeneratedColumn<double>(
+    'speed_goal_kmh',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _distanceGoalKmMeta = const VerificationMeta(
+    'distanceGoalKm',
+  );
+  @override
+  late final GeneratedColumn<double> distanceGoalKm = GeneratedColumn<double>(
+    'distance_goal_km',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1954,6 +1976,8 @@ class $UserSettingsTable extends UserSettings
     onboardingComplete,
     oemAdviceShown,
     bgLocationDisclosureAcked,
+    speedGoalKmh,
+    distanceGoalKm,
     createdAt,
   ];
   @override
@@ -2123,6 +2147,24 @@ class $UserSettingsTable extends UserSettings
         ),
       );
     }
+    if (data.containsKey('speed_goal_kmh')) {
+      context.handle(
+        _speedGoalKmhMeta,
+        speedGoalKmh.isAcceptableOrUnknown(
+          data['speed_goal_kmh']!,
+          _speedGoalKmhMeta,
+        ),
+      );
+    }
+    if (data.containsKey('distance_goal_km')) {
+      context.handle(
+        _distanceGoalKmMeta,
+        distanceGoalKm.isAcceptableOrUnknown(
+          data['distance_goal_km']!,
+          _distanceGoalKmMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -2224,6 +2266,14 @@ class $UserSettingsTable extends UserSettings
         DriftSqlType.bool,
         data['${effectivePrefix}bg_location_disclosure_acked'],
       )!,
+      speedGoalKmh: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}speed_goal_kmh'],
+      ),
+      distanceGoalKm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}distance_goal_km'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2270,6 +2320,15 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   /// the gate in TrackingBloc that blocks Start until the disclosure
   /// has been surfaced at least once — Google Play policy compliance.
   final bool bgLocationDisclosureAcked;
+
+  /// The user's current "beat this" targets, recomputed by
+  /// `TrackingBloc` after every trip (see `GoalCalculator`). Null until
+  /// the first trip completes. Only two fields, not a table, because
+  /// there is exactly one active goal per metric at a time — no
+  /// history of past goals is needed, `Trips` already has the record
+  /// of what was actually driven.
+  final double? speedGoalKmh;
+  final double? distanceGoalKm;
   final DateTime createdAt;
   const UserSettingsRow({
     required this.id,
@@ -2293,6 +2352,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     required this.onboardingComplete,
     required this.oemAdviceShown,
     required this.bgLocationDisclosureAcked,
+    this.speedGoalKmh,
+    this.distanceGoalKm,
     required this.createdAt,
   });
   @override
@@ -2337,6 +2398,12 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     map['bg_location_disclosure_acked'] = Variable<bool>(
       bgLocationDisclosureAcked,
     );
+    if (!nullToAbsent || speedGoalKmh != null) {
+      map['speed_goal_kmh'] = Variable<double>(speedGoalKmh);
+    }
+    if (!nullToAbsent || distanceGoalKm != null) {
+      map['distance_goal_km'] = Variable<double>(distanceGoalKm);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -2380,6 +2447,12 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       onboardingComplete: Value(onboardingComplete),
       oemAdviceShown: Value(oemAdviceShown),
       bgLocationDisclosureAcked: Value(bgLocationDisclosureAcked),
+      speedGoalKmh: speedGoalKmh == null && nullToAbsent
+          ? const Value.absent()
+          : Value(speedGoalKmh),
+      distanceGoalKm: distanceGoalKm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(distanceGoalKm),
       createdAt: Value(createdAt),
     );
   }
@@ -2413,6 +2486,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       bgLocationDisclosureAcked: serializer.fromJson<bool>(
         json['bgLocationDisclosureAcked'],
       ),
+      speedGoalKmh: serializer.fromJson<double?>(json['speedGoalKmh']),
+      distanceGoalKm: serializer.fromJson<double?>(json['distanceGoalKm']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -2443,6 +2518,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       'bgLocationDisclosureAcked': serializer.toJson<bool>(
         bgLocationDisclosureAcked,
       ),
+      'speedGoalKmh': serializer.toJson<double?>(speedGoalKmh),
+      'distanceGoalKm': serializer.toJson<double?>(distanceGoalKm),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -2469,6 +2546,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     bool? onboardingComplete,
     bool? oemAdviceShown,
     bool? bgLocationDisclosureAcked,
+    Value<double?> speedGoalKmh = const Value.absent(),
+    Value<double?> distanceGoalKm = const Value.absent(),
     DateTime? createdAt,
   }) => UserSettingsRow(
     id: id ?? this.id,
@@ -2497,6 +2576,10 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
     bgLocationDisclosureAcked:
         bgLocationDisclosureAcked ?? this.bgLocationDisclosureAcked,
+    speedGoalKmh: speedGoalKmh.present ? speedGoalKmh.value : this.speedGoalKmh,
+    distanceGoalKm: distanceGoalKm.present
+        ? distanceGoalKm.value
+        : this.distanceGoalKm,
     createdAt: createdAt ?? this.createdAt,
   );
   UserSettingsRow copyWithCompanion(UserSettingsCompanion data) {
@@ -2544,6 +2627,12 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       bgLocationDisclosureAcked: data.bgLocationDisclosureAcked.present
           ? data.bgLocationDisclosureAcked.value
           : this.bgLocationDisclosureAcked,
+      speedGoalKmh: data.speedGoalKmh.present
+          ? data.speedGoalKmh.value
+          : this.speedGoalKmh,
+      distanceGoalKm: data.distanceGoalKm.present
+          ? data.distanceGoalKm.value
+          : this.distanceGoalKm,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -2572,6 +2661,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           ..write('onboardingComplete: $onboardingComplete, ')
           ..write('oemAdviceShown: $oemAdviceShown, ')
           ..write('bgLocationDisclosureAcked: $bgLocationDisclosureAcked, ')
+          ..write('speedGoalKmh: $speedGoalKmh, ')
+          ..write('distanceGoalKm: $distanceGoalKm, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2600,6 +2691,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     onboardingComplete,
     oemAdviceShown,
     bgLocationDisclosureAcked,
+    speedGoalKmh,
+    distanceGoalKm,
     createdAt,
   ]);
   @override
@@ -2627,6 +2720,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           other.onboardingComplete == this.onboardingComplete &&
           other.oemAdviceShown == this.oemAdviceShown &&
           other.bgLocationDisclosureAcked == this.bgLocationDisclosureAcked &&
+          other.speedGoalKmh == this.speedGoalKmh &&
+          other.distanceGoalKm == this.distanceGoalKm &&
           other.createdAt == this.createdAt);
 }
 
@@ -2652,6 +2747,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
   final Value<bool> onboardingComplete;
   final Value<bool> oemAdviceShown;
   final Value<bool> bgLocationDisclosureAcked;
+  final Value<double?> speedGoalKmh;
+  final Value<double?> distanceGoalKm;
   final Value<DateTime> createdAt;
   const UserSettingsCompanion({
     this.id = const Value.absent(),
@@ -2675,6 +2772,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.onboardingComplete = const Value.absent(),
     this.oemAdviceShown = const Value.absent(),
     this.bgLocationDisclosureAcked = const Value.absent(),
+    this.speedGoalKmh = const Value.absent(),
+    this.distanceGoalKm = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   UserSettingsCompanion.insert({
@@ -2699,6 +2798,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.onboardingComplete = const Value.absent(),
     this.oemAdviceShown = const Value.absent(),
     this.bgLocationDisclosureAcked = const Value.absent(),
+    this.speedGoalKmh = const Value.absent(),
+    this.distanceGoalKm = const Value.absent(),
     required DateTime createdAt,
   }) : uid = Value(uid),
        createdAt = Value(createdAt);
@@ -2724,6 +2825,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Expression<bool>? onboardingComplete,
     Expression<bool>? oemAdviceShown,
     Expression<bool>? bgLocationDisclosureAcked,
+    Expression<double>? speedGoalKmh,
+    Expression<double>? distanceGoalKm,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -2749,6 +2852,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       if (oemAdviceShown != null) 'oem_advice_shown': oemAdviceShown,
       if (bgLocationDisclosureAcked != null)
         'bg_location_disclosure_acked': bgLocationDisclosureAcked,
+      if (speedGoalKmh != null) 'speed_goal_kmh': speedGoalKmh,
+      if (distanceGoalKm != null) 'distance_goal_km': distanceGoalKm,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -2775,6 +2880,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Value<bool>? onboardingComplete,
     Value<bool>? oemAdviceShown,
     Value<bool>? bgLocationDisclosureAcked,
+    Value<double?>? speedGoalKmh,
+    Value<double?>? distanceGoalKm,
     Value<DateTime>? createdAt,
   }) {
     return UserSettingsCompanion(
@@ -2800,6 +2907,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
       bgLocationDisclosureAcked:
           bgLocationDisclosureAcked ?? this.bgLocationDisclosureAcked,
+      speedGoalKmh: speedGoalKmh ?? this.speedGoalKmh,
+      distanceGoalKm: distanceGoalKm ?? this.distanceGoalKm,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -2872,6 +2981,12 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
         bgLocationDisclosureAcked.value,
       );
     }
+    if (speedGoalKmh.present) {
+      map['speed_goal_kmh'] = Variable<double>(speedGoalKmh.value);
+    }
+    if (distanceGoalKm.present) {
+      map['distance_goal_km'] = Variable<double>(distanceGoalKm.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2902,6 +3017,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
           ..write('onboardingComplete: $onboardingComplete, ')
           ..write('oemAdviceShown: $oemAdviceShown, ')
           ..write('bgLocationDisclosureAcked: $bgLocationDisclosureAcked, ')
+          ..write('speedGoalKmh: $speedGoalKmh, ')
+          ..write('distanceGoalKm: $distanceGoalKm, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -5218,6 +5335,8 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<bool> onboardingComplete,
       Value<bool> oemAdviceShown,
       Value<bool> bgLocationDisclosureAcked,
+      Value<double?> speedGoalKmh,
+      Value<double?> distanceGoalKm,
       required DateTime createdAt,
     });
 typedef $$UserSettingsTableUpdateCompanionBuilder =
@@ -5243,6 +5362,8 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<bool> onboardingComplete,
       Value<bool> oemAdviceShown,
       Value<bool> bgLocationDisclosureAcked,
+      Value<double?> speedGoalKmh,
+      Value<double?> distanceGoalKm,
       Value<DateTime> createdAt,
     });
 
@@ -5357,6 +5478,16 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<bool> get bgLocationDisclosureAcked => $composableBuilder(
     column: $table.bgLocationDisclosureAcked,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get speedGoalKmh => $composableBuilder(
+    column: $table.speedGoalKmh,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get distanceGoalKm => $composableBuilder(
+    column: $table.distanceGoalKm,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5480,6 +5611,16 @@ class $$UserSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get speedGoalKmh => $composableBuilder(
+    column: $table.speedGoalKmh,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get distanceGoalKm => $composableBuilder(
+    column: $table.distanceGoalKm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -5580,6 +5721,16 @@ class $$UserSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get speedGoalKmh => $composableBuilder(
+    column: $table.speedGoalKmh,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get distanceGoalKm => $composableBuilder(
+    column: $table.distanceGoalKm,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
@@ -5636,6 +5787,8 @@ class $$UserSettingsTableTableManager
                 Value<bool> onboardingComplete = const Value.absent(),
                 Value<bool> oemAdviceShown = const Value.absent(),
                 Value<bool> bgLocationDisclosureAcked = const Value.absent(),
+                Value<double?> speedGoalKmh = const Value.absent(),
+                Value<double?> distanceGoalKm = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => UserSettingsCompanion(
                 id: id,
@@ -5659,6 +5812,8 @@ class $$UserSettingsTableTableManager
                 onboardingComplete: onboardingComplete,
                 oemAdviceShown: oemAdviceShown,
                 bgLocationDisclosureAcked: bgLocationDisclosureAcked,
+                speedGoalKmh: speedGoalKmh,
+                distanceGoalKm: distanceGoalKm,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -5684,6 +5839,8 @@ class $$UserSettingsTableTableManager
                 Value<bool> onboardingComplete = const Value.absent(),
                 Value<bool> oemAdviceShown = const Value.absent(),
                 Value<bool> bgLocationDisclosureAcked = const Value.absent(),
+                Value<double?> speedGoalKmh = const Value.absent(),
+                Value<double?> distanceGoalKm = const Value.absent(),
                 required DateTime createdAt,
               }) => UserSettingsCompanion.insert(
                 id: id,
@@ -5707,6 +5864,8 @@ class $$UserSettingsTableTableManager
                 onboardingComplete: onboardingComplete,
                 oemAdviceShown: oemAdviceShown,
                 bgLocationDisclosureAcked: bgLocationDisclosureAcked,
+                speedGoalKmh: speedGoalKmh,
+                distanceGoalKm: distanceGoalKm,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0
