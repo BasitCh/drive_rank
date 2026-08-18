@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/core/services/geocoding_service.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
@@ -11,7 +12,10 @@ void main() {
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    repo = TripRepository(db);
+    // Real GeocodingService is fine here — no platform channel is
+    // registered in a unit test, so `placeName` hits its own
+    // try/catch and resolves to null, exactly like an offline device.
+    repo = TripRepository(db, GeocodingService());
   });
 
   tearDown(() async => db.close());

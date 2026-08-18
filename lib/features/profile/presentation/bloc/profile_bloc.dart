@@ -29,6 +29,7 @@ class ProfileState {
     required this.settings,
     required this.lifetime,
     required this.currentMonth,
+    this.monthlyTrend = const <MonthlyDistanceStat>[],
   });
 
   factory ProfileState.initial() => ProfileState(
@@ -39,6 +40,7 @@ class ProfileState {
       DateTime.now().year,
       DateTime.now().month,
     ),
+    monthlyTrend: const <MonthlyDistanceStat>[],
   );
 
   final ProfileStatus status;
@@ -46,17 +48,23 @@ class ProfileState {
   final LifetimeStats lifetime;
   final MonthlyReport currentMonth;
 
+  /// Total km per month for the last 6 months, oldest first. Months
+  /// with no trips are omitted — see `TripStatsService.monthlyDistanceTrend`.
+  final List<MonthlyDistanceStat> monthlyTrend;
+
   ProfileState copyWith({
     ProfileStatus? status,
     UserSettingsRow? settings,
     LifetimeStats? lifetime,
     MonthlyReport? currentMonth,
+    List<MonthlyDistanceStat>? monthlyTrend,
   }) {
     return ProfileState(
       status: status ?? this.status,
       settings: settings ?? this.settings,
       lifetime: lifetime ?? this.lifetime,
       currentMonth: currentMonth ?? this.currentMonth,
+      monthlyTrend: monthlyTrend ?? this.monthlyTrend,
     );
   }
 }
@@ -84,12 +92,14 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       year: now.year,
       month: now.month,
     );
+    final trend = await _stats.monthlyDistanceTrend(uid: row.uid);
     emit(
       state.copyWith(
         status: ProfileStatus.ready,
         settings: row,
         lifetime: lifetime,
         currentMonth: monthly,
+        monthlyTrend: trend,
       ),
     );
     // Subscribe to settings changes so name/car edits show up immediately.

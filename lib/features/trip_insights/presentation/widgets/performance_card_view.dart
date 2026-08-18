@@ -1,9 +1,11 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
+import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/insights_bundle.dart';
 import 'package:drive_rank/features/trip_insights/presentation/widgets/card_brand_footer.dart';
 import 'package:drive_rank/features/trip_insights/presentation/widgets/card_brand_header.dart';
+import 'package:drive_rank/features/trip_insights/presentation/widgets/elevation_chart.dart';
 import 'package:drive_rank/features/trip_insights/presentation/widgets/hero_stat_strip.dart';
 import 'package:drive_rank/features/trip_insights/presentation/widgets/performance_chart.dart';
 import 'package:flutter/material.dart';
@@ -103,6 +105,37 @@ class PerformanceCardView extends StatelessWidget {
                     ),
                   ),
                   PerformanceChart(bundle: bundle, locale: locale),
+                  if (bundle.elevationEligible) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 8),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              AppStrings.elevationChartTitle,
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            locale.elevationUnitLabel.toUpperCase(),
+                            style: const TextStyle(
+                              fontFamily: 'JetBrainsMono',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevationChart(bundle: bundle, locale: locale),
+                  ],
                 ],
               ),
             ),

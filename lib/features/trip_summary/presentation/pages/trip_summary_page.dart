@@ -105,14 +105,29 @@ class _Loaded extends StatelessWidget {
                     maxGforce: trip.maxGforce,
                     carTag: _carTag(state.carLabel, trip.isNightDrive),
                     weatherTag: _weatherTag(trip),
+                    startedAt: trip.startedAt,
+                    locationName: trip.locationName,
+                    transparent: state.isTransparent,
                   ),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                _TransparentToggleRow(isTransparent: state.isTransparent),
                 const SizedBox(height: AppSpacing.md),
                 AnalyticsGrid(
                   hardCorners: trip.hardCornersCount,
                   hardBrakes: trip.hardBrakesCount,
                   durationSeconds: trip.durationSeconds,
                   fuelCostFormatted: _fuelLabel(locale, trip),
+                  stoppedTimeFormatted: locale.formatDuration(
+                    trip.stoppedSeconds,
+                  ),
+                  stopCount: trip.stopCount,
+                  elevationGainFormatted: trip.elevationGainMeters != null
+                      ? locale.formatElevation(trip.elevationGainMeters!)
+                      : null,
+                  maxElevationFormatted: trip.maxElevationMeters != null
+                      ? locale.formatElevation(trip.maxElevationMeters!)
+                      : null,
                 ),
                 if ((state.speedGoalKmh ?? 0) > 0 ||
                     (state.distanceGoalKm ?? 0) > 0) ...[
@@ -438,6 +453,51 @@ class _GoalRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// "Transparent" toggle for the shareable stat card above — strips the
+/// card's background fill so the exported PNG overlays cleanly on
+/// Instagram Stories. Purely a render-state toggle; the export path
+/// (`CardExportService`) always captures whatever's currently on
+/// screen, so no separate export-time branching is needed.
+class _TransparentToggleRow extends StatelessWidget {
+  const _TransparentToggleRow({required this.isTransparent});
+
+  final bool isTransparent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              AppStrings.tripSummaryTransparent,
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          Switch(
+            value: isTransparent,
+            activeTrackColor: AppColors.teal,
+            onChanged: (v) => context.read<TripSummaryBloc>().add(
+              TripSummaryTransparentToggled(transparent: v),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -19,6 +19,7 @@ class TripSummaryBloc extends Bloc<TripSummaryEvent, TripSummaryState> {
     on<TripSummaryLoaded>(_onLoaded);
     on<TripSummaryShareRequested>(_onShare);
     on<TripSummaryDeleteRequested>(_onDelete);
+    on<TripSummaryTransparentToggled>(_onTransparentToggled);
   }
 
   final TripRepository _trips;
@@ -87,6 +88,13 @@ class TripSummaryBloc extends Bloc<TripSummaryEvent, TripSummaryState> {
     if (id == null) return;
     await _trips.deleteTrip(id);
     emit(state.copyWith(status: TripSummaryStatus.deleted));
+  }
+
+  void _onTransparentToggled(
+    TripSummaryTransparentToggled event,
+    Emitter<TripSummaryState> emit,
+  ) {
+    emit(state.copyWith(isTransparent: event.transparent));
   }
 
   static String _formatCarLabel(String? make, String? model, int? year) {

@@ -62,3 +62,17 @@ class LifetimeStats {
   final double topSpeedKmh;
   final double bestGforce;
 }
+
+/// One point on the profile's "last 6 months" distance trend chart.
+@immutable
+class MonthlyDistanceStat {
+  const MonthlyDistanceStat({
+    required this.year,
+    required this.month,
+    required this.distanceKm,
+  });
+
+  final int year;
+  final int month;
+  final double distanceKm;
+}

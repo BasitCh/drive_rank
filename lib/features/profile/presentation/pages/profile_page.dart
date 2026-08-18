@@ -8,6 +8,7 @@ import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/monthly_report/presentation/widgets/monthly_report_card.dart';
 import 'package:drive_rank/features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:drive_rank/features/profile/presentation/widgets/monthly_trend_chart.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/monthly_report.dart';
@@ -50,6 +51,7 @@ class _ProfileBody extends StatelessWidget {
               settings: state.settings!,
               lifetime: state.lifetime,
               monthly: state.currentMonth,
+              monthlyTrend: state.monthlyTrend,
               locale: locale,
             );
           },
@@ -64,12 +66,14 @@ class _Loaded extends StatelessWidget {
     required this.settings,
     required this.lifetime,
     required this.monthly,
+    required this.monthlyTrend,
     required this.locale,
   });
 
   final UserSettingsRow settings;
   final LifetimeStats lifetime;
   final MonthlyReport monthly;
+  final List<MonthlyDistanceStat> monthlyTrend;
   final LocaleService locale;
 
   @override
@@ -89,6 +93,13 @@ class _Loaded extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         _StatsGrid(lifetime: lifetime, locale: locale),
+        if (monthlyTrend.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: MonthlyTrendChart(stats: monthlyTrend, locale: locale),
+          ),
+        ],
         const SizedBox(height: 14),
         // (Friends section + "Add friend" row removed for MVP — see
         // CHANGELOG / git history for the social-feature feature flag.)

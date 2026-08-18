@@ -1,5 +1,6 @@
 import 'package:drive_rank/core/database/app_database.dart' show TripRow;
 import 'package:drive_rank/features/trip_insights/domain/entities/personal_record.dart';
+import 'package:drive_rank/features/trip_insights/domain/entities/replay_point.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_breakdown_slice.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_segment.dart';
 import 'package:flutter/foundation.dart';
@@ -27,6 +28,11 @@ class InsightsBundle {
     required this.chartEligible,
     required this.breakdownEligible,
     required this.recordsEligible,
+    required this.smoothedElevationMeters,
+    required this.smoothedElevationSecondsFromStart,
+    required this.elevationEligible,
+    required this.replayPoints,
+    required this.replayEligible,
   });
 
   final TripRow trip;
@@ -59,4 +65,24 @@ class InsightsBundle {
   final bool chartEligible;
   final bool breakdownEligible;
   final bool recordsEligible;
+
+  /// Smoothed altitude series for the Elevation Over Time chart,
+  /// paired 1:1 with [smoothedElevationSecondsFromStart]. Empty when
+  /// [elevationEligible] is false.
+  final List<double> smoothedElevationMeters;
+  final List<int> smoothedElevationSecondsFromStart;
+
+  /// False when the trip has under
+  /// `AppConstants.elevationChartMinWaypoints` waypoints or no
+  /// waypoint has a reliable altitude sample — the chart hides
+  /// entirely rather than rendering a flat/broken line.
+  final bool elevationEligible;
+
+  /// Full-resolution position + live-stat series for the animated
+  /// route replay. Empty when [replayEligible] is false.
+  final List<ReplayPoint> replayPoints;
+
+  /// False below 20 waypoints — replay is disabled entirely rather
+  /// than showing a couple of jerky hops.
+  final bool replayEligible;
 }

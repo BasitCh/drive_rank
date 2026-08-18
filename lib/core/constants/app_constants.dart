@@ -167,4 +167,30 @@ class AppConstants {
   // ---- Conversions ----
   /// Multiplier from km to miles (precise to 6dp).
   static const double kmToMiles = 0.621371;
+
+  /// Multiplier from metres to feet.
+  static const double metresToFeet = 3.28084;
+
+  // ---- Stopped-time detection ----
+  /// A contiguous zero-speed run shorter than this (seconds) is a red
+  /// light / stop sign, not a "stop" — it doesn't count toward
+  /// `stoppedSeconds` or `stopCount`. Zero-speed samples are already
+  /// the output of `GpsService`'s own noise floor (anything under
+  /// `minReliableSpeedKmh` is clamped to 0), so this threshold is
+  /// purely about distinguishing a brief halt from a real stop.
+  static const int stopMinDurationSeconds = 30;
+
+  // ---- Trip altitude ----
+  /// Reported GPS altitude accuracy worse than this (m) is treated as
+  /// "no reliable altitude for this sample" — modern phones report
+  /// altitude accuracy in the 3–30 m band under an open sky; anything
+  /// far worse than that means the fix has no meaningful vertical
+  /// component (indoors, urban canyon) and shouldn't feed the
+  /// elevation chart or gain/max computation.
+  static const double maxReliableAltitudeAccuracyMeters = 150;
+
+  /// Minimum waypoints for the Elevation Over Time chart to render —
+  /// mirrors `BuildInsights._chartMinWaypoints`'s reasoning for the
+  /// speed chart: below this a single noisy altitude sample dominates.
+  static const int elevationChartMinWaypoints = 10;
 }

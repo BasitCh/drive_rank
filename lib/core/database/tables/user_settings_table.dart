@@ -37,6 +37,12 @@ class UserSettings extends Table {
   TextColumn get selectedMapTheme =>
       text().withDefault(const Constant('regular'))();
 
+  /// Trips shorter than this (metres) are discarded on End, not saved.
+  /// Default 500 m filters out accidental Start→End taps without
+  /// eating a real short drive.
+  RealColumn get minTripLengthMeters =>
+      real().withDefault(const Constant(500))();
+
   // Paywall + onboarding state.
   IntColumn get freeTripsUsed => integer().withDefault(const Constant(0))();
   BoolColumn get isPro => boolean().withDefault(const Constant(false))();

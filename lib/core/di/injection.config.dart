@@ -15,14 +15,18 @@ import 'package:drive_rank/core/database/app_database.dart' as _i425;
 import 'package:drive_rank/core/di/injection_module.dart' as _i953;
 import 'package:drive_rank/core/network/network_info.dart' as _i721;
 import 'package:drive_rank/core/router/app_router.dart' as _i901;
+import 'package:drive_rank/core/services/account_deletion_service.dart'
+    as _i427;
 import 'package:drive_rank/core/services/active_trip_store.dart' as _i766;
 import 'package:drive_rank/core/services/auth_service.dart' as _i1009;
 import 'package:drive_rank/core/services/battery_optimization_service.dart'
     as _i595;
 import 'package:drive_rank/core/services/card_export_service.dart' as _i261;
+import 'package:drive_rank/core/services/debug_seed_service.dart' as _i411;
 import 'package:drive_rank/core/services/device_identity_service.dart' as _i529;
 import 'package:drive_rank/core/services/free_trip_counter_service.dart'
     as _i1058;
+import 'package:drive_rank/core/services/geocoding_service.dart' as _i853;
 import 'package:drive_rank/core/services/gps_service.dart' as _i375;
 import 'package:drive_rank/core/services/live_trip_notification_service.dart'
     as _i201;
@@ -94,6 +98,7 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i529.DeviceIdentityService>(
     () => _i529.DeviceIdentityService(),
   );
+  gh.lazySingleton<_i853.GeocodingService>(() => _i853.GeocodingService());
   gh.lazySingleton<_i750.LocalNotificationsGateway>(
     () => _i750.LocalNotificationsGateway(),
   );
@@ -129,6 +134,12 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i721.NetworkInfo>(
     () => _i721.NetworkInfo(gh<_i895.Connectivity>()),
   );
+  gh.lazySingleton<_i634.TripRepository>(
+    () => _i634.TripRepository(
+      gh<_i425.AppDatabase>(),
+      gh<_i853.GeocodingService>(),
+    ),
+  );
   gh.lazySingleton<_i201.LiveTripNotificationService>(
     () => _i201.LiveTripNotificationService(
       gh<_i447.LocaleService>(),
@@ -136,11 +147,26 @@ _i174.GetIt $initGetIt(
     ),
     dispose: (i) => i.dispose(),
   );
+  gh.lazySingleton<_i411.DebugSeedService>(
+    () => _i411.DebugSeedService(
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+    ),
+  );
+  gh.lazySingleton<_i244.PersonalBestsRepository>(
+    () => _i244.PersonalBestsRepository(
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+    ),
+  );
+  gh.factory<_i586.HistoryBloc>(
+    () => _i586.HistoryBloc(
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+    ),
+  );
   gh.lazySingleton<_i766.ActiveTripStore>(
     () => _i766.ActiveTripStore(gh<_i425.AppDatabase>()),
-  );
-  gh.lazySingleton<_i634.TripRepository>(
-    () => _i634.TripRepository(gh<_i425.AppDatabase>()),
   );
   gh.factory<_i284.PaywallBloc>(
     () => _i284.PaywallBloc(
@@ -158,6 +184,9 @@ _i174.GetIt $initGetIt(
       gh<_i486.BuildInsights>(),
     ),
   );
+  gh.factory<_i314.PersonalBestsBloc>(
+    () => _i314.PersonalBestsBloc(gh<_i244.PersonalBestsRepository>()),
+  );
   gh.lazySingleton<_i183.RetentionNotificationService>(
     () => _i183.RetentionNotificationService(
       gh<_i750.LocalNotificationsGateway>(),
@@ -172,6 +201,15 @@ _i174.GetIt $initGetIt(
       gh<_i634.TripRepository>(),
       gh<_i727.UserSettingsRepository>(),
       gh<_i261.CardExportService>(),
+    ),
+  );
+  gh.lazySingleton<_i427.AccountDeletionService>(
+    () => _i427.AccountDeletionService(
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i766.ActiveTripStore>(),
+      gh<_i1058.FreeTripCounterService>(),
+      gh<_i1009.AuthService>(),
     ),
   );
   gh.factory<_i162.OnboardingBloc>(
@@ -206,21 +244,6 @@ _i174.GetIt $initGetIt(
       gh<_i46.TelemetryService>(),
       gh<_i183.RetentionNotificationService>(),
     ),
-  );
-  gh.lazySingleton<_i244.PersonalBestsRepository>(
-    () => _i244.PersonalBestsRepository(
-      gh<_i634.TripRepository>(),
-      gh<_i727.UserSettingsRepository>(),
-    ),
-  );
-  gh.factory<_i586.HistoryBloc>(
-    () => _i586.HistoryBloc(
-      gh<_i634.TripRepository>(),
-      gh<_i727.UserSettingsRepository>(),
-    ),
-  );
-  gh.factory<_i314.PersonalBestsBloc>(
-    () => _i314.PersonalBestsBloc(gh<_i244.PersonalBestsRepository>()),
   );
   gh.factory<_i868.ProfileBloc>(
     () => _i868.ProfileBloc(

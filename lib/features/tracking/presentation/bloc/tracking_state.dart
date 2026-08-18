@@ -76,6 +76,7 @@ class TrackingState {
     required this.shouldShowPaywall,
     required this.errorMessage,
     required this.recoveryStatus,
+    this.discardedTripDistanceKm,
   });
 
   factory TrackingState.initial() => TrackingState(
@@ -86,6 +87,7 @@ class TrackingState {
     shouldShowPaywall: false,
     errorMessage: null,
     recoveryStatus: TripRecoveryStatus.fresh,
+    discardedTripDistanceKm: null,
   );
 
   final TrackingPhase phase;
@@ -110,6 +112,12 @@ class TrackingState {
   /// banner.
   final TripRecoveryStatus recoveryStatus;
 
+  /// Set when the just-ended trip was shorter than the user's minimum
+  /// trip length and was discarded instead of saved — the distance
+  /// (km) it reached, so the page can toast "Trip too short (0.2 km)".
+  /// Cleared the same way as [completedTripId].
+  final double? discardedTripDistanceKm;
+
   bool get isRecording =>
       phase == TrackingPhase.active || phase == TrackingPhase.paused;
 
@@ -121,8 +129,10 @@ class TrackingState {
     bool? shouldShowPaywall,
     String? errorMessage,
     TripRecoveryStatus? recoveryStatus,
+    double? discardedTripDistanceKm,
     bool clearCompletedTripId = false,
     bool clearError = false,
+    bool clearDiscardedShortTrip = false,
   }) {
     return TrackingState(
       phase: phase ?? this.phase,
@@ -134,6 +144,9 @@ class TrackingState {
       shouldShowPaywall: shouldShowPaywall ?? this.shouldShowPaywall,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       recoveryStatus: recoveryStatus ?? this.recoveryStatus,
+      discardedTripDistanceKm: clearDiscardedShortTrip
+          ? null
+          : (discardedTripDistanceKm ?? this.discardedTripDistanceKm),
     );
   }
 }

@@ -87,6 +87,7 @@ class GpsService {
           speedKmh: 0,
           accuracyMeters: cached.accuracy,
           timestamp: cached.timestamp,
+          altitudeMeters: _reliableAltitude(cached),
         ),
       );
     } catch (_) {
@@ -176,8 +177,22 @@ class GpsService {
         speedKmh: speedKmh,
         accuracyMeters: p.accuracy,
         timestamp: p.timestamp,
+        altitudeMeters: _reliableAltitude(p),
       ),
     );
+  }
+
+  /// Returns `p.altitude`, or null when the fix's reported vertical
+  /// accuracy is too poor to trust — `Position.altitude` is a
+  /// non-nullable double that reads 0.0 on fixes with no real
+  /// altitude solution (indoors, no barometer, weak sky view), which
+  /// is indistinguishable from a genuine sea-level reading unless we
+  /// gate on `altitudeAccuracy`.
+  double? _reliableAltitude(Position p) {
+    final accuracy = p.altitudeAccuracy;
+    if (!accuracy.isFinite || accuracy < 0) return null;
+    if (accuracy > AppConstants.maxReliableAltitudeAccuracyMeters) return null;
+    return p.altitude;
   }
 
   /// Filters out the two flavours of GPS noise that make the live speed

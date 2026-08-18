@@ -18,6 +18,15 @@ class Trips extends Table {
 
   IntColumn get durationSeconds => integer()();
   IntColumn get stoppedSeconds => integer().withDefault(const Constant(0))();
+  IntColumn get stopCount => integer().withDefault(const Constant(0))();
+
+  /// Sum of positive altitude deltas between consecutive waypoints.
+  /// Null when the trip has no reliable altitude samples.
+  RealColumn get elevationGainMeters => real().nullable()();
+
+  /// Highest altitude reached during the trip. Null when the trip has
+  /// no reliable altitude samples.
+  RealColumn get maxElevationMeters => real().nullable()();
 
   RealColumn get maxGforce => real().withDefault(const Constant(0))();
   IntColumn get hardCornersCount => integer().withDefault(const Constant(0))();
@@ -39,6 +48,14 @@ class Trips extends Table {
 
   /// ISO 3166-1 alpha-2 country code where the trip occurred.
   TextColumn get country => text().nullable()();
+
+  /// Reverse-geocoded, human-readable place name for the trip's start
+  /// coordinates (e.g. "Bahawalpur District, Pakistan") — resolved
+  /// once on save via `GeocodingService` and cached here since it's an
+  /// on-device OS lookup, not free to redo on every card render. Null
+  /// when geocoding failed or was unavailable; the card footer falls
+  /// back to the date alone in that case, never a placeholder string.
+  TextColumn get locationName => text().nullable()();
 
   /// Comma-separated road-segment ids the trip's bounding box overlapped
   /// at save time (e.g. `nurburgring_nordschleife,m25_london`). Empty when

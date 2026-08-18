@@ -2,12 +2,15 @@ import 'dart:io' show Platform;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drive_rank/core/constants/app_colors.dart';
+import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
+import 'package:drive_rank/core/services/account_deletion_service.dart';
+import 'package:drive_rank/core/services/debug_seed_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart' show UnitSystem;
 import 'package:drive_rank/core/services/paywall_service.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
@@ -17,10 +20,12 @@ import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/services/car_photo_service.dart';
 import 'package:drive_rank/shared/widgets/car_silhouette.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart' show NumberFormat;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const String _kPlayStoreSubscriptionUrl =
@@ -30,6 +35,10 @@ const String _kAppleSubscriptionUrl =
     'https://apps.apple.com/account/subscriptions';
 const String _kPrivacyUrl =
     'https://doc-hosting.flycricket.io/drive-rank-privacy-policy/3a6ae044-e764-43cd-98f8-fd96a55555b0/privacy';
+
+/// Support inbox used by both Contact Us and Leave Feedback — same
+/// address, different pre-filled subject line.
+const String _kSupportEmail = 'basit.saleem13@gmail.com';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -144,6 +153,10 @@ class _Body extends StatelessWidget {
           ],
         ),
         _Section(
+          title: AppStrings.settingsPreferences,
+          children: [_MinTripLengthRow(settings: settings, repo: repo)],
+        ),
+        _Section(
           title: AppStrings.settingsFuel,
           children: [
             _FuelTypeRow(
@@ -234,13 +247,67 @@ class _Body extends StatelessWidget {
             ),
           ],
         ),
+        _Section(
+          title: AppStrings.settingsSupport,
+          children: [
+            _LinkRow(
+              label: AppStrings.settingsContactUs,
+              icon: Icons.mail_outline_rounded,
+              onTap: () => _openMailto(
+                context,
+                subject: AppStrings.settingsContactSubject,
+              ),
+            ),
+            _LinkRow(
+              label: AppStrings.settingsLeaveFeedback,
+              icon: Icons.chat_bubble_outline_rounded,
+              onTap: () => _openMailto(
+                context,
+                subject: AppStrings.settingsFeedbackSubject,
+              ),
+            ),
+          ],
+        ),
+        if (kDebugMode) ...[
+          _Section(
+            title: 'Developer',
+            children: [
+              _LinkRow(
+                label: 'Seed test trips + enable Pro',
+                icon: Icons.science_outlined,
+                onTap: () => _seedMockData(context),
+              ),
+              _LinkRow(
+                label: 'Reset to free tier',
+                icon: Icons.restart_alt_rounded,
+                onTap: () => _resetFreeTier(context),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 12),
+        const _AppVersionLabel(),
+        const SizedBox(height: 4),
         _DestructiveAction(
           label: AppStrings.profileDeleteAccount,
           onTap: () => _confirmDelete(context, repo, settings),
         ),
       ],
     );
+  }
+
+  Future<void> _openMailto(BuildContext context, {required String subject}) async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: _kSupportEmail,
+      query: 'subject=${Uri.encodeComponent(subject)}',
+    );
+    final ok = await launchUrl(uri);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't open your email app.")),
+      );
+    }
   }
 
   /// Deep-link into the platform's subscription management page. We
@@ -317,14 +384,39 @@ class _Body extends StatelessWidget {
         ],
       ),
     );
-    if (ok ?? false) {
-      // Session 5 (auth) owns the real teardown — for now we reset
-      // onboarding so the user lands back at the start of the flow.
-      await repo.patch(
-        const UserSettingsCompanion(onboardingComplete: Value(false)),
-      );
+    if (!(ok ?? false)) return;
+    try {
+      await getIt<AccountDeletionService>().deleteEverything();
       if (context.mounted) context.go(RouteNames.splash);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(AppStrings.settingsAccountDeletionFailed),
+          ),
+        );
+      }
     }
+  }
+
+  /// Debug-only test-data button. `DebugSeedService` itself also
+  /// checks `kDebugMode` and no-ops in release, so this is doubly
+  /// guarded — but the button is only ever built inside the
+  /// `if (kDebugMode)` block above regardless.
+  Future<void> _seedMockData(BuildContext context) async {
+    final count = await getIt<DebugSeedService>().seedMockTrips();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Seeded $count test trips + enabled Pro.')),
+    );
+  }
+
+  Future<void> _resetFreeTier(BuildContext context) async {
+    await getIt<DebugSeedService>().resetToFreeTier();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Back to free tier.')));
   }
 
   Future<Country?> _pickCountry(BuildContext context) async {
@@ -664,6 +756,161 @@ class _Segmented extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Minimum-trip-length input under Settings → Preferences. Stored in
+/// the DB as metres always; displayed/edited in the user's unit
+/// system (m or ft) so an imperial user isn't typing metric numbers.
+class _MinTripLengthRow extends StatefulWidget {
+  const _MinTripLengthRow({required this.settings, required this.repo});
+
+  final UserSettingsRow settings;
+  final UserSettingsRepository repo;
+
+  @override
+  State<_MinTripLengthRow> createState() => _MinTripLengthRowState();
+}
+
+class _MinTripLengthRowState extends State<_MinTripLengthRow> {
+  late final TextEditingController _controller;
+  bool _focused = false;
+
+  bool get _isImperial => widget.settings.unitSystem == 'imperial';
+  String get _unitLabel => _isImperial ? 'ft' : 'm';
+
+  double _toDisplay(double metres) =>
+      _isImperial ? metres * AppConstants.metresToFeet : metres;
+
+  double _toMetres(double display) =>
+      _isImperial ? display / AppConstants.metresToFeet : display;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: _displayText());
+  }
+
+  @override
+  void didUpdateWidget(covariant _MinTripLengthRow old) {
+    super.didUpdateWidget(old);
+    // External writes (e.g. the unit-system toggle) shouldn't fight a
+    // focused field — same guard as `_TextFieldRow`.
+    if (!_focused &&
+        (old.settings.minTripLengthMeters !=
+                widget.settings.minTripLengthMeters ||
+            old.settings.unitSystem != widget.settings.unitSystem)) {
+      _controller.text = _displayText();
+    }
+  }
+
+  String _displayText() =>
+      _toDisplay(widget.settings.minTripLengthMeters).round().toString();
+
+  void _commit() {
+    final parsed = double.tryParse(_controller.text);
+    if (parsed != null && parsed >= 0) {
+      widget.repo.setMinTripLengthMeters(_toMetres(parsed));
+    } else {
+      _controller.text = _displayText();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppColors.border)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  AppStrings.settingsMinTripLength,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 70,
+                child: Focus(
+                  onFocusChange: (f) {
+                    _focused = f;
+                    if (!f) _commit();
+                  },
+                  child: TextField(
+                    controller: _controller,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.right,
+                    onSubmitted: (_) => _commit(),
+                    style: const TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      suffixText: _unitLabel,
+                      suffixStyle: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                      border: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      isCollapsed: true,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+          child: Text(
+            AppStrings.settingsMinTripLengthSub,
+            style: AppTextStyles.microLabel.copyWith(fontSize: 10),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// App version + build number in Settings, sourced from the platform
+/// package manifest — never hand-maintained, so it can't drift from
+/// what's actually installed.
+class _AppVersionLabel extends StatelessWidget {
+  const _AppVersionLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snap) {
+        final info = snap.data;
+        if (info == null) return const SizedBox.shrink();
+        return Center(
+          child: Text(
+            '${AppStrings.settingsAppVersionLabel} ${info.version} '
+            '(${info.buildNumber})',
+            style: AppTextStyles.microLabel.copyWith(fontSize: 10),
+          ),
+        );
+      },
     );
   }
 }

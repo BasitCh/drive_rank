@@ -125,6 +125,16 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   int _cornerSustainedSamples = 0;
   DateTime? _lastCornerAt;
 
+  // Stopped-time / stop-count tracking (see AppConstants.stopMinDurationSeconds).
+  // `_stopRunStartedAt` is when the current contiguous zero-speed run
+  // began; `_stopRunCommittedSeconds` is how much of that run has
+  // already been folded into `stats.stoppedSeconds` (0 until the run
+  // crosses the 30s threshold, then grows every subsequent zero-speed
+  // sample so a long stop doesn't have to end before it's counted).
+  DateTime? _stopRunStartedAt;
+  int _stopRunCommittedSeconds = 0;
+  bool _stopRunCounted = false;
+
   // ---------- crash-recovery ----------
 
   /// Fired once at bloc construction. If the [ActiveTripStore] has a
@@ -161,6 +171,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _inHardBrake = false;
     _cornerSustainedSamples = 0;
     _lastCornerAt = null;
+    _stopRunStartedAt = null;
+    _stopRunCommittedSeconds = 0;
+    _stopRunCounted = false;
     // After a process kill the GPS stream is dead — we must not pretend
     // we're still streaming. Restore as `paused` so the surface shows
     // accumulated stats + a Resume button. The first post-resume point
@@ -228,6 +241,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _inHardBrake = false;
     _cornerSustainedSamples = 0;
     _lastCornerAt = null;
+    _stopRunStartedAt = null;
+    _stopRunCommittedSeconds = 0;
+    _stopRunCounted = false;
     // A fresh trip means any leftover crash-recovery snapshot from a
     // prior session is stale — wipe it before we begin streaming.
     unawaited(_activeTrip.clear());
@@ -237,6 +253,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         stats: LiveTripStats.initial(),
         clearCompletedTripId: true,
         clearError: true,
+        clearDiscardedShortTrip: true,
         shouldShowPaywall: false,
       ),
     );
@@ -348,6 +365,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _inHardBrake = false;
     _cornerSustainedSamples = 0;
     _lastCornerAt = null;
+    _stopRunStartedAt = null;
+    _stopRunCommittedSeconds = 0;
+    _stopRunCounted = false;
     emit(
       state.copyWith(
         phase: TrackingPhase.paused,
@@ -475,6 +495,25 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
 
     try {
       final settings = await _settings.read();
+
+      // Trips shorter than the user's configured minimum are discarded,
+      // not saved — a mis-tap Start→End shouldn't clutter history.
+      if (state.stats.distanceKm * 1000 < settings.minTripLengthMeters) {
+        final discardedDistanceKm = state.stats.distanceKm;
+        _startedAt = null;
+        unawaited(_activeTrip.clear());
+        unawaited(_notification.dismiss());
+        emit(
+          state.copyWith(
+            phase: TrackingPhase.idle,
+            stats: LiveTripStats.initial(),
+            clearCompletedTripId: true,
+            discardedTripDistanceKm: discardedDistanceKm,
+          ),
+        );
+        return;
+      }
+
       final detected = await _segments.detectFromTrip(state.stats.points);
 
       // Snapshot the pre-trip bests before saving — needed to tell
@@ -703,14 +742,43 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     // count, but DON'T touch the polyline / distance / lastPoint. GPS
     // drift around a parked car shouldn't pile up as fake travel.
     if (p.speedKmh == 0) {
+      var stoppedSeconds = prev.stoppedSeconds;
+      var stopCount = prev.stopCount;
+      if (_stopRunStartedAt == null) {
+        // First zero-speed sample of a new run — nothing committed yet.
+        _stopRunStartedAt = p.timestamp;
+        _stopRunCommittedSeconds = 0;
+        _stopRunCounted = false;
+      } else {
+        final elapsed = p.timestamp
+            .difference(_stopRunStartedAt!)
+            .inSeconds;
+        if (elapsed >= AppConstants.stopMinDurationSeconds) {
+          if (!_stopRunCounted) {
+            stopCount += 1;
+            _stopRunCounted = true;
+          }
+          stoppedSeconds += elapsed - _stopRunCommittedSeconds;
+          _stopRunCommittedSeconds = elapsed;
+        }
+      }
       emit(
         state.copyWith(
-          stats: prev.copyWith(currentSpeedKmh: 0, hardBrakesCount: hardBrakes),
+          stats: prev.copyWith(
+            currentSpeedKmh: 0,
+            hardBrakesCount: hardBrakes,
+            stoppedSeconds: stoppedSeconds,
+            stopCount: stopCount,
+          ),
         ),
       );
       _persistSummary();
       return;
     }
+    // Moving again — end whatever stop run was in progress.
+    _stopRunStartedAt = null;
+    _stopRunCommittedSeconds = 0;
+    _stopRunCounted = false;
 
     final wasFirstFix = prev.lastPoint == null;
     // After a resume, drop the very first distance delta — the user

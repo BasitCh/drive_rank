@@ -164,6 +164,22 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
             if (state.phase == TrackingPhase.active && context.mounted) {
               await _maybeShowOemAdvice(context);
             }
+            // Trip ended under the user's minimum length → discarded,
+            // not saved. Toast instead of silently vanishing.
+            if (state.phase == TrackingPhase.idle &&
+                state.discardedTripDistanceKm != null &&
+                context.mounted) {
+              final locale = getIt<LocaleService>();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    AppStrings.trackingTripTooShort(
+                      locale.formatDistance(state.discardedTripDistanceKm!),
+                    ),
+                  ),
+                ),
+              );
+            }
           },
           builder: (context, state) {
             return switch (state.phase) {
@@ -567,6 +583,23 @@ class _ActiveSurface extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.xs),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: MiniStat(
+                            value: stats.lastPoint?.altitudeMeters != null
+                                ? locale.formatElevation(
+                                    stats.lastPoint!.altitudeMeters!,
+                                  )
+                                : AppStrings.trackingAltitudeUnavailable,
+                            label: AppStrings.trackingAltitude,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

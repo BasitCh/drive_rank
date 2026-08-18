@@ -17,6 +17,7 @@ class TripSummaryState {
     required this.distanceGoalKm,
     required this.bestTopSpeedKmh,
     required this.bestDistanceKm,
+    this.isTransparent = false,
   });
 
   factory TripSummaryState.initial() => const TripSummaryState(
@@ -30,6 +31,7 @@ class TripSummaryState {
     distanceGoalKm: null,
     bestTopSpeedKmh: null,
     bestDistanceKm: null,
+    isTransparent: false,
   );
 
   final TripSummaryStatus status;
@@ -51,6 +53,10 @@ class TripSummaryState {
   final double? bestTopSpeedKmh;
   final double? bestDistanceKm;
 
+  /// Whether the shareable stat card exports with a transparent
+  /// background (for Instagram Stories overlays).
+  final bool isTransparent;
+
   TripSummaryState copyWith({
     TripSummaryStatus? status,
     TripRow? trip,
@@ -62,6 +68,7 @@ class TripSummaryState {
     double? distanceGoalKm,
     double? bestTopSpeedKmh,
     double? bestDistanceKm,
+    bool? isTransparent,
   }) {
     return TripSummaryState(
       status: status ?? this.status,
@@ -74,6 +81,7 @@ class TripSummaryState {
       distanceGoalKm: distanceGoalKm ?? this.distanceGoalKm,
       bestTopSpeedKmh: bestTopSpeedKmh ?? this.bestTopSpeedKmh,
       bestDistanceKm: bestDistanceKm ?? this.bestDistanceKm,
+      isTransparent: isTransparent ?? this.isTransparent,
     );
   }
 }

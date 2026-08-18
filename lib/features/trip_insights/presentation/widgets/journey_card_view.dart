@@ -48,7 +48,7 @@ class JourneyCardView extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               child: AspectRatio(
                 aspectRatio: 0.88,
-                child: JourneyMap(bundle: bundle),
+                child: JourneyMap(bundle: bundle, locale: locale),
               ),
             ),
             const SizedBox(height: AppSpacing.md),

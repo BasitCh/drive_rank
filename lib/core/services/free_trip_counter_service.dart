@@ -74,4 +74,22 @@ class FreeTripCounterService {
       return false;
     }
   }
+
+  /// Deletes this device's `device_trials/{hash}` doc — part of
+  /// account deletion's data-teardown obligation. Trade-off: since the
+  /// counter is keyed by device, not account, this also resets the
+  /// anti-abuse free-trial counter for this physical device. Accepted
+  /// as the correct default — "delete my account" means delete what
+  /// we hold about this install, and the same reset is already
+  /// achievable today by uninstalling on iOS (fresh
+  /// `identifierForVendor`).
+  Future<void> deleteRemote() async {
+    final hash = await _identity.deviceIdHash();
+    if (hash == null) return;
+    try {
+      await _firestore.collection(_collection).doc(hash).delete();
+    } catch (e) {
+      if (kDebugMode) debugPrint('[FreeTripCounter] delete failed: $e');
+    }
+  }
 }

@@ -53,6 +53,12 @@ abstract class AuthService {
 
   Future<SignInResult> signInWithGoogle();
   Future<void> signOut();
+
+  /// Permanently deletes the remote account (Google Play "Delete my
+  /// account" requirement). Best-effort — implementations should not
+  /// throw on failure so local data teardown can still proceed; the
+  /// caller decides how to surface a partial failure.
+  Future<void> deleteAccount();
 }
 
 /// Default implementation — every install gets a stable local UID. No
@@ -84,5 +90,10 @@ class AnonymousAuthService implements AuthService {
   @override
   Future<void> signOut() async {
     // No-op for the anonymous service.
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    // No-op — there's no remote account to delete without Firebase.
   }
 }

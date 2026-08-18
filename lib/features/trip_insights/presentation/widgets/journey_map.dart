@@ -2,14 +2,23 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/insights_bundle.dart';
+import 'package:drive_rank/features/trip_insights/domain/entities/replay_point.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_bucket.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 /// Dark-themed map with the speed-coloured polyline + explicit START /
-/// END markers. Fills the Journey card's vertical real estate per
-/// spec (~70 % of the card).
+/// END markers, plus an animated route replay: play/pause, a
+/// draggable scrub bar, a 1x/2x/3x speed multiplier, live speed /
+/// distance / elapsed-time counters, a "TOP SPEED" badge once the
+/// marker passes the trip's fastest waypoint, and a re-centre button
+/// once the user pans away. Fills the Journey card's vertical real
+/// estate per spec (~70 % of the card).
+///
+/// Replay is disabled entirely below 20 waypoints
+/// (`InsightsBundle.replayEligible`) — a couple of jerky hops isn't a
+/// route story, so the controls just don't render.
 ///
 /// Basemap: CartoDB Dark Matter tiles — pre-rendered dark style with
 /// legible white labels. Earlier versions filtered OSM Carto-light at
@@ -19,9 +28,10 @@ import 'package:latlong2/latlong.dart';
 /// Attribution rendered bottom-right via flutter_map's
 /// `RichAttributionWidget`.
 class JourneyMap extends StatefulWidget {
-  const JourneyMap({required this.bundle, super.key});
+  const JourneyMap({required this.bundle, required this.locale, super.key});
 
   final InsightsBundle bundle;
+  final LocaleService locale;
 
   @override
   State<JourneyMap> createState() => _JourneyMapState();
@@ -30,24 +40,36 @@ class JourneyMap extends StatefulWidget {
 class _JourneyMapState extends State<JourneyMap>
     with SingleTickerProviderStateMixin {
   late final AnimationController _replayController;
+  final MapController _mapController = MapController();
   late List<LatLng> _routePoints;
+  late int _topSpeedIndex;
+  int _speedMultiplier = 1;
+  bool _hasPannedAway = false;
+  LatLngBounds? _bounds;
+
+  /// Full-route replay duration at 1x — tuned for a satisfying watch
+  /// without dragging on a long trip. Scaled down by the multiplier.
+  static const int _baseDurationMs = 12000;
 
   @override
   void initState() {
     super.initState();
     _replayController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2400),
+      duration: _durationForMultiplier(1),
     );
-    _routePoints = _flattenPoints(widget.bundle);
+    _routePoints = _positionsOf(widget.bundle);
+    _topSpeedIndex = _topSpeedIndexOf(widget.bundle);
   }
 
   @override
   void didUpdateWidget(covariant JourneyMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.bundle != widget.bundle) {
-      _routePoints = _flattenPoints(widget.bundle);
+      _routePoints = _positionsOf(widget.bundle);
+      _topSpeedIndex = _topSpeedIndexOf(widget.bundle);
       _replayController.reset();
+      _hasPannedAway = false;
     }
   }
 
@@ -57,9 +79,47 @@ class _JourneyMapState extends State<JourneyMap>
     super.dispose();
   }
 
-  void _replay() {
-    if (_routePoints.length < 2) return;
-    _replayController.forward(from: 0);
+  Duration _durationForMultiplier(int multiplier) =>
+      Duration(milliseconds: (_baseDurationMs / multiplier).round());
+
+  List<LatLng> _positionsOf(InsightsBundle bundle) =>
+      [for (final p in bundle.replayPoints) p.position];
+
+  int _topSpeedIndexOf(InsightsBundle bundle) {
+    final points = bundle.replayPoints;
+    if (points.isEmpty) return -1;
+    var best = 0;
+    for (var i = 1; i < points.length; i++) {
+      if (points[i].speedKmh > points[best].speedKmh) best = i;
+    }
+    return best;
+  }
+
+  bool get _canReplay =>
+      widget.bundle.replayEligible && _routePoints.length > 1;
+
+  void _togglePlayback() {
+    if (!_canReplay) return;
+    if (_replayController.isAnimating) {
+      _replayController.stop();
+      return;
+    }
+    if (_replayController.value >= 1) {
+      _replayController.forward(from: 0);
+    } else {
+      _replayController.forward();
+    }
+  }
+
+  void _setMultiplier(int multiplier) {
+    if (multiplier == _speedMultiplier) return;
+    final wasAnimating = _replayController.isAnimating;
+    final current = _replayController.value;
+    setState(() => _speedMultiplier = multiplier);
+    _replayController.duration = _durationForMultiplier(multiplier);
+    if (wasAnimating) {
+      _replayController.forward(from: current);
+    }
   }
 
   /// Points revealed by the current replay progress. Keyed off point
@@ -67,19 +127,28 @@ class _JourneyMapState extends State<JourneyMap>
   /// a roughly fixed sampling interval, so index position already
   /// tracks elapsed trip time (a highway segment isn't sampled any
   /// denser than a slow one), which is what a "replay" should follow.
-  List<LatLng> _revealedPoints(double progress) {
-    if (_routePoints.length < 2) return _routePoints;
-    final count = (_routePoints.length * progress).ceil().clamp(
+  int _revealedCount(double progress) {
+    if (_routePoints.length < 2) return _routePoints.length;
+    return (_routePoints.length * progress).ceil().clamp(
       1,
       _routePoints.length,
     );
-    return _routePoints.sublist(0, count);
+  }
+
+  void _recentre() {
+    final bounds = _bounds;
+    if (bounds == null) return;
+    _mapController.fitCamera(
+      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(28)),
+    );
+    setState(() => _hasPannedAway = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final bundle = widget.bundle;
-    final bounds = _boundsForSegments(bundle);
+    _bounds = _boundsForSegments(bundle);
+    final bounds = _bounds;
     final centre = bounds != null
         ? LatLng(
             (bounds.north + bounds.south) / 2,
@@ -88,6 +157,7 @@ class _JourneyMapState extends State<JourneyMap>
         : const LatLng(0, 0);
     final start = _firstPoint(bundle);
     final end = _lastPoint(bundle);
+    final canReplay = _canReplay;
     // Dark backdrop behind the map. FlutterMap paints on top of whatever
     // its parent provides — before OSM tiles land on a slow connection
     // the map area was flashing bright white against our dark card
@@ -102,11 +172,12 @@ class _JourneyMapState extends State<JourneyMap>
             animation: _replayController,
             builder: (context, _) {
               final progress = _replayController.value;
-              final isReplaying = progress > 0 && progress < 1;
+              final isReplaying = canReplay && progress > 0 && progress < 1;
               final revealed = isReplaying
-                  ? _revealedPoints(progress)
+                  ? _routePoints.sublist(0, _revealedCount(progress))
                   : const <LatLng>[];
               return FlutterMap(
+                mapController: _mapController,
                 options: MapOptions(
                   initialCenter: centre,
                   initialZoom: 12,
@@ -116,6 +187,11 @@ class _JourneyMapState extends State<JourneyMap>
                           bounds: bounds,
                           padding: const EdgeInsets.all(28),
                         ),
+                  onPositionChanged: (position, hasGesture) {
+                    if (hasGesture && !_hasPannedAway) {
+                      setState(() => _hasPannedAway = true);
+                    }
+                  },
                   interactionOptions: const InteractionOptions(
                     // Drag + pinch only — no rotation / doubletap. The
                     // user can reframe before screenshotting but
@@ -220,11 +296,67 @@ class _JourneyMapState extends State<JourneyMap>
               );
             },
           ),
-          if (_routePoints.length > 1)
+          if (canReplay)
+            Positioned(
+              left: AppSpacing.md,
+              top: AppSpacing.md,
+              child: AnimatedBuilder(
+                animation: _replayController,
+                builder: (context, _) {
+                  final revealedCount = _revealedCount(
+                    _replayController.value,
+                  );
+                  final idx = (revealedCount - 1).clamp(
+                    0,
+                    bundle.replayPoints.length - 1,
+                  );
+                  final point = bundle.replayPoints[idx];
+                  final passedTopSpeed =
+                      _topSpeedIndex >= 0 &&
+                      revealedCount - 1 >= _topSpeedIndex;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _LiveStatsPill(locale: widget.locale, point: point),
+                      if (passedTopSpeed) ...[
+                        const SizedBox(height: 6),
+                        _TopSpeedBadge(
+                          locale: widget.locale,
+                          speedKmh: bundle.replayPoints[_topSpeedIndex].speedKmh,
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+          if (_hasPannedAway)
             Positioned(
               right: AppSpacing.md,
+              top: AppSpacing.md,
+              child: _RecentreButton(onTap: _recentre),
+            ),
+          if (canReplay)
+            Positioned(
+              left: AppSpacing.md,
+              right: AppSpacing.md,
               bottom: AppSpacing.md,
-              child: _ReplayButton(onTap: _replay),
+              child: AnimatedBuilder(
+                animation: _replayController,
+                builder: (context, _) {
+                  return _ReplayControlBar(
+                    isPlaying: _replayController.isAnimating,
+                    progress: _replayController.value,
+                    speedMultiplier: _speedMultiplier,
+                    onTogglePlay: _togglePlayback,
+                    onMultiplierSelected: _setMultiplier,
+                    onScrubStart: () => _replayController.stop(),
+                    onScrubChanged: (v) =>
+                        setState(() => _replayController.value = v),
+                  );
+                },
+              ),
             ),
         ],
       ),
@@ -235,10 +367,6 @@ class _JourneyMapState extends State<JourneyMap>
   /// card so the "loading" surface reads as its own region under the
   /// tiles rather than blending with the card background.
   static const Color _mapBackdrop = Color(0xFF0D0D12);
-
-  List<LatLng> _flattenPoints(InsightsBundle bundle) {
-    return [for (final s in bundle.segments) ...s.points];
-  }
 
   LatLngBounds? _boundsForSegments(InsightsBundle bundle) {
     if (bundle.segments.isEmpty) return null;
@@ -284,15 +412,228 @@ class _ReplayPuck extends StatelessWidget {
   }
 }
 
-/// Circular "replay route" trigger, bottom-right of the map — dark
-/// translucent so it reads as part of the map chrome (same idiom as
-/// [_EndpointMarker]'s pill) rather than a floating app button.
-class _ReplayButton extends StatelessWidget {
-  const _ReplayButton({required this.onTap});
+/// Bottom control strip for the replay: play/pause, a draggable scrub
+/// bar, and a 1x/2x/3x speed multiplier — one translucent bar so the
+/// controls read as map chrome rather than floating app UI.
+class _ReplayControlBar extends StatelessWidget {
+  const _ReplayControlBar({
+    required this.isPlaying,
+    required this.progress,
+    required this.speedMultiplier,
+    required this.onTogglePlay,
+    required this.onMultiplierSelected,
+    required this.onScrubStart,
+    required this.onScrubChanged,
+  });
+
+  final bool isPlaying;
+  final double progress;
+  final int speedMultiplier;
+  final VoidCallback onTogglePlay;
+  final ValueChanged<int> onMultiplierSelected;
+  final VoidCallback onScrubStart;
+  final ValueChanged<double> onScrubChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.bg.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: AppColors.border2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _PlayPauseButton(isPlaying: isPlaying, onTap: onTogglePlay),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 2,
+                thumbShape: const RoundSliderThumbShape(
+                  enabledThumbRadius: 6,
+                ),
+                overlayShape: SliderComponentShape.noOverlay,
+                activeTrackColor: AppColors.teal,
+                inactiveTrackColor: AppColors.border2,
+                thumbColor: AppColors.teal,
+              ),
+              child: Slider(
+                value: progress.clamp(0, 1),
+                onChangeStart: (_) => onScrubStart(),
+                onChanged: onScrubChanged,
+              ),
+            ),
+          ),
+          for (final m in const [1, 2, 3])
+            _MultiplierChip(
+              multiplier: m,
+              isSelected: m == speedMultiplier,
+              onTap: () => onMultiplierSelected(m),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlayPauseButton extends StatelessWidget {
+  const _PlayPauseButton({required this.isPlaying, required this.onTap});
+
+  final bool isPlaying;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MultiplierChip extends StatelessWidget {
+  const _MultiplierChip({
+    required this.multiplier,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final int multiplier;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isSelected ? AppColors.teal : Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Text(
+            '${multiplier}x',
+            style: TextStyle(
+              fontFamily: 'JetBrainsMono',
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: isSelected ? AppColors.bg : AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Live speed / distance / elapsed-time readout that steps through the
+/// replay's [ReplayPoint] series.
+class _LiveStatsPill extends StatelessWidget {
+  const _LiveStatsPill({required this.locale, required this.point});
+
+  final LocaleService locale;
+  final ReplayPoint point;
+
+  @override
+  Widget build(BuildContext context) {
+    final minutes = point.secondsFromStart ~/ 60;
+    final seconds = point.secondsFromStart % 60;
+    final elapsed =
+        '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.bg.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            locale.formatSpeed(point.speedKmh),
+            style: const TextStyle(
+              fontFamily: 'JetBrainsMono',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.teal,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${locale.formatDistance(point.cumulativeDistanceKm)} · $elapsed',
+            style: const TextStyle(
+              fontFamily: 'JetBrainsMono',
+              fontSize: 9,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Badge that appears once the replay marker passes the trip's
+/// fastest recorded waypoint.
+class _TopSpeedBadge extends StatelessWidget {
+  const _TopSpeedBadge({required this.locale, required this.speedKmh});
+
+  final LocaleService locale;
+  final double speedKmh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.orange.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.orange.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        'TOP SPEED ${locale.formatSpeed(speedKmh)}',
+        style: const TextStyle(
+          fontFamily: 'Outfit',
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: AppColors.orange,
+        ),
+      ),
+    );
+  }
+}
+
+/// Appears once the user pans/zooms away from the trip's framed
+/// bounds — snaps the camera back.
+class _RecentreButton extends StatelessWidget {
+  const _RecentreButton({required this.onTap});
 
   final VoidCallback onTap;
 
-  static const double _size = 40;
+  static const double _size = 36;
 
   @override
   Widget build(BuildContext context) {
@@ -318,9 +659,9 @@ class _ReplayButton extends StatelessWidget {
             ],
           ),
           child: const Icon(
-            Icons.play_arrow_rounded,
+            Icons.my_location_rounded,
             color: Colors.white,
-            size: 22,
+            size: 16,
           ),
         ),
       ),
