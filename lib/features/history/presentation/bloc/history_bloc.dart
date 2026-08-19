@@ -118,9 +118,20 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
     emit(state.copyWith(freeTripsUsed: settings.freeTripsUsed));
     await emit.forEach<List<TripRow>>(
       _trips.watchAll(uid: settings.uid),
-      onData: (rows) => state.copyWith(isLoading: false, allTrips: rows),
+      onData: (rows) =>
+          state.copyWith(isLoading: false, allTrips: _dropNoMovement(rows)),
     );
   }
+
+  /// Drops trips where both distance and top speed are effectively
+  /// zero — GPS never registered real movement (a false start, a fix
+  /// lost immediately after pressing record), so there's nothing to
+  /// show. `minTripLengthMeters` stops new trips like this from ever
+  /// saving, but it doesn't retroactively touch rows saved before that
+  /// setting existed — this filters those out of the list without
+  /// deleting the underlying data.
+  List<TripRow> _dropNoMovement(List<TripRow> rows) =>
+      rows.where((t) => t.distanceKm > 0.01 || t.topSpeedKmh > 0.5).toList();
 
   void _onFilter(HistoryFilterChanged event, Emitter<HistoryState> emit) {
     emit(state.copyWith(filter: event.filter));
@@ -135,6 +146,11 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
   }
 
   void _onRows(_HistoryRowsReceived event, Emitter<HistoryState> emit) {
-    emit(state.copyWith(allTrips: event.rows, isLoading: false));
+    emit(
+      state.copyWith(
+        allTrips: _dropNoMovement(event.rows),
+        isLoading: false,
+      ),
+    );
   }
 }

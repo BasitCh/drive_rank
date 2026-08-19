@@ -33,6 +33,7 @@ class InsightsBundle {
     required this.elevationEligible,
     required this.replayPoints,
     required this.replayEligible,
+    required this.zeroToHundredSeconds,
   });
 
   final TripRow trip;
@@ -85,4 +86,8 @@ class InsightsBundle {
   /// False below 20 waypoints — replay is disabled entirely rather
   /// than showing a couple of jerky hops.
   final bool replayEligible;
+
+  /// Fastest 0→100 km/h (≈0→60 mph) run, or null if the trip never
+  /// reached it.
+  final double? zeroToHundredSeconds;
 }

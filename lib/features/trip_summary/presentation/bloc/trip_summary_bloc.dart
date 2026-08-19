@@ -1,6 +1,7 @@
 import 'package:drive_rank/core/services/card_export_service.dart';
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_event.dart';
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_state.dart';
+import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter/widgets.dart';
@@ -29,6 +30,12 @@ class TripSummaryBloc extends Bloc<TripSummaryEvent, TripSummaryState> {
   /// The trip-summary page passes this key into the stat card's
   /// `RepaintBoundary`. The bloc grabs it for export.
   final GlobalKey cardBoundaryKey = GlobalKey();
+
+  /// Boundary around the Speed Over Time chart card — shared alongside
+  /// the stat card as a second image. Left uncaptured (silently
+  /// skipped by the exporter) when the chart is hidden for a
+  /// too-short trip.
+  final GlobalKey chartBoundaryKey = GlobalKey();
 
   Future<void> _onLoaded(
     TripSummaryLoaded event,
@@ -63,6 +70,7 @@ class TripSummaryBloc extends Bloc<TripSummaryEvent, TripSummaryState> {
         distanceGoalKm: settings.distanceGoalKm,
         bestTopSpeedKmh: bestSpeed?.topSpeedKmh,
         bestDistanceKm: bestDistance?.distanceKm,
+        vehicleType: VehicleType.fromId(settings.vehicleType),
       ),
     );
   }
@@ -74,7 +82,10 @@ class TripSummaryBloc extends Bloc<TripSummaryEvent, TripSummaryState> {
     if (state.isSharing) return;
     emit(state.copyWith(isSharing: true));
     try {
-      await _exporter.captureAndShare(cardBoundaryKey);
+      await _exporter.captureMultipleAndShare([
+        cardBoundaryKey,
+        chartBoundaryKey,
+      ]);
     } finally {
       if (!isClosed) emit(state.copyWith(isSharing: false));
     }

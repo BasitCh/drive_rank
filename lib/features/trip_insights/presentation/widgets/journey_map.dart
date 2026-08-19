@@ -4,6 +4,7 @@ import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/insights_bundle.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/replay_point.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_bucket.dart';
+import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -11,10 +12,12 @@ import 'package:latlong2/latlong.dart';
 /// Dark-themed map with the speed-coloured polyline + explicit START /
 /// END markers, plus an animated route replay: play/pause, a
 /// draggable scrub bar, a 1x/2x/3x speed multiplier, live speed /
-/// distance / elapsed-time counters, a "TOP SPEED" badge once the
-/// marker passes the trip's fastest waypoint, and a re-centre button
-/// once the user pans away. Fills the Journey card's vertical real
-/// estate per spec (~70 % of the card).
+/// distance / elapsed-time counters, a pulsing radar marker at the
+/// trip's fastest waypoint with a "TOP SPEED" popover once the replay
+/// vehicle reaches it, and a re-centre button once the user pans away.
+/// The moving marker itself renders the user's selected vehicle glyph
+/// (car or motorbike) rather than a plain dot. Fills the Journey
+/// card's vertical real estate per spec (~70 % of the card).
 ///
 /// Replay is disabled entirely below 20 waypoints
 /// (`InsightsBundle.replayEligible`) — a couple of jerky hops isn't a
@@ -28,24 +31,57 @@ import 'package:latlong2/latlong.dart';
 /// Attribution rendered bottom-right via flutter_map's
 /// `RichAttributionWidget`.
 class JourneyMap extends StatefulWidget {
-  const JourneyMap({required this.bundle, required this.locale, super.key});
+  const JourneyMap({
+    required this.bundle,
+    required this.locale,
+    this.showControls = true,
+    this.vehicleType = VehicleType.car,
+    super.key,
+  });
 
   final InsightsBundle bundle;
   final LocaleService locale;
+
+  /// When false, renders the route/tiles/markers only — no play/pause,
+  /// scrub bar, multiplier, live-stats overlay, or TOP SPEED badge.
+  /// Used for the trip detail page's collapsible map preview, where a
+  /// separate "Play" button opens the full replay on its own screen
+  /// instead of animating in place. Panning/re-centring still works
+  /// either way.
+  final bool showControls;
+
+  /// The user's selected vehicle (Settings) — the replay marker shows
+  /// this vehicle's glyph instead of a plain dot.
+  final VehicleType vehicleType;
 
   @override
   State<JourneyMap> createState() => _JourneyMapState();
 }
 
 class _JourneyMapState extends State<JourneyMap>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _replayController;
+
+  /// Drives the continuous "radar ping" ring around the trip's top
+  /// speed point — a standing affordance marking where it happened,
+  /// independent of playback state.
+  late final AnimationController _pulseController;
   final MapController _mapController = MapController();
   late List<LatLng> _routePoints;
   late int _topSpeedIndex;
   int _speedMultiplier = 1;
   bool _hasPannedAway = false;
   LatLngBounds? _bounds;
+
+  /// The live stats row (Speed / Distance / Time) only refreshes this
+  /// often, regardless of frame rate — the replay covers a whole trip
+  /// in ~12 real seconds, so re-deriving the readout every animation
+  /// frame made the numbers flicker past unreadably fast. The marker
+  /// and route reveal stay perfectly smooth; only the digits are
+  /// sampled down to a human-readable cadence.
+  static const Duration _statsRefreshInterval = Duration(milliseconds: 180);
+  int? _displayedStatsIndex;
+  DateTime? _lastStatsRefresh;
 
   /// Full-route replay duration at 1x — tuned for a satisfying watch
   /// without dragging on a long trip. Scaled down by the multiplier.
@@ -58,6 +94,10 @@ class _JourneyMapState extends State<JourneyMap>
       vsync: this,
       duration: _durationForMultiplier(1),
     );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat();
     _routePoints = _positionsOf(widget.bundle);
     _topSpeedIndex = _topSpeedIndexOf(widget.bundle);
   }
@@ -70,12 +110,15 @@ class _JourneyMapState extends State<JourneyMap>
       _topSpeedIndex = _topSpeedIndexOf(widget.bundle);
       _replayController.reset();
       _hasPannedAway = false;
+      _displayedStatsIndex = null;
+      _lastStatsRefresh = null;
     }
   }
 
   @override
   void dispose() {
     _replayController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -96,7 +139,9 @@ class _JourneyMapState extends State<JourneyMap>
   }
 
   bool get _canReplay =>
-      widget.bundle.replayEligible && _routePoints.length > 1;
+      widget.showControls &&
+      widget.bundle.replayEligible &&
+      _routePoints.length > 1;
 
   void _togglePlayback() {
     if (!_canReplay) return;
@@ -133,6 +178,26 @@ class _JourneyMapState extends State<JourneyMap>
       1,
       _routePoints.length,
     );
+  }
+
+  /// The replay-point index to *display* in the stats row right now —
+  /// sampled from the true (smooth, per-frame) progress at
+  /// [_statsRefreshInterval] so the digits update at a readable pace
+  /// instead of every frame. See the field doc for why.
+  int _statsDisplayIndex(InsightsBundle bundle) {
+    final progress = _replayController.value;
+    final revealedCount = _revealedCount(progress);
+    final rawIdx = (revealedCount - 1).clamp(0, bundle.replayPoints.length - 1);
+    final now = DateTime.now();
+    final due =
+        _displayedStatsIndex == null ||
+        _lastStatsRefresh == null ||
+        now.difference(_lastStatsRefresh!) >= _statsRefreshInterval;
+    if (progress <= 0 || progress >= 1 || due) {
+      _displayedStatsIndex = rawIdx;
+      _lastStatsRefresh = now;
+    }
+    return _displayedStatsIndex!.clamp(0, bundle.replayPoints.length - 1);
   }
 
   void _recentre() {
@@ -276,10 +341,55 @@ class _JourneyMapState extends State<JourneyMap>
                       markers: [
                         Marker(
                           point: revealed.last,
-                          width: 18,
-                          height: 18,
+                          width: 44,
+                          height: 44,
                           alignment: Alignment.center,
-                          child: const _ReplayPuck(),
+                          child: AnimatedBuilder(
+                            animation: _pulseController,
+                            builder: (context, _) => _VehicleMarker(
+                              vehicleType: widget.vehicleType,
+                              pulseValue: _pulseController.value,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (canReplay && _topSpeedIndex >= 0)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: bundle.replayPoints[_topSpeedIndex].position,
+                          width: 150,
+                          height: 96,
+                          // flutter_map's `alignment` describes where the
+                          // WIDGET sits relative to the point — topCenter
+                          // means the widget renders above the point, i.e.
+                          // the point anchors the widget's bottom edge,
+                          // which is where the ring/dot in this widget
+                          // live. bottomCenter (the earlier, wrong value)
+                          // put the point at the widget's TOP instead, so
+                          // the ring rendered well below the real spot.
+                          alignment: Alignment.topCenter,
+                          child: AnimatedBuilder(
+                            animation: Listenable.merge([
+                              _pulseController,
+                              _replayController,
+                            ]),
+                            builder: (context, _) {
+                              final revealedCount = _revealedCount(
+                                _replayController.value,
+                              );
+                              final passedTopSpeed =
+                                  revealedCount - 1 >= _topSpeedIndex;
+                              return _TopSpeedRadarMarker(
+                                pulseValue: _pulseController.value,
+                                showPopover: passedTopSpeed,
+                                locale: widget.locale,
+                                speedKmh:
+                                    bundle.replayPoints[_topSpeedIndex].speedKmh,
+                              );
+                            },
+                          ),
                         ),
                       ],
                     ),
@@ -299,35 +409,13 @@ class _JourneyMapState extends State<JourneyMap>
           if (canReplay)
             Positioned(
               left: AppSpacing.md,
+              right: AppSpacing.md,
               top: AppSpacing.md,
               child: AnimatedBuilder(
                 animation: _replayController,
                 builder: (context, _) {
-                  final revealedCount = _revealedCount(
-                    _replayController.value,
-                  );
-                  final idx = (revealedCount - 1).clamp(
-                    0,
-                    bundle.replayPoints.length - 1,
-                  );
-                  final point = bundle.replayPoints[idx];
-                  final passedTopSpeed =
-                      _topSpeedIndex >= 0 &&
-                      revealedCount - 1 >= _topSpeedIndex;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _LiveStatsPill(locale: widget.locale, point: point),
-                      if (passedTopSpeed) ...[
-                        const SizedBox(height: 6),
-                        _TopSpeedBadge(
-                          locale: widget.locale,
-                          speedKmh: bundle.replayPoints[_topSpeedIndex].speedKmh,
-                        ),
-                      ],
-                    ],
-                  );
+                  final point = bundle.replayPoints[_statsDisplayIndex(bundle)];
+                  return _LiveStatsRow(locale: widget.locale, point: point);
                 },
               ),
             ),
@@ -390,23 +478,193 @@ class _JourneyMapState extends State<JourneyMap>
   }
 }
 
-/// Small dot marking the replay's current position while animating.
-class _ReplayPuck extends StatelessWidget {
-  const _ReplayPuck();
+/// Marks the replay's current position while animating — a crisp
+/// vector icon for the selected vehicle (car or motorbike) instead of
+/// a plain dot or an emoji glyph (which renders inconsistently across
+/// devices/fonts), on a teal badge with a soft breathing halo so it
+/// reads as "live" rather than static.
+class _VehicleMarker extends StatelessWidget {
+  const _VehicleMarker({required this.vehicleType, required this.pulseValue});
+
+  final VehicleType vehicleType;
+  final double pulseValue;
+
+  IconData get _icon => switch (vehicleType) {
+    VehicleType.car => Icons.directions_car_rounded,
+    VehicleType.motorbike => Icons.two_wheeler_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Opacity(
+          opacity: (0.4 * (1 - pulseValue)).clamp(0.0, 0.4),
+          child: Transform.scale(
+            scale: 1 + pulseValue * 0.7,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: AppColors.teal,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ),
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.teal, Color(0xFF1F8F82)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.teal.withValues(alpha: 0.55),
+                blurRadius: 10,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Icon(_icon, color: Colors.white, size: 18),
+        ),
+      ],
+    );
+  }
+}
+
+/// Standing marker at the trip's fastest recorded point: a
+/// continuously pulsing "radar ping" ring so the spot reads as a point
+/// of interest even before playback reaches it, plus a callout bubble
+/// that pops in above it the moment the replay vehicle arrives there.
+class _TopSpeedRadarMarker extends StatelessWidget {
+  const _TopSpeedRadarMarker({
+    required this.pulseValue,
+    required this.showPopover,
+    required this.locale,
+    required this.speedKmh,
+  });
+
+  final double pulseValue;
+  final bool showPopover;
+  final LocaleService locale;
+  final double speedKmh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          transitionBuilder: (child, animation) => ScaleTransition(
+            scale: animation,
+            alignment: Alignment.bottomCenter,
+            child: FadeTransition(opacity: animation, child: child),
+          ),
+          child: showPopover
+              ? Padding(
+                  key: const ValueKey('popover'),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _TopSpeedPopover(locale: locale, speedKmh: speedKmh),
+                )
+              : const SizedBox.shrink(key: ValueKey('empty')),
+        ),
+        SizedBox(
+          width: 46,
+          height: 46,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Stable ring — always visible, so the spot reads clearly
+              // even between pulse cycles, not just at the animation's
+              // brightest frame.
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.orange.withValues(alpha: 0.55),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              Opacity(
+                opacity: ((1 - pulseValue) * 0.9).clamp(0.0, 0.9),
+                child: Transform.scale(
+                  scale: 0.5 + pulseValue * 1.8,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.orange, width: 2.5),
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: AppColors.orange,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.orange.withValues(alpha: 0.8),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopSpeedPopover extends StatelessWidget {
+  const _TopSpeedPopover({required this.locale, required this.speedKmh});
+
+  final LocaleService locale;
+  final double speedKmh;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.teal,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
+        color: AppColors.orange,
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: AppColors.teal.withValues(alpha: 0.6),
-            blurRadius: 8,
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: Text(
+        'TOP SPEED ${locale.formatSpeed(speedKmh)}',
+        style: const TextStyle(
+          fontFamily: 'Outfit',
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: AppColors.bg,
+        ),
       ),
     );
   }
@@ -546,82 +804,101 @@ class _MultiplierChip extends StatelessWidget {
   }
 }
 
-/// Live speed / distance / elapsed-time readout that steps through the
-/// replay's [ReplayPoint] series.
-class _LiveStatsPill extends StatelessWidget {
-  const _LiveStatsPill({required this.locale, required this.point});
+/// Live Speed / Distance / Time readout that steps through the
+/// replay's [ReplayPoint] series — a label above a large bold number
+/// per stat, laid straight over the map with a text shadow for
+/// legibility rather than a background chip.
+class _LiveStatsRow extends StatelessWidget {
+  const _LiveStatsRow({required this.locale, required this.point});
 
   final LocaleService locale;
   final ReplayPoint point;
 
   @override
   Widget build(BuildContext context) {
-    final minutes = point.secondsFromStart ~/ 60;
-    final seconds = point.secondsFromStart % 60;
-    final elapsed =
-        '${minutes.toString().padLeft(2, '0')}:'
-        '${seconds.toString().padLeft(2, '0')}';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.bg.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            locale.formatSpeed(point.speedKmh),
-            style: const TextStyle(
-              fontFamily: 'JetBrainsMono',
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.teal,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${locale.formatDistance(point.cumulativeDistanceKm)} · $elapsed',
-            style: const TextStyle(
-              fontFamily: 'JetBrainsMono',
-              fontSize: 9,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StatBlock(
+          label: 'SPEED',
+          value: locale.formatSpeedValue(point.speedKmh),
+          unitBelow: locale.speedUnitLabel,
+        ),
+        const SizedBox(width: 22),
+        _StatBlock(
+          label: 'DISTANCE',
+          value: locale.formatDistance(point.cumulativeDistanceKm),
+        ),
+        const SizedBox(width: 22),
+        _StatBlock(label: 'TIME', value: _elapsedClock(point.secondsFromStart)),
+      ],
     );
+  }
+
+  String _elapsedClock(int totalSeconds) {
+    final h = totalSeconds ~/ 3600;
+    final m = (totalSeconds % 3600) ~/ 60;
+    final s = totalSeconds % 60;
+    final mm = m.toString().padLeft(2, '0');
+    final ss = s.toString().padLeft(2, '0');
+    return h > 0 ? '$h:$mm:$ss' : '$mm:$ss';
   }
 }
 
-/// Badge that appears once the replay marker passes the trip's
-/// fastest recorded waypoint.
-class _TopSpeedBadge extends StatelessWidget {
-  const _TopSpeedBadge({required this.locale, required this.speedKmh});
+class _StatBlock extends StatelessWidget {
+  const _StatBlock({required this.label, required this.value, this.unitBelow});
 
-  final LocaleService locale;
-  final double speedKmh;
+  final String label;
+  final String value;
+  final String? unitBelow;
+
+  static const List<Shadow> _shadow = [
+    Shadow(color: Colors.black87, blurRadius: 6, offset: Offset(0, 1)),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.orange.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.orange.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        'TOP SPEED ${locale.formatSpeed(speedKmh)}',
-        style: const TextStyle(
-          fontFamily: 'Outfit',
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: AppColors.orange,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: Colors.white70,
+            letterSpacing: 1.1,
+            shadows: _shadow,
+          ),
         ),
-      ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            height: 1.05,
+            shadows: _shadow,
+          ),
+        ),
+        if (unitBelow != null)
+          Text(
+            unitBelow!,
+            style: const TextStyle(
+              fontFamily: 'JetBrainsMono',
+              fontSize: 10,
+              color: Colors.white70,
+              shadows: _shadow,
+            ),
+          ),
+      ],
     );
   }
 }

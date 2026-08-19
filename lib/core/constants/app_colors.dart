@@ -29,7 +29,7 @@ class AppColors {
   // Text.
   static const Color textPrimary = Color(0xFFF2F2F7);
   static const Color textSecondary = Color(0xFF8E8E9A);
-  static const Color textTertiary = Color(0xFF48484F);
+  static const Color textTertiary = Color(0xFF82828C);
 
   // Borders.
   static const Color border = Color(0x0FFFFFFF); // ~6% white

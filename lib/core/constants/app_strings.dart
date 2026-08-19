@@ -235,6 +235,16 @@ class AppStrings {
   static const String tripSummaryStoppedTime = 'Stopped Time';
   static const String tripSummaryStopCount = 'Stops';
   static const String tripSummaryTransparent = 'Transparent';
+  static const String tripSummaryZeroToHundred = '0-100 km/h time';
+  static const String tripSummaryZeroToSixty = '0-60 mph time';
+  static const String tripSummaryShareableCards = 'Shareable Cards';
+  static const String tripSummaryShareableCardsSub =
+      'Tap the card to share it';
+  static const String tripSummaryPlayReplay = 'Play route replay';
+
+  // Speed distribution.
+  static const String speedDistributionTitle = 'Speed Distribution';
+  static const String speedOverTimeChartTitle = 'Speed Over Time';
 
   // Elevation Over Time chart (Trip Insights / Performance card).
   static const String elevationChartTitle = 'Elevation Over Time';
@@ -245,25 +255,6 @@ class AppStrings {
   static const String tripSummaryPreviousTopSpeed = 'Previous top speed';
   static const String tripSummaryPreviousDistance = 'Previous distance';
   static const String tripSummaryGoalNextLabel = 'Next goal';
-
-  // Social share cards — Performance.
-  static const String performanceCardTitle = 'Performance';
-  static const String performanceCardCta = 'Performance';
-  static const String performanceCardCtaSub = 'Speed flex card';
-  static const String performanceCardShareCta = 'Share Performance';
-  static const String performanceCardShareSubject =
-      'My DriveRank performance card';
-  static const String performanceCardLoadError =
-      'Could not build the performance card for this trip.';
-
-  // Social share cards — Journey.
-  static const String journeyCardTitle = 'Journey';
-  static const String journeyCardCta = 'Journey';
-  static const String journeyCardCtaSub = 'Route story card';
-  static const String journeyCardShareCta = 'Share Journey';
-  static const String journeyCardShareSubject = 'My DriveRank journey card';
-  static const String journeyCardLoadError =
-      'Could not build the journey card for this trip.';
 
   // History.
   static const String historyTitle = 'History';

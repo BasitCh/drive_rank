@@ -30,6 +30,8 @@ class AnalyticsGrid extends StatelessWidget {
     required this.stopCount,
     this.elevationGainFormatted,
     this.maxElevationFormatted,
+    this.zeroToHundredFormatted,
+    this.zeroToHundredLabel,
     super.key,
   });
 
@@ -54,6 +56,11 @@ class AnalyticsGrid extends StatelessWidget {
   /// rather than rendering a dead `—` pair.
   final String? elevationGainFormatted;
   final String? maxElevationFormatted;
+
+  /// Fastest 0→100 km/h (or 0→60 mph, per [zeroToHundredLabel]) run —
+  /// null when the trip never reached the target speed, hiding the row.
+  final String? zeroToHundredFormatted;
+  final String? zeroToHundredLabel;
 
   /// Duration-aware sanity cap. Real drivers, even aggressive ones,
   /// stay well below `hardEventBrokenThresholdPerMinute` events per
@@ -112,6 +119,15 @@ class AnalyticsGrid extends StatelessWidget {
               value: stopCount.toString(),
               label: AppStrings.tripSummaryStopCount,
             ),
+            if (zeroToHundredFormatted != null &&
+                zeroToHundredLabel != null) ...[
+              const SizedBox(width: 6),
+              _Item(
+                value: zeroToHundredFormatted!,
+                label: zeroToHundredLabel!,
+                color: AppColors.orange,
+              ),
+            ],
           ],
         ),
         if (elevationGainFormatted != null && maxElevationFormatted != null) ...[

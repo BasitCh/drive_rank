@@ -3,11 +3,12 @@ import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/features/history/presentation/widgets/route_sparkline.dart';
 import 'package:flutter/material.dart';
 
 /// One row in the trip history list.
 ///
-/// Time-of-day icon | name + date/distance | top speed.
+/// Route-shape sparkline | name + date/distance | top speed.
 /// Wrap with `Dismissible` (in the page) for swipe-to-delete.
 class TripListItem extends StatelessWidget {
   const TripListItem({
@@ -37,7 +38,16 @@ class TripListItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _TimeOfDayBadge(startedAt: trip.startedAt),
+              Container(
+                width: 48,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: RouteSparkline(tripId: trip.id),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -107,32 +117,5 @@ class TripListItem extends StatelessWidget {
     if (delta == 1) return 'Yesterday';
     if (delta < 7) return '$delta days ago';
     return '${d.day}/${d.month}/${d.year}';
-  }
-}
-
-class _TimeOfDayBadge extends StatelessWidget {
-  const _TimeOfDayBadge({required this.startedAt});
-
-  final DateTime startedAt;
-
-  @override
-  Widget build(BuildContext context) {
-    final hour = startedAt.hour;
-    final (icon, color) = switch (hour) {
-      >= 5 && < 12 => (Icons.wb_twilight_rounded, AppColors.orange),
-      >= 12 && < 17 => (Icons.wb_sunny_rounded, AppColors.yellow),
-      >= 17 && < 21 => (Icons.brightness_4_rounded, AppColors.orange),
-      _ => (Icons.nightlight_round, AppColors.blue),
-    };
-    return Container(
-      width: 40,
-      height: 40,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, size: 20, color: color),
-    );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
+import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:flutter/foundation.dart';
 
 enum TripSummaryStatus { loading, ready, notFound, deleted, error }
@@ -18,6 +19,7 @@ class TripSummaryState {
     required this.bestTopSpeedKmh,
     required this.bestDistanceKm,
     this.isTransparent = false,
+    this.vehicleType = VehicleType.car,
   });
 
   factory TripSummaryState.initial() => const TripSummaryState(
@@ -32,6 +34,7 @@ class TripSummaryState {
     bestTopSpeedKmh: null,
     bestDistanceKm: null,
     isTransparent: false,
+    vehicleType: VehicleType.car,
   );
 
   final TripSummaryStatus status;
@@ -40,6 +43,10 @@ class TripSummaryState {
   final String carLabel;
   final String? errorMessage;
   final bool isSharing;
+
+  /// The user's currently selected vehicle (Settings) — drives which
+  /// icon animates along the route on the replay screen.
+  final VehicleType vehicleType;
 
   /// The user's current "beat this" targets (see `GoalCalculator`) —
   /// always the live/current goal, not a snapshot from when this trip
@@ -69,6 +76,7 @@ class TripSummaryState {
     double? bestTopSpeedKmh,
     double? bestDistanceKm,
     bool? isTransparent,
+    VehicleType? vehicleType,
   }) {
     return TripSummaryState(
       status: status ?? this.status,
@@ -82,6 +90,7 @@ class TripSummaryState {
       bestTopSpeedKmh: bestTopSpeedKmh ?? this.bestTopSpeedKmh,
       bestDistanceKm: bestDistanceKm ?? this.bestDistanceKm,
       isTransparent: isTransparent ?? this.isTransparent,
+      vehicleType: vehicleType ?? this.vehicleType,
     );
   }
 }
