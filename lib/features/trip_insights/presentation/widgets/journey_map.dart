@@ -15,9 +15,13 @@ import 'package:latlong2/latlong.dart';
 /// distance / elapsed-time counters, a pulsing radar marker at the
 /// trip's fastest waypoint with a "TOP SPEED" popover once the replay
 /// vehicle reaches it, and a re-centre button once the user pans away.
-/// The moving marker itself renders the user's selected vehicle glyph
-/// (car or motorbike) rather than a plain dot. Fills the Journey
-/// card's vertical real estate per spec (~70 % of the card).
+/// The camera itself follows the replay marker start-to-end while
+/// playing — panning is automatic, not something the user has to do
+/// by hand — and backs off the moment the user drags manually; the
+/// re-centre button hands control back to auto-follow. The moving
+/// marker renders the user's selected vehicle glyph (car or
+/// motorbike) rather than a plain dot. Fills the Journey card's
+/// vertical real estate per spec (~70 % of the card).
 ///
 /// Replay is disabled entirely below 20 waypoints
 /// (`InsightsBundle.replayEligible`) — a couple of jerky hops isn't a
@@ -100,6 +104,7 @@ class _JourneyMapState extends State<JourneyMap>
     )..repeat();
     _routePoints = _positionsOf(widget.bundle);
     _topSpeedIndex = _topSpeedIndexOf(widget.bundle);
+    _replayController.addListener(_followCamera);
   }
 
   @override
@@ -207,6 +212,30 @@ class _JourneyMapState extends State<JourneyMap>
       CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(28)),
     );
     setState(() => _hasPannedAway = false);
+  }
+
+  /// Pans the camera to track the replay marker's current position —
+  /// the map follows the route start-to-end on its own instead of the
+  /// user having to manually drag to keep up. Fires on every
+  /// `_replayController` tick (not from `build`, so this stays a plain
+  /// imperative camera move rather than a widget rebuild side effect).
+  /// Backs off the moment the user pans by hand — `_recentre` is what
+  /// hands control back to auto-follow.
+  void _followCamera() {
+    if (!_canReplay || _hasPannedAway) return;
+    final progress = _replayController.value;
+    if (progress <= 0 || progress >= 1) return;
+    if (_routePoints.length < 2) return;
+    final idx = (_revealedCount(progress) - 1).clamp(
+      0,
+      _routePoints.length - 1,
+    );
+    try {
+      _mapController.move(_routePoints[idx], _mapController.camera.zoom);
+    } catch (_) {
+      // Controller isn't attached to a laid-out map yet (e.g. the very
+      // first tick before the first frame) — next tick catches up.
+    }
   }
 
   @override

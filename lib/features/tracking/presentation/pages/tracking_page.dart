@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
@@ -13,15 +15,35 @@ import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dar
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_state.dart';
 import 'package:drive_rank/features/tracking/presentation/widgets/live_badge.dart';
-import 'package:drive_rank/features/tracking/presentation/widgets/mini_stat.dart';
 import 'package:drive_rank/features/tracking/presentation/widgets/oem_battery_advice_sheet.dart';
-import 'package:drive_rank/features/tracking/presentation/widgets/route_strip.dart';
-import 'package:drive_rank/shared/models/map_theme.dart';
+import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+
+/// Best-effort altitude reading for the idle surface, where GPS isn't
+/// streaming yet (tracking hasn't started). Reads the device's cached
+/// last-known fix directly — the same source `GpsService` uses for its
+/// own cold-start fix — gated behind the same reliability check so a
+/// stale/inaccurate fix shows 0 rather than a misleading number.
+Future<double> _lastKnownAltitudeOrZero() async {
+  try {
+    final position = await Geolocator.getLastKnownPosition();
+    if (position == null) return 0;
+    final accuracy = position.altitudeAccuracy;
+    if (!accuracy.isFinite ||
+        accuracy < 0 ||
+        accuracy > AppConstants.maxReliableAltitudeAccuracyMeters) {
+      return 0;
+    }
+    return position.altitude;
+  } catch (_) {
+    return 0;
+  }
+}
 
 /// Home / live tracking page.
 ///
@@ -221,15 +243,11 @@ class _IdleSurface extends StatelessWidget {
         final remaining = (limit - used).clamp(0, limit);
         final isLast = !isPro && remaining == 1;
         final isExhausted = !isPro && remaining == 0;
-        final theme = settings != null
-            ? MapTheme.fromId(settings.selectedMapTheme)
-            : MapTheme.regular;
 
         // Mirror the active-trip layout so the idle surface fills the
         // full screen the same way the live page does — same header,
-        // same hero, same 6-stat grid (all placeholders), same map
-        // strip showing the selected theme, then a teal Start Trip
-        // CTA where End Trip would normally sit.
+        // same hero, same 6-stat grid (all placeholders), then a teal
+        // Start Trip CTA where End Trip would normally sit.
         //
         // On short Android phones (small foldables, older 720p Samsungs)
         // this column overflowed and the Start Trip CTA sat below the
@@ -246,12 +264,10 @@ class _IdleSurface extends StatelessWidget {
                   child: Column(
                     children: [
                       const _Header(showLiveBadge: false),
+                      const Spacer(),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.xl,
-                          AppSpacing.md,
-                          AppSpacing.xl,
-                          AppSpacing.xs,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
                         ),
                         child: _SpeedHero(
                           speedKmh: 0,
@@ -260,15 +276,28 @@ class _IdleSurface extends StatelessWidget {
                           idleLabel: AppStrings.homeReadyToDriveTagline,
                         ),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(
+                      const SizedBox(height: AppSpacing.lg),
+
+                      const Spacer(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.lg - 2,
                         ),
-                        child: _IdleStatsGrid(),
+                        // Trip hasn't started — GPS isn't streaming yet, so
+                        // this reads the device's last-known fix directly
+                        // (same reliability gate GpsService applies) to
+                        // show a real altitude instead of a dead zero.
+                        child: FutureBuilder<double>(
+                          future: _lastKnownAltitudeOrZero(),
+                          builder: (context, snap) {
+                            return _StatGrid2x3(
+                              locale: locale,
+                              altitudeMeters: snap.data ?? 0,
+                            );
+                          },
+                        ),
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                      RouteStrip(theme: theme, points: const []),
-                      const SizedBox(height: AppSpacing.sm),
+                      const Spacer(),
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.lg - 2,
@@ -291,7 +320,7 @@ class _IdleSurface extends StatelessWidget {
                           isExhausted: isExhausted,
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(height: AppSpacing.lg),
                     ],
                   ),
                 ),
@@ -312,75 +341,186 @@ class _IdleSurface extends StatelessWidget {
   }
 }
 
-/// The 2×3 placeholder stat grid shown on the idle surface. Same shape
-/// as the active grid so the visual jump on Start → live is zero.
-class _IdleStatsGrid extends StatelessWidget {
-  const _IdleStatsGrid();
+/// 2×3 stat grid matching the reference exactly: Avg Speed / Top Speed,
+/// Distance / Altitude, Duration / Stopped. Shared between the idle
+/// surface (all fields null → dashes) and the active surface (real,
+/// live-updating values) so the visual jump on Start → live is zero.
+class _StatGrid2x3 extends StatelessWidget {
+  const _StatGrid2x3({
+    required this.locale,
+    this.avgSpeedKmh = 0,
+    this.topSpeedKmh = 0,
+    this.distanceKm = 0,
+    this.altitudeMeters = 0,
+    this.durationSeconds = 0,
+    this.stoppedSeconds = 0,
+  });
 
-  static const String _dash = '—';
+  final LocaleService locale;
+  final double avgSpeedKmh;
+  final double topSpeedKmh;
+  final double distanceKm;
+  final double altitudeMeters;
+  final int durationSeconds;
+  final int stoppedSeconds;
 
   @override
   Widget build(BuildContext context) {
-    final locale = getIt<LocaleService>();
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          child: Row(
-            children: [
-              Expanded(
-                child: MiniStat(
-                  value: _dash,
-                  label:
-                      '${AppStrings.trackingMaxSpeed} '
-                      '${locale.speedUnitLabel}',
-                  valueColor: AppColors.teal,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs + 2),
-              const Expanded(
-                child: MiniStat(
-                  value: _dash,
-                  label: AppStrings.trackingGForce,
-                  valueColor: AppColors.orange,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs + 2),
-              const Expanded(
-                child: MiniStat(
-                  value: _dash,
-                  label: AppStrings.trackingDistance,
-                  valueColor: AppColors.blue,
-                ),
-              ),
-            ],
-          ),
-        ),
         Row(
           children: [
-            const Expanded(
-              child: MiniStat(value: _dash, label: AppStrings.trackingDuration),
-            ),
-            const SizedBox(width: AppSpacing.xs + 2),
             Expanded(
-              child: MiniStat(
-                value: _dash,
+              child: _PlainStat(
+                value: locale.formatSpeedValue(avgSpeedKmh),
                 label:
                     '${AppStrings.trackingAvgSpeed} '
                     '${locale.speedUnitLabel}',
               ),
             ),
-            const SizedBox(width: AppSpacing.xs + 2),
-            const Expanded(
-              child: MiniStat(
-                value: AppStrings.trackingFuelNotConfigured,
-                label: AppStrings.trackingFuelCost,
-                valueColor: AppColors.green,
+            Expanded(
+              child: _PlainStat(
+                value: locale.formatSpeedValue(topSpeedKmh),
+                label:
+                    '${AppStrings.trackingMaxSpeed} '
+                    '${locale.speedUnitLabel}',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Row(
+          children: [
+            Expanded(
+              child: _PlainStat(
+                value: locale.formatDistance(distanceKm, fractionDigits: 2),
+                label: AppStrings.trackingDistance,
+              ),
+            ),
+            Expanded(
+              child: _PlainStat(
+                value: locale.formatElevation(altitudeMeters),
+                label: AppStrings.trackingAltitude,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Row(
+          children: [
+            Expanded(
+              child: _PlainStat(
+                value: locale.formatDuration(durationSeconds),
+                label: AppStrings.trackingDuration,
+              ),
+            ),
+            Expanded(
+              child: _PlainStat(
+                value: locale.formatDuration(stoppedSeconds),
+                label: AppStrings.tripSummaryStoppedTime,
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// A single flat label/value pair — no card chrome, matching the
+/// reference exactly (plain text directly on the page background,
+/// not the boxed `MiniStat` tile used elsewhere in the app).
+class _PlainStat extends StatelessWidget {
+  const _PlainStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// GPS-signal dots + selected-vehicle glyph, shown directly under the
+/// gauge — the small pill from the reference design. Signal strength
+/// is derived from the last fix's reported accuracy; all three dots
+/// sit dim before the first fix or on the idle surface.
+class _SignalVehicleRow extends StatelessWidget {
+  const _SignalVehicleRow({
+    required this.accuracyMeters,
+    required this.vehicleType,
+  });
+
+  final double? accuracyMeters;
+  final VehicleType vehicleType;
+
+  int get _litDots {
+    final accuracy = accuracyMeters;
+    if (accuracy == null) return 0;
+    if (accuracy <= 10) return 3;
+    if (accuracy <= 25) return 2;
+    if (accuracy <= AppConstants.maxReliableAccuracyMeters) return 1;
+    return 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lit = _litDots;
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < 3; i++) ...[
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i < lit ? AppColors.green : AppColors.border2,
+                ),
+              ),
+              if (i != 2) const SizedBox(width: 6),
+            ],
+            const SizedBox(width: 12),
+            Container(width: 1, height: 16, color: AppColors.border),
+            const SizedBox(width: 12),
+            Text(vehicleType.glyph, style: const TextStyle(fontSize: 18)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -485,9 +625,6 @@ class _ActiveSurface extends StatelessWidget {
     return StreamBuilder<UserSettingsRow>(
       stream: getIt<UserSettingsRepository>().watch(),
       builder: (context, snap) {
-        final theme = snap.hasData
-            ? MapTheme.fromId(snap.data!.selectedMapTheme)
-            : MapTheme.regular;
         final stats = state.stats;
         final hasFix = stats.lastPoint != null;
 
@@ -498,13 +635,9 @@ class _ActiveSurface extends StatelessWidget {
           children: [
             _Header(showLiveBadge: !isPaused, showPausedBadge: isPaused),
             if (showRecoveryBanner) const _InterruptionBanner(),
+            const Spacer(),
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.md,
-                AppSpacing.xl,
-                AppSpacing.xs,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
               child: _SpeedHero(
                 speedKmh: stats.currentSpeedKmh,
                 locale: locale,
@@ -514,98 +647,29 @@ class _ActiveSurface extends StatelessWidget {
                     : null,
               ),
             ),
+            const SizedBox(height: AppSpacing.lg),
+            _SignalVehicleRow(
+              accuracyMeters: stats.lastPoint?.accuracyMeters,
+              vehicleType: VehicleType.fromId(
+                snap.data?.vehicleType ?? VehicleType.car.id,
+              ),
+            ),
+            const Spacer(),
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.lg - 2,
               ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.xs,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: MiniStat(
-                            value: locale.formatSpeedValue(stats.maxSpeedKmh),
-                            label:
-                                '${AppStrings.trackingMaxSpeed} '
-                                '${locale.speedUnitLabel}',
-                            valueColor: AppColors.teal,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.xs + 2),
-                        Expanded(
-                          child: MiniStat(
-                            value: '${stats.maxGforce.toStringAsFixed(1)}g',
-                            label: AppStrings.trackingGForce,
-                            valueColor: AppColors.orange,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.xs + 2),
-                        Expanded(
-                          child: MiniStat(
-                            value: locale.formatDistance(
-                              stats.distanceKm,
-                              fractionDigits: 1,
-                            ),
-                            label: AppStrings.trackingDistance,
-                            valueColor: AppColors.blue,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: MiniStat(
-                          value: locale.formatDuration(stats.durationSeconds),
-                          label: AppStrings.trackingDuration,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs + 2),
-                      Expanded(
-                        child: MiniStat(
-                          value: locale.formatSpeedValue(stats.avgSpeedKmh),
-                          label:
-                              '${AppStrings.trackingAvgSpeed} '
-                              '${locale.speedUnitLabel}',
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs + 2),
-                      const Expanded(
-                        child: MiniStat(
-                          value: AppStrings.trackingFuelNotConfigured,
-                          label: AppStrings.trackingFuelCost,
-                          valueColor: AppColors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: AppSpacing.xs),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: MiniStat(
-                            value: stats.lastPoint?.altitudeMeters != null
-                                ? locale.formatElevation(
-                                    stats.lastPoint!.altitudeMeters!,
-                                  )
-                                : AppStrings.trackingAltitudeUnavailable,
-                            label: AppStrings.trackingAltitude,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              child: _StatGrid2x3(
+                locale: locale,
+                avgSpeedKmh: stats.avgSpeedKmh,
+                topSpeedKmh: stats.maxSpeedKmh,
+                distanceKm: stats.distanceKm,
+                altitudeMeters: stats.lastPoint?.altitudeMeters ?? 0,
+                durationSeconds: stats.durationSeconds,
+                stoppedSeconds: stats.stoppedSeconds,
               ),
             ),
-            RouteStrip(theme: theme, points: stats.points),
-            const SizedBox(height: AppSpacing.sm),
+            const Spacer(),
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.lg - 2,
@@ -621,7 +685,7 @@ class _ActiveSurface extends StatelessWidget {
                 onEnd: () => _confirmEnd(context),
               ),
             ),
-            const Spacer(),
+            const SizedBox(height: AppSpacing.lg),
           ],
         );
       },
@@ -693,46 +757,125 @@ class _SpeedHero extends StatelessWidget {
         : '${locale.speedUnitLabel.toUpperCase()}'
               '${AppStrings.trackingCurrentSpeedSuffix}';
 
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Positioned(
-          top: 0,
-          child: IgnorePointer(
-            child: Container(
-              width: MediaQuery.sizeOf(context).width * 0.5,
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.teal.withValues(alpha: 0.10),
-                    Colors.transparent,
-                  ],
+    // Now that the route-preview strip and the boxed stat tiles are
+    // gone (flat text pairs take much less vertical room), there's
+    // headroom for the dial to read as the page's actual centrepiece
+    // instead of a shrunken placeholder.
+    final diameter = (MediaQuery.sizeOf(context).width * 0.72).clamp(
+      230.0,
+      285.0,
+    );
+    final progress = (speedKmh / _GaugeTicksPainter.maxScaleKmh).clamp(
+      0.0,
+      1.0,
+    );
+
+    return SizedBox(
+      width: diameter,
+      height: diameter,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: Size(diameter, diameter),
+            painter: _GaugeTicksPainter(progress: isIdle ? 0 : progress),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: _SmoothedSpeedNumber(
+                  speedKmh: speedKmh,
+                  isIdle: isIdle,
+                  hasFix: hasFix,
+                  locale: locale,
                 ),
               ),
-            ),
-          ),
-        ),
-        Column(
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: _SmoothedSpeedNumber(
-                speedKmh: speedKmh,
-                isIdle: isIdle,
-                hasFix: hasFix,
-                locale: locale,
+              const SizedBox(height: 4),
+              Text(
+                subtitleText,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.speedUnit.copyWith(fontSize: 12),
               ),
-            ),
-            Text(
-              subtitleText,
-              style: AppTextStyles.speedUnit.copyWith(fontSize: 12),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
+}
+
+/// Paints the circular speedometer face — a full ring of tick marks
+/// with a teal progress sweep (clockwise from 12 o'clock) showing
+/// current speed as a fraction of [maxScaleKmh]. Sits behind the speed
+/// number/unit text painted by the caller. Purely decorative — carries
+/// no tracking logic of its own, so it can't drift from the real
+/// reading.
+class _GaugeTicksPainter extends CustomPainter {
+  _GaugeTicksPainter({required this.progress});
+
+  /// Full-scale reading for the dial — high enough that ordinary
+  /// driving (and typical highway speeds) reads comfortably within the
+  /// ring rather than clustering near empty, but not so high (unlike
+  /// the 300 km/h physical glitch-filter ceiling) that useful road
+  /// speeds barely move the sweep.
+  static const double maxScaleKmh = 200;
+
+  /// 0..1 fraction of [maxScaleKmh] currently showing.
+  final double progress;
+
+  static const int _tickCount = 72;
+  static const double _startAngle = -math.pi / 2; // 12 o'clock
+
+  /// Unlit tick colour — a cool slate-blue rather than the near-invisible
+  /// `border2`, so the ring reads as a dense, defined dial face even at
+  /// zero speed instead of a sparse scatter of faint dashes.
+  static const Color _unlitTick = Color(0xFF4A5568);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final outerRadius = size.width / 2;
+    final faceRadius = outerRadius * 0.86;
+
+    // Dial face — a shade darker than the surrounding page so the
+    // ring reads as its own instrument rather than a flat outline.
+    canvas
+      ..drawCircle(center, faceRadius, Paint()..color = AppColors.bg2)
+      // Crisp rim right at the face boundary, framing the tick ring.
+      ..drawCircle(
+        center,
+        faceRadius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = _unlitTick.withValues(alpha: 0.6),
+      );
+
+    final tickOuter = outerRadius * 0.98;
+    final tickInner = faceRadius;
+    final progressAngle = progress * 2 * math.pi;
+
+    for (var i = 0; i < _tickCount; i++) {
+      final angle = _startAngle + (i / _tickCount) * 2 * math.pi;
+      final lit = (angle - _startAngle) % (2 * math.pi) <= progressAngle;
+      final p1 = center + Offset(math.cos(angle), math.sin(angle)) * tickInner;
+      final p2 = center + Offset(math.cos(angle), math.sin(angle)) * tickOuter;
+      canvas.drawLine(
+        p1,
+        p2,
+        Paint()
+          ..color = lit ? AppColors.teal : _unlitTick
+          ..strokeWidth = 2.2
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GaugeTicksPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 /// Eases the displayed speed between successive GPS readings (~1Hz) so
@@ -761,11 +904,11 @@ class _SmoothedSpeedNumber extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       // TweenAnimationBuilder remembers the previous `end` and tweens
       // from it to the new one — driving the smooth sweep on every
-      // reading. 220ms is short enough that with the new 1Hz Android
-      // sample interval the dial reaches its target ~800ms before the
-      // next reading lands, so decel feels reactive instead of soggy.
+      // reading. Shortened from 220ms → 100ms so the dial catches up
+      // to a fast-changing GPS reading well before the next sample
+      // lands, trading a little sweep smoothness for responsiveness.
       tween: Tween<double>(end: speedKmh),
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 100),
       curve: Curves.easeOutCubic,
       builder: (_, value, _) {
         return Text(
