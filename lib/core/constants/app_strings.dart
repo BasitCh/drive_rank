@@ -176,6 +176,10 @@ class AppStrings {
   static const String trackingFuelTapToConfigure =
       'Set fuel price in settings to see trip cost';
   static const String trackingWaitingForGps = 'WAITING FOR GPS…';
+  static const String trackingAltitude = 'ALTITUDE';
+  static const String trackingAltitudeUnavailable = '—';
+  static String trackingTripTooShort(String distance) =>
+      'Trip too short to save ($distance) — drive further next time.';
   static const String trackingPermissionDenied =
       'Location permission is required to track trips.';
   static const String trackingOpenSettings = 'Open Settings';
@@ -226,6 +230,24 @@ class AppStrings {
   static const String tripSummaryGforcePeakSuffix = 'g peak';
   static const String tripSummaryNoRouteYet = 'No GPS fix recorded';
   static const String tripSummaryShareSubject = 'My DriveRank trip';
+  static const String tripSummaryElevationGain = 'Elevation Gain';
+  static const String tripSummaryMaxElevation = 'Max Elevation';
+  static const String tripSummaryStoppedTime = 'Stopped Time';
+  static const String tripSummaryStopCount = 'Stops';
+  static const String tripSummaryTransparent = 'Transparent';
+  static const String tripSummaryZeroToHundred = '0-100 km/h time';
+  static const String tripSummaryZeroToSixty = '0-60 mph time';
+  static const String tripSummaryShareableCards = 'Shareable Cards';
+  static const String tripSummaryShareableCardsSub =
+      'Tap the card to share it';
+  static const String tripSummaryPlayReplay = 'Play route replay';
+
+  // Speed distribution.
+  static const String speedDistributionTitle = 'Speed Distribution';
+  static const String speedOverTimeChartTitle = 'Speed Over Time';
+
+  // Elevation Over Time chart (Trip Insights / Performance card).
+  static const String elevationChartTitle = 'Elevation Over Time';
 
   // Trip summary — goal nudge. Values are dynamic, formatted at the
   // call site via `LocaleService`; these are just the surrounding copy.
@@ -233,25 +255,6 @@ class AppStrings {
   static const String tripSummaryPreviousTopSpeed = 'Previous top speed';
   static const String tripSummaryPreviousDistance = 'Previous distance';
   static const String tripSummaryGoalNextLabel = 'Next goal';
-
-  // Social share cards — Performance.
-  static const String performanceCardTitle = 'Performance';
-  static const String performanceCardCta = 'Performance';
-  static const String performanceCardCtaSub = 'Speed flex card';
-  static const String performanceCardShareCta = 'Share Performance';
-  static const String performanceCardShareSubject =
-      'My DriveRank performance card';
-  static const String performanceCardLoadError =
-      'Could not build the performance card for this trip.';
-
-  // Social share cards — Journey.
-  static const String journeyCardTitle = 'Journey';
-  static const String journeyCardCta = 'Journey';
-  static const String journeyCardCtaSub = 'Route story card';
-  static const String journeyCardShareCta = 'Share Journey';
-  static const String journeyCardShareSubject = 'My DriveRank journey card';
-  static const String journeyCardLoadError =
-      'Could not build the journey card for this trip.';
 
   // History.
   static const String historyTitle = 'History';
@@ -272,6 +275,9 @@ class AppStrings {
       'Trips are saved only on this device, so deleting the app deletes '
       'them for good. Your free-trial usage is remembered separately, '
       "so it won't reset.";
+
+  // Profile — monthly distance trend.
+  static const String profileTrendTitle = 'Last 6 Months';
 
   // Monthly report.
   static const String monthlyReportTitle = 'Your Driving Month';
@@ -414,8 +420,23 @@ class AppStrings {
   static const String settingsUnitSystemImperial = 'Imperial (mi, mph, mpg)';
   static const String settingsRestorePurchases = 'Restore Purchases';
   static const String settingsDeleteAccountConfirm =
-      'This will delete your account and all trip history. This cannot be undone.';
+      'This will permanently delete your account, trip history, and all '
+      'saved settings from this device and our servers. This cannot be '
+      'undone.';
   static const String settingsSavedToast = 'Saved';
+  static const String settingsPreferences = 'Preferences';
+  static const String settingsMinTripLength = 'Minimum trip length';
+  static const String settingsMinTripLengthSub =
+      'Trips shorter than this are discarded, not saved.';
+  static const String settingsSupport = 'Support';
+  static const String settingsContactUs = 'Contact Us';
+  static const String settingsLeaveFeedback = 'Leave Feedback';
+  static const String settingsAppVersionLabel = 'App Version';
+  static const String settingsContactSubject = 'DriveRank Support';
+  static const String settingsFeedbackSubject = 'DriveRank Feedback';
+  static const String settingsAccountDeletionFailed =
+      "Couldn't fully delete your account — some data may remain. "
+      'Please try again or contact support.';
 
   // Errors.
   static const String errorNoInternet =

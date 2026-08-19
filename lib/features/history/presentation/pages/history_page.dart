@@ -43,10 +43,6 @@ class _HistoryBody extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _Header(),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 0, 14, AppSpacing.md),
-                  child: _MonthlyReportBanner(locale: locale),
-                ),
                 FilterPills(
                   active: state.filter,
                   onChanged: (f) =>

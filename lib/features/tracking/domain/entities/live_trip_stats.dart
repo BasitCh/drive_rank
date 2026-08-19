@@ -18,6 +18,8 @@ class LiveTripStats {
     required this.hardBrakesCount,
     required this.lastPoint,
     required this.points,
+    this.stoppedSeconds = 0,
+    this.stopCount = 0,
   });
 
   factory LiveTripStats.initial() => const LiveTripStats(
@@ -31,6 +33,8 @@ class LiveTripStats {
     hardBrakesCount: 0,
     lastPoint: null,
     points: <TripPoint>[],
+    stoppedSeconds: 0,
+    stopCount: 0,
   );
 
   final double currentSpeedKmh;
@@ -44,6 +48,13 @@ class LiveTripStats {
   final TripPoint? lastPoint;
   final List<TripPoint> points;
 
+  /// Total seconds spent in contiguous zero-speed runs of at least
+  /// `AppConstants.stopMinDurationSeconds` — see `TrackingBloc._onPoint`.
+  final int stoppedSeconds;
+
+  /// Number of qualifying stops (see [stoppedSeconds]) this trip.
+  final int stopCount;
+
   LiveTripStats copyWith({
     double? currentSpeedKmh,
     double? maxSpeedKmh,
@@ -55,6 +66,8 @@ class LiveTripStats {
     int? hardBrakesCount,
     TripPoint? lastPoint,
     List<TripPoint>? points,
+    int? stoppedSeconds,
+    int? stopCount,
   }) {
     return LiveTripStats(
       currentSpeedKmh: currentSpeedKmh ?? this.currentSpeedKmh,
@@ -67,6 +80,8 @@ class LiveTripStats {
       hardBrakesCount: hardBrakesCount ?? this.hardBrakesCount,
       lastPoint: lastPoint ?? this.lastPoint,
       points: points ?? this.points,
+      stoppedSeconds: stoppedSeconds ?? this.stoppedSeconds,
+      stopCount: stopCount ?? this.stopCount,
     );
   }
 }

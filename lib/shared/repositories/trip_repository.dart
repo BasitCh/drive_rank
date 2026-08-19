@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/core/services/geocoding_service.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:injectable/injectable.dart';
@@ -15,9 +16,10 @@ import 'package:injectable/injectable.dart';
 /// The display layer converts via `LocaleService`.
 @lazySingleton
 class TripRepository {
-  TripRepository(this._db);
+  TripRepository(this._db, this._geocoding);
 
   final AppDatabase _db;
+  final GeocodingService _geocoding;
 
   /// Persists a completed trip — the in-progress `LiveTripStats` snapshot
   /// from `TrackingBloc` — and returns the new trip's id.
@@ -33,8 +35,18 @@ class TripRepository {
     String? weatherCondition,
     double? weatherTempC,
     List<String> roadSegmentIds = const <String>[],
-  }) {
+  }) async {
     final isNight = _isNightDrive(startedAt);
+    final (elevationGain, maxElevation) = _elevationStats(stats.points);
+    // Best-effort, run before the transaction — reverse geocoding is a
+    // platform call (can take seconds / fail offline) and has no
+    // business holding a Drift transaction open.
+    final locationName = stats.points.isEmpty
+        ? null
+        : await _geocoding.placeName(
+            stats.points.first.lat,
+            stats.points.first.lng,
+          );
     return _db.transaction(() async {
       final tripId = await _db
           .into(_db.trips)
@@ -45,6 +57,10 @@ class TripRepository {
               avgSpeedKmh: stats.avgSpeedKmh,
               distanceKm: stats.distanceKm,
               durationSeconds: stats.durationSeconds,
+              stoppedSeconds: Value(stats.stoppedSeconds),
+              stopCount: Value(stats.stopCount),
+              elevationGainMeters: Value(elevationGain),
+              maxElevationMeters: Value(maxElevation),
               maxGforce: Value(stats.maxGforce),
               hardCornersCount: Value(stats.hardCornersCount),
               hardBrakesCount: Value(stats.hardBrakesCount),
@@ -55,6 +71,7 @@ class TripRepository {
               isNightDrive: Value(isNight),
               mapTheme: Value(mapTheme),
               country: Value(country),
+              locationName: Value(locationName),
               roadSegmentIds: Value(roadSegmentIds.join(',')),
               startedAt: startedAt,
               endedAt: Value(endedAt),
@@ -72,6 +89,7 @@ class TripRepository {
                     lng: p.lng,
                     speedKmh: p.speedKmh,
                     accuracyMeters: p.accuracyMeters,
+                    altitudeMeters: Value(p.altitudeMeters),
                     timestamp: p.timestamp,
                   ),
                 )
@@ -81,6 +99,25 @@ class TripRepository {
       }
       return tripId;
     });
+  }
+
+  /// Elevation gain is the sum of positive altitude deltas between
+  /// consecutive waypoints; max elevation is the highest single
+  /// sample. Both null when the trip has no reliable altitude data —
+  /// see `GpsService._reliableAltitude`.
+  (double?, double?) _elevationStats(List<TripPoint> points) {
+    final altitudes = [
+      for (final p in points)
+        if (p.altitudeMeters != null) p.altitudeMeters!,
+    ];
+    if (altitudes.isEmpty) return (null, null);
+    var gain = 0.0;
+    for (var i = 1; i < altitudes.length; i++) {
+      final delta = altitudes[i] - altitudes[i - 1];
+      if (delta > 0) gain += delta;
+    }
+    final maxElevation = altitudes.reduce((a, b) => a > b ? a : b);
+    return (gain, maxElevation);
   }
 
   /// Lifetime count of this user's saved trips. Used right after
@@ -131,6 +168,7 @@ class TripRepository {
             lng: r.lng,
             speedKmh: r.speedKmh,
             accuracyMeters: r.accuracyMeters,
+            altitudeMeters: r.altitudeMeters,
             timestamp: r.timestamp,
           ),
         )
@@ -139,6 +177,12 @@ class TripRepository {
 
   Future<int> deleteTrip(int id) {
     return (_db.delete(_db.trips)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// Deletes every trip owned by [uid] — waypoints cascade via the FK.
+  /// Used by account deletion; not exposed anywhere else.
+  Future<int> deleteAllForUid(String uid) {
+    return (_db.delete(_db.trips)..where((t) => t.uid.equals(uid))).go();
   }
 
   /// All trips in a given calendar month (inclusive of start, exclusive of

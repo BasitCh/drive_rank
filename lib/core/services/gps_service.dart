@@ -15,9 +15,10 @@ import 'package:latlong2/latlong.dart';
 /// counter useless. We smooth lat/lng through a simple Kalman filter
 /// before exposing [TripPoint]s downstream.
 ///
-/// Battery: the stream uses 1s intervals while moving and falls back to
-/// 5s while crawling. Foreground-service notification is wired up at the
-/// platform layer (Android manifest + flutter_background_service).
+/// Battery: the stream requests 500ms intervals on Android (iOS has no
+/// equivalent knob — CoreLocation delivers as fast as the chip allows
+/// with `distanceFilter: 0`). Foreground-service notification is wired
+/// up at the platform layer (Android manifest + flutter_background_service).
 @singleton
 class GpsService {
   GpsService();
@@ -38,9 +39,14 @@ class GpsService {
   /// [_spikeFilterRecoveryAfter] samples in a row, the filter trusts the
   /// next candidate even if it would otherwise be flagged as a spike —
   /// otherwise a low first-fix permanently anchors the filter at e.g.
-  /// 5 km/h while real driving is at 60+ km/h.
+  /// 5 km/h while real driving is at 60+ km/h. Lowered from 3 → 1 so a
+  /// genuine fast-acceleration reading that trips the delta check
+  /// (rare at [AppConstants.maxSpeedDeltaPerSampleKmh]) reaches the
+  /// display on the very next sample instead of sitting rejected for
+  /// up to 3 seconds — trades a little more exposure to a real GPS
+  /// glitch for a display that doesn't lag a fast-changing true speed.
   int _stuckRejectionStreak = 0;
-  static const int _spikeFilterRecoveryAfter = 3;
+  static const int _spikeFilterRecoveryAfter = 1;
 
   /// Live point stream — null until [start] is called.
   Stream<TripPoint> get points => _controller.stream;
@@ -87,6 +93,7 @@ class GpsService {
           speedKmh: 0,
           accuracyMeters: cached.accuracy,
           timestamp: cached.timestamp,
+          altitudeMeters: _reliableAltitude(cached),
         ),
       );
     } catch (_) {
@@ -101,9 +108,13 @@ class GpsService {
   /// [ForegroundNotificationConfig]. Without this, Android's battery
   /// manager throttles or kills the stream after ~10 min of sustained use,
   /// which is the "speed becomes zero after a while" bug users report.
-  /// `intervalDuration: 1s` pins the sample rate so the live speedometer
+  /// `intervalDuration` pins the sample rate so the live speedometer
   /// stays responsive instead of inheriting the OS's variable cadence
-  /// (often 2–3s on bestForNavigation when not pinned).
+  /// (often 2–3s on bestForNavigation when not pinned). Requested at
+  /// 500ms rather than 1s — most chips still only produce a genuinely
+  /// new fix around 1Hz, but on hardware capable of more this halves
+  /// the worst-case delay between a real speed change and the display
+  /// catching up, at a modest extra battery cost.
   ///
   /// **iOS**: `automotiveNavigation` activity type tells CoreLocation we're
   /// in a car — biases the GPS/INS fusion for vehicle speeds and prevents
@@ -113,7 +124,7 @@ class GpsService {
       return AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: 0,
-        intervalDuration: const Duration(seconds: 1),
+        intervalDuration: const Duration(milliseconds: 500),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           // Passive copy — the live-speed notification from
           // LiveTripNotificationService is what users actually look at.
@@ -176,8 +187,22 @@ class GpsService {
         speedKmh: speedKmh,
         accuracyMeters: p.accuracy,
         timestamp: p.timestamp,
+        altitudeMeters: _reliableAltitude(p),
       ),
     );
+  }
+
+  /// Returns `p.altitude`, or null when the fix's reported vertical
+  /// accuracy is too poor to trust — `Position.altitude` is a
+  /// non-nullable double that reads 0.0 on fixes with no real
+  /// altitude solution (indoors, no barometer, weak sky view), which
+  /// is indistinguishable from a genuine sea-level reading unless we
+  /// gate on `altitudeAccuracy`.
+  double? _reliableAltitude(Position p) {
+    final accuracy = p.altitudeAccuracy;
+    if (!accuracy.isFinite || accuracy < 0) return null;
+    if (accuracy > AppConstants.maxReliableAltitudeAccuracyMeters) return null;
+    return p.altitude;
   }
 
   /// Filters out the two flavours of GPS noise that make the live speed

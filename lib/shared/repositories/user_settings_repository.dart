@@ -128,6 +128,11 @@ class UserSettingsRepository {
     ),
   );
 
+  /// Trips shorter than [metres] are discarded on End, not saved — see
+  /// `TrackingBloc._onStopRequested`.
+  Future<void> setMinTripLengthMeters(double metres) =>
+      patch(UserSettingsCompanion(minTripLengthMeters: Value(metres)));
+
   Future<void> markOnboardingComplete() =>
       patch(const UserSettingsCompanion(onboardingComplete: Value(true)));
 
@@ -189,6 +194,14 @@ class UserSettingsRepository {
   /// Called from bootstrap after Firebase + anonymous auth are ready.
   /// Safe to call repeatedly; safe to call when Firebase isn't ready
   /// (the service no-ops on any error).
+  /// Deletes the settings row entirely — car, username, country, unit
+  /// preference, everything. Used only by account deletion; the next
+  /// `ensureExists()`/`read()` call recreates a fresh locale-derived
+  /// row, exactly like a brand-new install.
+  Future<void> wipe() async {
+    await _db.delete(_db.userSettings).go();
+  }
+
   Future<void> syncFreeTripsWithCloud() async {
     final remote = await _freeTripCounter.pullRemoteUsed();
     if (remote == null) return; // offline / unsupported device — keep local

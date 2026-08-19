@@ -7,6 +7,7 @@ import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:drive_rank/features/trip_summary/presentation/widgets/route_map_header.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
 /// The shareable trip stat card.
 ///
@@ -28,9 +29,12 @@ class StatCard extends StatelessWidget {
     required this.durationSeconds,
     required this.maxGforce,
     required this.carTag,
+    required this.startedAt,
     super.key,
     this.weatherTag,
     this.rankBadge,
+    this.locationName,
+    this.transparent = false,
   });
 
   final LocaleService locale;
@@ -45,15 +49,32 @@ class StatCard extends StatelessWidget {
   final String? weatherTag;
   final String? rankBadge;
 
+  /// Trip start — the footer date. Always shown.
+  final DateTime startedAt;
+
+  /// Reverse-geocoded place name, or null when geocoding failed/was
+  /// unavailable — the footer then shows the date alone, never a
+  /// placeholder or error string.
+  final String? locationName;
+
+  /// When true, the card exports with no background fill — for
+  /// overlaying on Instagram Stories. Border + content stay put so the
+  /// card still reads as a distinct shape on any backdrop.
+  final bool transparent;
+
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
+      key: const Key('statCardBackground'),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF141420), Color(0xFF0E0E18)],
-          begin: Alignment(-0.6, -1),
-          end: Alignment(0.6, 1),
-        ),
+        gradient: transparent
+            ? null
+            : const LinearGradient(
+                colors: [Color(0xFF141420), Color(0xFF0E0E18)],
+                begin: Alignment(-0.6, -1),
+                end: Alignment(0.6, 1),
+              ),
+        color: transparent ? Colors.transparent : null,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.teal.withValues(alpha: 0.12)),
       ),
@@ -117,30 +138,38 @@ class StatCard extends StatelessWidget {
                           ),
                           SizedBox(height: blockGap),
                           _FooterRow(maxGforce: maxGforce),
+                          SizedBox(height: blockGap * 0.5),
+                          _DateLocationRow(
+                            startedAt: startedAt,
+                            locationName: locationName,
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                // Subtle teal glow in the top-right corner.
-                Positioned(
-                  top: -glowSize * 0.25,
-                  right: -glowSize * 0.25,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: glowSize,
-                      height: glowSize,
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          colors: [
-                            AppColors.teal.withValues(alpha: 0.10),
-                            Colors.transparent,
-                          ],
+                // Subtle teal glow in the top-right corner — skipped on
+                // transparent export, where it would render as a stray
+                // blur with no dark backdrop to sit against.
+                if (!transparent)
+                  Positioned(
+                    top: -glowSize * 0.25,
+                    right: -glowSize * 0.25,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: glowSize,
+                        height: glowSize,
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            colors: [
+                              AppColors.teal.withValues(alpha: 0.10),
+                              Colors.transparent,
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
               ],
             );
           },
@@ -317,6 +346,29 @@ class _FooterRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Card footer date + reverse-geocoded location, e.g. "Aug 15, 2026 ·
+/// Bahawalpur District, Pakistan". Falls back to the date alone when
+/// [locationName] is null — never a placeholder or error string.
+class _DateLocationRow extends StatelessWidget {
+  const _DateLocationRow({required this.startedAt, this.locationName});
+
+  final DateTime startedAt;
+  final String? locationName;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = DateFormat('MMM d, yyyy').format(startedAt);
+    final text = locationName == null ? date : '$date · $locationName';
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AppTextStyles.microLabel.copyWith(fontSize: 8),
     );
   }
 }

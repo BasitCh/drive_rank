@@ -1,7 +1,7 @@
 name: drive_rank
 description: "DriveRank — Track your trips. Flex your stats."
 publish_to: "none"
-version: 1.1.11+22
+version: 1.1.12+23
 
 environment:
   sdk: ^3.11.5
@@ -41,6 +41,7 @@ dependencies:
 
   # GPS + sensors + map
   geolocator: ^13.0.0
+  geocoding: ^3.0.0
   sensors_plus: ^5.0.0
   flutter_map: ^7.0.0
   latlong2: ^0.9.0
@@ -85,6 +86,7 @@ dependencies:
   # tradeoff here, not scope creep.
   flutter_timezone: ^3.0.0
   device_info_plus: ^11.1.0
+  package_info_plus: ^8.1.0
   crypto: ^3.0.5
 
   # System

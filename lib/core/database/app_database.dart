@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -81,6 +81,30 @@ class AppDatabase extends _$AppDatabase {
         );
         await customStatement(
           'ALTER TABLE user_settings ADD COLUMN distance_goal_km REAL',
+        );
+      }
+      if (from < 7) {
+        // v7 — elevation, stopped-time, location-footer, and minimum
+        // trip length. See PRD items 1/2/4/8/9.
+        await customStatement(
+          'ALTER TABLE waypoints ADD COLUMN altitude_meters REAL',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN stop_count INTEGER NOT NULL '
+          'DEFAULT 0',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN elevation_gain_meters REAL',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN max_elevation_meters REAL',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN location_name TEXT',
+        );
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN min_trip_length_meters '
+          'REAL NOT NULL DEFAULT 500',
         );
       }
     },

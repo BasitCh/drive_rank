@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
+import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/database/app_database.dart' show TripRow;
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/insights_bundle.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/personal_record.dart';
+import 'package:drive_rank/features/trip_insights/domain/entities/replay_point.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_breakdown_slice.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_bucket.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_segment.dart';
@@ -63,6 +65,16 @@ class BuildInsights {
       records: records,
       bestAchievement: records.isEmpty ? null : records.first,
       chartEligible: waypoints.length >= _chartMinWaypoints,
+      replayPoints: heavy.replayPoints,
+      // Same 20-waypoint floor as the speed chart — below it a replay
+      // is a couple of jerky hops, not a route story.
+      replayEligible: waypoints.length >= _chartMinWaypoints,
+      smoothedElevationMeters: heavy.decimatedElevationMeters,
+      smoothedElevationSecondsFromStart: heavy.decimatedElevationSeconds,
+      elevationEligible:
+          waypoints.length >= AppConstants.elevationChartMinWaypoints &&
+          waypoints.any((w) => w.altitudeMeters != null),
+      zeroToHundredSeconds: heavy.zeroToHundredSeconds,
       breakdownEligible:
           trip.durationSeconds >= _breakdownMinDurationSeconds &&
           heavy.breakdown.any((slice) => slice.secondsInBucket > 0),
@@ -200,12 +212,30 @@ class _HeavyOutput {
     required this.decimatedSeconds,
     required this.segments,
     required this.breakdown,
+    required this.decimatedElevationMeters,
+    required this.decimatedElevationSeconds,
+    required this.replayPoints,
+    required this.zeroToHundredSeconds,
   });
 
   final List<double> decimatedSpeedKmh;
   final List<int> decimatedSeconds;
   final List<SpeedSegment> segments;
   final List<SpeedBreakdownSlice> breakdown;
+
+  /// Fastest 0→100 km/h (≈0→60 mph) run found in the trip, or null if
+  /// the trip never reached 100 km/h from a near-standstill.
+  final double? zeroToHundredSeconds;
+
+  /// Decimated, smoothed altitude series for the Elevation Over Time
+  /// chart. Paired 1:1 with [decimatedElevationSeconds] — independent
+  /// from the speed chart's own decimated x-axis since min-max
+  /// decimation can pick different sample indices per series.
+  final List<double> decimatedElevationMeters;
+  final List<int> decimatedElevationSeconds;
+
+  /// Full-resolution position + live-stat series for the route replay.
+  final List<ReplayPoint> replayPoints;
 }
 
 /// Centred moving-average window for the smoothing pass. Tuned for the
@@ -214,6 +244,12 @@ class _HeavyOutput {
 /// energetic. Wider windows flatten the peaks and the screenshot
 /// reads tame.
 const int _smoothingWindow = 2;
+
+/// Centred moving-average window for the Elevation Over Time chart —
+/// the task spec calls for a 3–5 point average; 5 damps single-sample
+/// GPS altitude noise (which is considerably noisier than horizontal
+/// position) while still tracking real climbs/descents.
+const int _elevationSmoothingWindow = 5;
 
 /// Hard cap on the number of bucket pairs the min-max decimator
 /// outputs (so up to `2 * buckets` points on the chart). 5000-point
@@ -237,27 +273,119 @@ _HeavyOutput _runHeavyCompute(_HeavyInput input) {
   );
   final segments = _groupSegments(waypoints);
   final breakdown = _bucketTimes(waypoints);
+
+  // Elevation series — only waypoints with a reliable altitude sample
+  // feed the chart; a mixed reliable/unreliable stream would smooth
+  // real deltas against zeros the GPS never actually reported.
+  final elevationWaypoints = [
+    for (final w in waypoints)
+      if (w.altitudeMeters != null) w,
+  ];
+  final rawElevations = elevationWaypoints
+      .map((p) => p.altitudeMeters!)
+      .toList(growable: false);
+  final elevationSeconds = _secondsFromStart(elevationWaypoints);
+  final smoothedElevation = _movingAverage(
+    rawElevations,
+    window: _elevationSmoothingWindow,
+  );
+  final (decElevation, decElevationSeconds) = _decimate(
+    smoothedElevation,
+    elevationSeconds,
+    targetBuckets: _chartTargetBuckets,
+  );
+
   return _HeavyOutput(
     decimatedSpeedKmh: decSpeeds,
     decimatedSeconds: decSeconds,
     segments: segments,
     breakdown: breakdown,
+    decimatedElevationMeters: decElevation,
+    decimatedElevationSeconds: decElevationSeconds,
+    replayPoints: _buildReplayPoints(waypoints, seconds),
+    zeroToHundredSeconds: _zeroToHundred(waypoints),
   );
+}
+
+/// Fastest 0→100 km/h run: for each near-standstill sample (≤5 km/h,
+/// the "start line"), the elapsed time to the next sample reaching
+/// 100 km/h. Reports the minimum across every such run in the trip —
+/// a spirited trip usually has several accelerations from a stop.
+double? _zeroToHundred(List<TripPoint> waypoints) {
+  double? best;
+  DateTime? startLine;
+  for (final p in waypoints) {
+    if (p.speedKmh <= 5) {
+      startLine = p.timestamp;
+    } else if (p.speedKmh >= 100 && startLine != null) {
+      final dt = p.timestamp.difference(startLine).inMilliseconds / 1000.0;
+      if (dt > 0 && (best == null || dt < best)) best = dt;
+      startLine = null;
+    }
+  }
+  return best;
+}
+
+/// Full-resolution replay series — position, speed, cumulative
+/// distance, and elapsed time at every recorded waypoint (not
+/// decimated: the marker steps through the actual route, not a
+/// simplified one).
+List<ReplayPoint> _buildReplayPoints(
+  List<TripPoint> waypoints,
+  List<int> secondsFromStart,
+) {
+  if (waypoints.isEmpty) return const <ReplayPoint>[];
+  const distanceCalc = Distance();
+  var cumulativeKm = 0.0;
+  final result = <ReplayPoint>[
+    ReplayPoint(
+      position: LatLng(waypoints.first.lat, waypoints.first.lng),
+      speedKmh: waypoints.first.speedKmh,
+      cumulativeDistanceKm: 0,
+      secondsFromStart: secondsFromStart.first,
+    ),
+  ];
+  for (var i = 1; i < waypoints.length; i++) {
+    final prev = waypoints[i - 1];
+    final curr = waypoints[i];
+    cumulativeKm +=
+        distanceCalc.as(
+          LengthUnit.Meter,
+          LatLng(prev.lat, prev.lng),
+          LatLng(curr.lat, curr.lng),
+        ) /
+        1000.0;
+    result.add(
+      ReplayPoint(
+        position: LatLng(curr.lat, curr.lng),
+        speedKmh: curr.speedKmh,
+        cumulativeDistanceKm: cumulativeKm,
+        secondsFromStart: secondsFromStart[i],
+      ),
+    );
+  }
+  return result;
 }
 
 /// Centred moving average. Edge points use the available window (no
 /// truncation) so the output line has the same length as the input —
 /// fl_chart needs paired x/y arrays of equal length.
-List<double> _smooth(List<double> speeds) {
-  if (speeds.length < _smoothingWindow) return List.of(speeds);
-  const half = _smoothingWindow ~/ 2;
-  final result = List<double>.filled(speeds.length, 0);
-  for (var i = 0; i < speeds.length; i++) {
+List<double> _smooth(List<double> speeds) =>
+    _movingAverage(speeds, window: _smoothingWindow);
+
+/// Generic centred moving average — see [_smooth] for the edge-window
+/// behaviour. Shared by the speed and elevation smoothing passes so
+/// they only differ in window size.
+List<double> _movingAverage(List<double> values, {required int window}) {
+  if (values.length < window) return List.of(values);
+  final half = window ~/ 2;
+  final result = List<double>.filled(values.length, 0);
+  for (var i = 0; i < values.length; i++) {
     final start = math.max(0, i - half);
-    final end = math.min(speeds.length, i + half + 1);
+    final end = math.min(values.length, i + half + 1);
     var sum = 0.0;
     for (var j = start; j < end; j++) {
-      sum += speeds[j];
+      sum += values[j];
     }
     result[i] = sum / (end - start);
   }
@@ -353,7 +481,12 @@ List<SpeedSegment> _groupSegments(List<TripPoint> waypoints) {
 ///
 /// Pairs with a delta over 60 s are skipped — they're either GPS
 /// dropouts or paused-and-resumed segments, both of which would
-/// inflate the bucket the user happened to be in when paused.
+/// inflate the bucket the user happened to be in when paused. Pairs
+/// where both samples are at the GPS noise floor (zero speed, no
+/// distance covered — a red light, a stop sign, standing still) are
+/// skipped too: that's idle time, not a speed the driver was doing,
+/// and counting it as "under 40 km/h" skews the whole distribution
+/// toward a bucket that's really just "not moving".
 List<SpeedBreakdownSlice> _bucketTimes(List<TripPoint> waypoints) {
   final acc = <SpeedBucket, double>{for (final b in SpeedBucket.values) b: 0};
   for (var i = 0; i < waypoints.length - 1; i++) {
@@ -361,6 +494,7 @@ List<SpeedBreakdownSlice> _bucketTimes(List<TripPoint> waypoints) {
     final b = waypoints[i + 1];
     final dt = b.timestamp.difference(a.timestamp).inMilliseconds / 1000.0;
     if (dt <= 0 || dt > 60) continue;
+    if (a.speedKmh <= 0 && b.speedKmh <= 0) continue;
     final mean = (a.speedKmh + b.speedKmh) / 2;
     final bucket = SpeedBucket.from(mean);
     acc[bucket] = (acc[bucket] ?? 0) + dt;

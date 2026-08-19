@@ -16,8 +16,7 @@ class RouteNames {
   // Modals / detail pages.
   static const String tracking = '/tracking';
   static const String tripSummary = '/trip-summary';
-  static const String performanceCard = '/performance';
-  static const String journeyCard = '/journey';
+  static const String tripReplay = '/trip-replay';
   static const String paywall = '/paywall';
   static const String settings = '/settings';
   static const String monthlyReport = '/monthly-report';
@@ -25,9 +24,6 @@ class RouteNames {
   // Helper — build a trip summary path for a given id.
   static String tripSummaryFor(int tripId) => '$tripSummary/$tripId';
 
-  /// Helper — build a performance share page path for a given trip id.
-  static String performanceCardFor(int tripId) => '$performanceCard/$tripId';
-
-  /// Helper — build a journey share page path for a given trip id.
-  static String journeyCardFor(int tripId) => '$journeyCard/$tripId';
+  /// Helper — build a full-screen route replay path for a given trip id.
+  static String tripReplayFor(int tripId) => '$tripReplay/$tripId';
 }

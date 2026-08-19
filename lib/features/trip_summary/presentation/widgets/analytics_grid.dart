@@ -26,6 +26,12 @@ class AnalyticsGrid extends StatelessWidget {
     required this.hardBrakes,
     required this.durationSeconds,
     required this.fuelCostFormatted,
+    required this.stoppedTimeFormatted,
+    required this.stopCount,
+    this.elevationGainFormatted,
+    this.maxElevationFormatted,
+    this.zeroToHundredFormatted,
+    this.zeroToHundredLabel,
     super.key,
   });
 
@@ -38,6 +44,23 @@ class AnalyticsGrid extends StatelessWidget {
   /// Pre-formatted via `LocaleService.formatCurrency`, or `—` if the user
   /// hasn't configured fuel.
   final String fuelCostFormatted;
+
+  /// Pre-formatted via `LocaleService.formatDuration`.
+  final String stoppedTimeFormatted;
+
+  /// Number of qualifying stops (see `AppConstants.stopMinDurationSeconds`).
+  final int stopCount;
+
+  /// Pre-formatted via `LocaleService.formatElevation`. Both null when
+  /// the trip has no reliable altitude data — the whole row hides
+  /// rather than rendering a dead `—` pair.
+  final String? elevationGainFormatted;
+  final String? maxElevationFormatted;
+
+  /// Fastest 0→100 km/h (or 0→60 mph, per [zeroToHundredLabel]) run —
+  /// null when the trip never reached the target speed, hiding the row.
+  final String? zeroToHundredFormatted;
+  final String? zeroToHundredLabel;
 
   /// Duration-aware sanity cap. Real drivers, even aggressive ones,
   /// stay well below `hardEventBrokenThresholdPerMinute` events per
@@ -84,6 +107,47 @@ class AnalyticsGrid extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            _Item(
+              value: stoppedTimeFormatted,
+              label: AppStrings.tripSummaryStoppedTime,
+            ),
+            const SizedBox(width: 6),
+            _Item(
+              value: stopCount.toString(),
+              label: AppStrings.tripSummaryStopCount,
+            ),
+            if (zeroToHundredFormatted != null &&
+                zeroToHundredLabel != null) ...[
+              const SizedBox(width: 6),
+              _Item(
+                value: zeroToHundredFormatted!,
+                label: zeroToHundredLabel!,
+                color: AppColors.orange,
+              ),
+            ],
+          ],
+        ),
+        if (elevationGainFormatted != null && maxElevationFormatted != null) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _Item(
+                value: elevationGainFormatted!,
+                label: AppStrings.tripSummaryElevationGain,
+                color: AppColors.teal,
+              ),
+              const SizedBox(width: 6),
+              _Item(
+                value: maxElevationFormatted!,
+                label: AppStrings.tripSummaryMaxElevation,
+                color: AppColors.teal,
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

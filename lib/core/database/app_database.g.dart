@@ -86,6 +86,40 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _stopCountMeta = const VerificationMeta(
+    'stopCount',
+  );
+  @override
+  late final GeneratedColumn<int> stopCount = GeneratedColumn<int>(
+    'stop_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _elevationGainMetersMeta =
+      const VerificationMeta('elevationGainMeters');
+  @override
+  late final GeneratedColumn<double> elevationGainMeters =
+      GeneratedColumn<double>(
+        'elevation_gain_meters',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _maxElevationMetersMeta =
+      const VerificationMeta('maxElevationMeters');
+  @override
+  late final GeneratedColumn<double> maxElevationMeters =
+      GeneratedColumn<double>(
+        'max_elevation_meters',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _maxGforceMeta = const VerificationMeta(
     'maxGforce',
   );
@@ -205,6 +239,17 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _locationNameMeta = const VerificationMeta(
+    'locationName',
+  );
+  @override
+  late final GeneratedColumn<String> locationName = GeneratedColumn<String>(
+    'location_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _roadSegmentIdsMeta = const VerificationMeta(
     'roadSegmentIds',
   );
@@ -263,6 +308,9 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     distanceKm,
     durationSeconds,
     stoppedSeconds,
+    stopCount,
+    elevationGainMeters,
+    maxElevationMeters,
     maxGforce,
     hardCornersCount,
     hardBrakesCount,
@@ -273,6 +321,7 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     isNightDrive,
     mapTheme,
     country,
+    locationName,
     roadSegmentIds,
     startedAt,
     endedAt,
@@ -348,6 +397,30 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         stoppedSeconds.isAcceptableOrUnknown(
           data['stopped_seconds']!,
           _stoppedSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('stop_count')) {
+      context.handle(
+        _stopCountMeta,
+        stopCount.isAcceptableOrUnknown(data['stop_count']!, _stopCountMeta),
+      );
+    }
+    if (data.containsKey('elevation_gain_meters')) {
+      context.handle(
+        _elevationGainMetersMeta,
+        elevationGainMeters.isAcceptableOrUnknown(
+          data['elevation_gain_meters']!,
+          _elevationGainMetersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('max_elevation_meters')) {
+      context.handle(
+        _maxElevationMetersMeta,
+        maxElevationMeters.isAcceptableOrUnknown(
+          data['max_elevation_meters']!,
+          _maxElevationMetersMeta,
         ),
       );
     }
@@ -432,6 +505,15 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         country.isAcceptableOrUnknown(data['country']!, _countryMeta),
       );
     }
+    if (data.containsKey('location_name')) {
+      context.handle(
+        _locationNameMeta,
+        locationName.isAcceptableOrUnknown(
+          data['location_name']!,
+          _locationNameMeta,
+        ),
+      );
+    }
     if (data.containsKey('road_segment_ids')) {
       context.handle(
         _roadSegmentIdsMeta,
@@ -498,6 +580,18 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         DriftSqlType.int,
         data['${effectivePrefix}stopped_seconds'],
       )!,
+      stopCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stop_count'],
+      )!,
+      elevationGainMeters: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}elevation_gain_meters'],
+      ),
+      maxElevationMeters: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}max_elevation_meters'],
+      ),
       maxGforce: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}max_gforce'],
@@ -538,6 +632,10 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         DriftSqlType.string,
         data['${effectivePrefix}country'],
       ),
+      locationName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_name'],
+      ),
       roadSegmentIds: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}road_segment_ids'],
@@ -573,6 +671,15 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   final double distanceKm;
   final int durationSeconds;
   final int stoppedSeconds;
+  final int stopCount;
+
+  /// Sum of positive altitude deltas between consecutive waypoints.
+  /// Null when the trip has no reliable altitude samples.
+  final double? elevationGainMeters;
+
+  /// Highest altitude reached during the trip. Null when the trip has
+  /// no reliable altitude samples.
+  final double? maxElevationMeters;
   final double maxGforce;
   final int hardCornersCount;
   final int hardBrakesCount;
@@ -592,6 +699,14 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   /// ISO 3166-1 alpha-2 country code where the trip occurred.
   final String? country;
 
+  /// Reverse-geocoded, human-readable place name for the trip's start
+  /// coordinates (e.g. "Bahawalpur District, Pakistan") — resolved
+  /// once on save via `GeocodingService` and cached here since it's an
+  /// on-device OS lookup, not free to redo on every card render. Null
+  /// when geocoding failed or was unavailable; the card footer falls
+  /// back to the date alone in that case, never a placeholder string.
+  final String? locationName;
+
   /// Comma-separated road-segment ids the trip's bounding box overlapped
   /// at save time (e.g. `nurburgring_nordschleife,m25_london`). Empty when
   /// the trip touched no known segment. We denormalise instead of using a
@@ -610,6 +725,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     required this.distanceKm,
     required this.durationSeconds,
     required this.stoppedSeconds,
+    required this.stopCount,
+    this.elevationGainMeters,
+    this.maxElevationMeters,
     required this.maxGforce,
     required this.hardCornersCount,
     required this.hardBrakesCount,
@@ -620,6 +738,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     required this.isNightDrive,
     required this.mapTheme,
     this.country,
+    this.locationName,
     required this.roadSegmentIds,
     required this.startedAt,
     this.endedAt,
@@ -635,6 +754,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     map['distance_km'] = Variable<double>(distanceKm);
     map['duration_seconds'] = Variable<int>(durationSeconds);
     map['stopped_seconds'] = Variable<int>(stoppedSeconds);
+    map['stop_count'] = Variable<int>(stopCount);
+    if (!nullToAbsent || elevationGainMeters != null) {
+      map['elevation_gain_meters'] = Variable<double>(elevationGainMeters);
+    }
+    if (!nullToAbsent || maxElevationMeters != null) {
+      map['max_elevation_meters'] = Variable<double>(maxElevationMeters);
+    }
     map['max_gforce'] = Variable<double>(maxGforce);
     map['hard_corners_count'] = Variable<int>(hardCornersCount);
     map['hard_brakes_count'] = Variable<int>(hardBrakesCount);
@@ -655,6 +781,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     if (!nullToAbsent || country != null) {
       map['country'] = Variable<String>(country);
     }
+    if (!nullToAbsent || locationName != null) {
+      map['location_name'] = Variable<String>(locationName);
+    }
     map['road_segment_ids'] = Variable<String>(roadSegmentIds);
     map['started_at'] = Variable<DateTime>(startedAt);
     if (!nullToAbsent || endedAt != null) {
@@ -673,6 +802,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       distanceKm: Value(distanceKm),
       durationSeconds: Value(durationSeconds),
       stoppedSeconds: Value(stoppedSeconds),
+      stopCount: Value(stopCount),
+      elevationGainMeters: elevationGainMeters == null && nullToAbsent
+          ? const Value.absent()
+          : Value(elevationGainMeters),
+      maxElevationMeters: maxElevationMeters == null && nullToAbsent
+          ? const Value.absent()
+          : Value(maxElevationMeters),
       maxGforce: Value(maxGforce),
       hardCornersCount: Value(hardCornersCount),
       hardBrakesCount: Value(hardBrakesCount),
@@ -693,6 +829,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       country: country == null && nullToAbsent
           ? const Value.absent()
           : Value(country),
+      locationName: locationName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationName),
       roadSegmentIds: Value(roadSegmentIds),
       startedAt: Value(startedAt),
       endedAt: endedAt == null && nullToAbsent
@@ -715,6 +854,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       distanceKm: serializer.fromJson<double>(json['distanceKm']),
       durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
       stoppedSeconds: serializer.fromJson<int>(json['stoppedSeconds']),
+      stopCount: serializer.fromJson<int>(json['stopCount']),
+      elevationGainMeters: serializer.fromJson<double?>(
+        json['elevationGainMeters'],
+      ),
+      maxElevationMeters: serializer.fromJson<double?>(
+        json['maxElevationMeters'],
+      ),
       maxGforce: serializer.fromJson<double>(json['maxGforce']),
       hardCornersCount: serializer.fromJson<int>(json['hardCornersCount']),
       hardBrakesCount: serializer.fromJson<int>(json['hardBrakesCount']),
@@ -727,6 +873,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       isNightDrive: serializer.fromJson<bool>(json['isNightDrive']),
       mapTheme: serializer.fromJson<String>(json['mapTheme']),
       country: serializer.fromJson<String?>(json['country']),
+      locationName: serializer.fromJson<String?>(json['locationName']),
       roadSegmentIds: serializer.fromJson<String>(json['roadSegmentIds']),
       startedAt: serializer.fromJson<DateTime>(json['startedAt']),
       endedAt: serializer.fromJson<DateTime?>(json['endedAt']),
@@ -744,6 +891,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       'distanceKm': serializer.toJson<double>(distanceKm),
       'durationSeconds': serializer.toJson<int>(durationSeconds),
       'stoppedSeconds': serializer.toJson<int>(stoppedSeconds),
+      'stopCount': serializer.toJson<int>(stopCount),
+      'elevationGainMeters': serializer.toJson<double?>(elevationGainMeters),
+      'maxElevationMeters': serializer.toJson<double?>(maxElevationMeters),
       'maxGforce': serializer.toJson<double>(maxGforce),
       'hardCornersCount': serializer.toJson<int>(hardCornersCount),
       'hardBrakesCount': serializer.toJson<int>(hardBrakesCount),
@@ -754,6 +904,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       'isNightDrive': serializer.toJson<bool>(isNightDrive),
       'mapTheme': serializer.toJson<String>(mapTheme),
       'country': serializer.toJson<String?>(country),
+      'locationName': serializer.toJson<String?>(locationName),
       'roadSegmentIds': serializer.toJson<String>(roadSegmentIds),
       'startedAt': serializer.toJson<DateTime>(startedAt),
       'endedAt': serializer.toJson<DateTime?>(endedAt),
@@ -769,6 +920,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     double? distanceKm,
     int? durationSeconds,
     int? stoppedSeconds,
+    int? stopCount,
+    Value<double?> elevationGainMeters = const Value.absent(),
+    Value<double?> maxElevationMeters = const Value.absent(),
     double? maxGforce,
     int? hardCornersCount,
     int? hardBrakesCount,
@@ -779,6 +933,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     bool? isNightDrive,
     String? mapTheme,
     Value<String?> country = const Value.absent(),
+    Value<String?> locationName = const Value.absent(),
     String? roadSegmentIds,
     DateTime? startedAt,
     Value<DateTime?> endedAt = const Value.absent(),
@@ -791,6 +946,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     distanceKm: distanceKm ?? this.distanceKm,
     durationSeconds: durationSeconds ?? this.durationSeconds,
     stoppedSeconds: stoppedSeconds ?? this.stoppedSeconds,
+    stopCount: stopCount ?? this.stopCount,
+    elevationGainMeters: elevationGainMeters.present
+        ? elevationGainMeters.value
+        : this.elevationGainMeters,
+    maxElevationMeters: maxElevationMeters.present
+        ? maxElevationMeters.value
+        : this.maxElevationMeters,
     maxGforce: maxGforce ?? this.maxGforce,
     hardCornersCount: hardCornersCount ?? this.hardCornersCount,
     hardBrakesCount: hardBrakesCount ?? this.hardBrakesCount,
@@ -807,6 +969,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     isNightDrive: isNightDrive ?? this.isNightDrive,
     mapTheme: mapTheme ?? this.mapTheme,
     country: country.present ? country.value : this.country,
+    locationName: locationName.present ? locationName.value : this.locationName,
     roadSegmentIds: roadSegmentIds ?? this.roadSegmentIds,
     startedAt: startedAt ?? this.startedAt,
     endedAt: endedAt.present ? endedAt.value : this.endedAt,
@@ -831,6 +994,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       stoppedSeconds: data.stoppedSeconds.present
           ? data.stoppedSeconds.value
           : this.stoppedSeconds,
+      stopCount: data.stopCount.present ? data.stopCount.value : this.stopCount,
+      elevationGainMeters: data.elevationGainMeters.present
+          ? data.elevationGainMeters.value
+          : this.elevationGainMeters,
+      maxElevationMeters: data.maxElevationMeters.present
+          ? data.maxElevationMeters.value
+          : this.maxElevationMeters,
       maxGforce: data.maxGforce.present ? data.maxGforce.value : this.maxGforce,
       hardCornersCount: data.hardCornersCount.present
           ? data.hardCornersCount.value
@@ -855,6 +1025,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           : this.isNightDrive,
       mapTheme: data.mapTheme.present ? data.mapTheme.value : this.mapTheme,
       country: data.country.present ? data.country.value : this.country,
+      locationName: data.locationName.present
+          ? data.locationName.value
+          : this.locationName,
       roadSegmentIds: data.roadSegmentIds.present
           ? data.roadSegmentIds.value
           : this.roadSegmentIds,
@@ -874,6 +1047,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ..write('distanceKm: $distanceKm, ')
           ..write('durationSeconds: $durationSeconds, ')
           ..write('stoppedSeconds: $stoppedSeconds, ')
+          ..write('stopCount: $stopCount, ')
+          ..write('elevationGainMeters: $elevationGainMeters, ')
+          ..write('maxElevationMeters: $maxElevationMeters, ')
           ..write('maxGforce: $maxGforce, ')
           ..write('hardCornersCount: $hardCornersCount, ')
           ..write('hardBrakesCount: $hardBrakesCount, ')
@@ -884,6 +1060,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ..write('isNightDrive: $isNightDrive, ')
           ..write('mapTheme: $mapTheme, ')
           ..write('country: $country, ')
+          ..write('locationName: $locationName, ')
           ..write('roadSegmentIds: $roadSegmentIds, ')
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
@@ -901,6 +1078,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     distanceKm,
     durationSeconds,
     stoppedSeconds,
+    stopCount,
+    elevationGainMeters,
+    maxElevationMeters,
     maxGforce,
     hardCornersCount,
     hardBrakesCount,
@@ -911,6 +1091,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     isNightDrive,
     mapTheme,
     country,
+    locationName,
     roadSegmentIds,
     startedAt,
     endedAt,
@@ -927,6 +1108,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           other.distanceKm == this.distanceKm &&
           other.durationSeconds == this.durationSeconds &&
           other.stoppedSeconds == this.stoppedSeconds &&
+          other.stopCount == this.stopCount &&
+          other.elevationGainMeters == this.elevationGainMeters &&
+          other.maxElevationMeters == this.maxElevationMeters &&
           other.maxGforce == this.maxGforce &&
           other.hardCornersCount == this.hardCornersCount &&
           other.hardBrakesCount == this.hardBrakesCount &&
@@ -937,6 +1121,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           other.isNightDrive == this.isNightDrive &&
           other.mapTheme == this.mapTheme &&
           other.country == this.country &&
+          other.locationName == this.locationName &&
           other.roadSegmentIds == this.roadSegmentIds &&
           other.startedAt == this.startedAt &&
           other.endedAt == this.endedAt &&
@@ -951,6 +1136,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
   final Value<double> distanceKm;
   final Value<int> durationSeconds;
   final Value<int> stoppedSeconds;
+  final Value<int> stopCount;
+  final Value<double?> elevationGainMeters;
+  final Value<double?> maxElevationMeters;
   final Value<double> maxGforce;
   final Value<int> hardCornersCount;
   final Value<int> hardBrakesCount;
@@ -961,6 +1149,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
   final Value<bool> isNightDrive;
   final Value<String> mapTheme;
   final Value<String?> country;
+  final Value<String?> locationName;
   final Value<String> roadSegmentIds;
   final Value<DateTime> startedAt;
   final Value<DateTime?> endedAt;
@@ -973,6 +1162,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.distanceKm = const Value.absent(),
     this.durationSeconds = const Value.absent(),
     this.stoppedSeconds = const Value.absent(),
+    this.stopCount = const Value.absent(),
+    this.elevationGainMeters = const Value.absent(),
+    this.maxElevationMeters = const Value.absent(),
     this.maxGforce = const Value.absent(),
     this.hardCornersCount = const Value.absent(),
     this.hardBrakesCount = const Value.absent(),
@@ -983,6 +1175,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.isNightDrive = const Value.absent(),
     this.mapTheme = const Value.absent(),
     this.country = const Value.absent(),
+    this.locationName = const Value.absent(),
     this.roadSegmentIds = const Value.absent(),
     this.startedAt = const Value.absent(),
     this.endedAt = const Value.absent(),
@@ -996,6 +1189,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     required double distanceKm,
     required int durationSeconds,
     this.stoppedSeconds = const Value.absent(),
+    this.stopCount = const Value.absent(),
+    this.elevationGainMeters = const Value.absent(),
+    this.maxElevationMeters = const Value.absent(),
     this.maxGforce = const Value.absent(),
     this.hardCornersCount = const Value.absent(),
     this.hardBrakesCount = const Value.absent(),
@@ -1006,6 +1202,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.isNightDrive = const Value.absent(),
     this.mapTheme = const Value.absent(),
     this.country = const Value.absent(),
+    this.locationName = const Value.absent(),
     this.roadSegmentIds = const Value.absent(),
     required DateTime startedAt,
     this.endedAt = const Value.absent(),
@@ -1024,6 +1221,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Expression<double>? distanceKm,
     Expression<int>? durationSeconds,
     Expression<int>? stoppedSeconds,
+    Expression<int>? stopCount,
+    Expression<double>? elevationGainMeters,
+    Expression<double>? maxElevationMeters,
     Expression<double>? maxGforce,
     Expression<int>? hardCornersCount,
     Expression<int>? hardBrakesCount,
@@ -1034,6 +1234,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Expression<bool>? isNightDrive,
     Expression<String>? mapTheme,
     Expression<String>? country,
+    Expression<String>? locationName,
     Expression<String>? roadSegmentIds,
     Expression<DateTime>? startedAt,
     Expression<DateTime>? endedAt,
@@ -1047,6 +1248,11 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       if (distanceKm != null) 'distance_km': distanceKm,
       if (durationSeconds != null) 'duration_seconds': durationSeconds,
       if (stoppedSeconds != null) 'stopped_seconds': stoppedSeconds,
+      if (stopCount != null) 'stop_count': stopCount,
+      if (elevationGainMeters != null)
+        'elevation_gain_meters': elevationGainMeters,
+      if (maxElevationMeters != null)
+        'max_elevation_meters': maxElevationMeters,
       if (maxGforce != null) 'max_gforce': maxGforce,
       if (hardCornersCount != null) 'hard_corners_count': hardCornersCount,
       if (hardBrakesCount != null) 'hard_brakes_count': hardBrakesCount,
@@ -1057,6 +1263,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       if (isNightDrive != null) 'is_night_drive': isNightDrive,
       if (mapTheme != null) 'map_theme': mapTheme,
       if (country != null) 'country': country,
+      if (locationName != null) 'location_name': locationName,
       if (roadSegmentIds != null) 'road_segment_ids': roadSegmentIds,
       if (startedAt != null) 'started_at': startedAt,
       if (endedAt != null) 'ended_at': endedAt,
@@ -1072,6 +1279,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Value<double>? distanceKm,
     Value<int>? durationSeconds,
     Value<int>? stoppedSeconds,
+    Value<int>? stopCount,
+    Value<double?>? elevationGainMeters,
+    Value<double?>? maxElevationMeters,
     Value<double>? maxGforce,
     Value<int>? hardCornersCount,
     Value<int>? hardBrakesCount,
@@ -1082,6 +1292,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Value<bool>? isNightDrive,
     Value<String>? mapTheme,
     Value<String?>? country,
+    Value<String?>? locationName,
     Value<String>? roadSegmentIds,
     Value<DateTime>? startedAt,
     Value<DateTime?>? endedAt,
@@ -1095,6 +1306,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       distanceKm: distanceKm ?? this.distanceKm,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       stoppedSeconds: stoppedSeconds ?? this.stoppedSeconds,
+      stopCount: stopCount ?? this.stopCount,
+      elevationGainMeters: elevationGainMeters ?? this.elevationGainMeters,
+      maxElevationMeters: maxElevationMeters ?? this.maxElevationMeters,
       maxGforce: maxGforce ?? this.maxGforce,
       hardCornersCount: hardCornersCount ?? this.hardCornersCount,
       hardBrakesCount: hardBrakesCount ?? this.hardBrakesCount,
@@ -1105,6 +1319,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       isNightDrive: isNightDrive ?? this.isNightDrive,
       mapTheme: mapTheme ?? this.mapTheme,
       country: country ?? this.country,
+      locationName: locationName ?? this.locationName,
       roadSegmentIds: roadSegmentIds ?? this.roadSegmentIds,
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
@@ -1136,6 +1351,17 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     if (stoppedSeconds.present) {
       map['stopped_seconds'] = Variable<int>(stoppedSeconds.value);
     }
+    if (stopCount.present) {
+      map['stop_count'] = Variable<int>(stopCount.value);
+    }
+    if (elevationGainMeters.present) {
+      map['elevation_gain_meters'] = Variable<double>(
+        elevationGainMeters.value,
+      );
+    }
+    if (maxElevationMeters.present) {
+      map['max_elevation_meters'] = Variable<double>(maxElevationMeters.value);
+    }
     if (maxGforce.present) {
       map['max_gforce'] = Variable<double>(maxGforce.value);
     }
@@ -1166,6 +1392,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     if (country.present) {
       map['country'] = Variable<String>(country.value);
     }
+    if (locationName.present) {
+      map['location_name'] = Variable<String>(locationName.value);
+    }
     if (roadSegmentIds.present) {
       map['road_segment_ids'] = Variable<String>(roadSegmentIds.value);
     }
@@ -1191,6 +1420,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
           ..write('distanceKm: $distanceKm, ')
           ..write('durationSeconds: $durationSeconds, ')
           ..write('stoppedSeconds: $stoppedSeconds, ')
+          ..write('stopCount: $stopCount, ')
+          ..write('elevationGainMeters: $elevationGainMeters, ')
+          ..write('maxElevationMeters: $maxElevationMeters, ')
           ..write('maxGforce: $maxGforce, ')
           ..write('hardCornersCount: $hardCornersCount, ')
           ..write('hardBrakesCount: $hardBrakesCount, ')
@@ -1201,6 +1433,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
           ..write('isNightDrive: $isNightDrive, ')
           ..write('mapTheme: $mapTheme, ')
           ..write('country: $country, ')
+          ..write('locationName: $locationName, ')
           ..write('roadSegmentIds: $roadSegmentIds, ')
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
@@ -1281,6 +1514,17 @@ class $WaypointsTable extends Waypoints
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _altitudeMetersMeta = const VerificationMeta(
+    'altitudeMeters',
+  );
+  @override
+  late final GeneratedColumn<double> altitudeMeters = GeneratedColumn<double>(
+    'altitude_meters',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _timestampMeta = const VerificationMeta(
     'timestamp',
   );
@@ -1300,6 +1544,7 @@ class $WaypointsTable extends Waypoints
     lng,
     speedKmh,
     accuracyMeters,
+    altitudeMeters,
     timestamp,
   ];
   @override
@@ -1360,6 +1605,15 @@ class $WaypointsTable extends Waypoints
     } else if (isInserting) {
       context.missing(_accuracyMetersMeta);
     }
+    if (data.containsKey('altitude_meters')) {
+      context.handle(
+        _altitudeMetersMeta,
+        altitudeMeters.isAcceptableOrUnknown(
+          data['altitude_meters']!,
+          _altitudeMetersMeta,
+        ),
+      );
+    }
     if (data.containsKey('timestamp')) {
       context.handle(
         _timestampMeta,
@@ -1401,6 +1655,10 @@ class $WaypointsTable extends Waypoints
         DriftSqlType.double,
         data['${effectivePrefix}accuracy_meters'],
       )!,
+      altitudeMeters: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}altitude_meters'],
+      ),
       timestamp: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}timestamp'],
@@ -1425,6 +1683,11 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
 
   /// Reported GPS accuracy in metres (lower is better).
   final double accuracyMeters;
+
+  /// Altitude above sea level in metres. Null when the fix's reported
+  /// altitude accuracy was too poor to trust — see
+  /// `GpsService._reliableAltitude`.
+  final double? altitudeMeters;
   final DateTime timestamp;
   const WaypointRow({
     required this.id,
@@ -1433,6 +1696,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
     required this.lng,
     required this.speedKmh,
     required this.accuracyMeters,
+    this.altitudeMeters,
     required this.timestamp,
   });
   @override
@@ -1444,6 +1708,9 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
     map['lng'] = Variable<double>(lng);
     map['speed_kmh'] = Variable<double>(speedKmh);
     map['accuracy_meters'] = Variable<double>(accuracyMeters);
+    if (!nullToAbsent || altitudeMeters != null) {
+      map['altitude_meters'] = Variable<double>(altitudeMeters);
+    }
     map['timestamp'] = Variable<DateTime>(timestamp);
     return map;
   }
@@ -1456,6 +1723,9 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
       lng: Value(lng),
       speedKmh: Value(speedKmh),
       accuracyMeters: Value(accuracyMeters),
+      altitudeMeters: altitudeMeters == null && nullToAbsent
+          ? const Value.absent()
+          : Value(altitudeMeters),
       timestamp: Value(timestamp),
     );
   }
@@ -1472,6 +1742,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
       lng: serializer.fromJson<double>(json['lng']),
       speedKmh: serializer.fromJson<double>(json['speedKmh']),
       accuracyMeters: serializer.fromJson<double>(json['accuracyMeters']),
+      altitudeMeters: serializer.fromJson<double?>(json['altitudeMeters']),
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
     );
   }
@@ -1485,6 +1756,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
       'lng': serializer.toJson<double>(lng),
       'speedKmh': serializer.toJson<double>(speedKmh),
       'accuracyMeters': serializer.toJson<double>(accuracyMeters),
+      'altitudeMeters': serializer.toJson<double?>(altitudeMeters),
       'timestamp': serializer.toJson<DateTime>(timestamp),
     };
   }
@@ -1496,6 +1768,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
     double? lng,
     double? speedKmh,
     double? accuracyMeters,
+    Value<double?> altitudeMeters = const Value.absent(),
     DateTime? timestamp,
   }) => WaypointRow(
     id: id ?? this.id,
@@ -1504,6 +1777,9 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
     lng: lng ?? this.lng,
     speedKmh: speedKmh ?? this.speedKmh,
     accuracyMeters: accuracyMeters ?? this.accuracyMeters,
+    altitudeMeters: altitudeMeters.present
+        ? altitudeMeters.value
+        : this.altitudeMeters,
     timestamp: timestamp ?? this.timestamp,
   );
   WaypointRow copyWithCompanion(WaypointsCompanion data) {
@@ -1516,6 +1792,9 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
       accuracyMeters: data.accuracyMeters.present
           ? data.accuracyMeters.value
           : this.accuracyMeters,
+      altitudeMeters: data.altitudeMeters.present
+          ? data.altitudeMeters.value
+          : this.altitudeMeters,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
     );
   }
@@ -1529,14 +1808,23 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
           ..write('lng: $lng, ')
           ..write('speedKmh: $speedKmh, ')
           ..write('accuracyMeters: $accuracyMeters, ')
+          ..write('altitudeMeters: $altitudeMeters, ')
           ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, tripId, lat, lng, speedKmh, accuracyMeters, timestamp);
+  int get hashCode => Object.hash(
+    id,
+    tripId,
+    lat,
+    lng,
+    speedKmh,
+    accuracyMeters,
+    altitudeMeters,
+    timestamp,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1547,6 +1835,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
           other.lng == this.lng &&
           other.speedKmh == this.speedKmh &&
           other.accuracyMeters == this.accuracyMeters &&
+          other.altitudeMeters == this.altitudeMeters &&
           other.timestamp == this.timestamp);
 }
 
@@ -1557,6 +1846,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
   final Value<double> lng;
   final Value<double> speedKmh;
   final Value<double> accuracyMeters;
+  final Value<double?> altitudeMeters;
   final Value<DateTime> timestamp;
   const WaypointsCompanion({
     this.id = const Value.absent(),
@@ -1565,6 +1855,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     this.lng = const Value.absent(),
     this.speedKmh = const Value.absent(),
     this.accuracyMeters = const Value.absent(),
+    this.altitudeMeters = const Value.absent(),
     this.timestamp = const Value.absent(),
   });
   WaypointsCompanion.insert({
@@ -1574,6 +1865,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     required double lng,
     required double speedKmh,
     required double accuracyMeters,
+    this.altitudeMeters = const Value.absent(),
     required DateTime timestamp,
   }) : tripId = Value(tripId),
        lat = Value(lat),
@@ -1588,6 +1880,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     Expression<double>? lng,
     Expression<double>? speedKmh,
     Expression<double>? accuracyMeters,
+    Expression<double>? altitudeMeters,
     Expression<DateTime>? timestamp,
   }) {
     return RawValuesInsertable({
@@ -1597,6 +1890,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
       if (lng != null) 'lng': lng,
       if (speedKmh != null) 'speed_kmh': speedKmh,
       if (accuracyMeters != null) 'accuracy_meters': accuracyMeters,
+      if (altitudeMeters != null) 'altitude_meters': altitudeMeters,
       if (timestamp != null) 'timestamp': timestamp,
     });
   }
@@ -1608,6 +1902,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     Value<double>? lng,
     Value<double>? speedKmh,
     Value<double>? accuracyMeters,
+    Value<double?>? altitudeMeters,
     Value<DateTime>? timestamp,
   }) {
     return WaypointsCompanion(
@@ -1617,6 +1912,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
       lng: lng ?? this.lng,
       speedKmh: speedKmh ?? this.speedKmh,
       accuracyMeters: accuracyMeters ?? this.accuracyMeters,
+      altitudeMeters: altitudeMeters ?? this.altitudeMeters,
       timestamp: timestamp ?? this.timestamp,
     );
   }
@@ -1642,6 +1938,9 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     if (accuracyMeters.present) {
       map['accuracy_meters'] = Variable<double>(accuracyMeters.value);
     }
+    if (altitudeMeters.present) {
+      map['altitude_meters'] = Variable<double>(altitudeMeters.value);
+    }
     if (timestamp.present) {
       map['timestamp'] = Variable<DateTime>(timestamp.value);
     }
@@ -1657,6 +1956,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
           ..write('lng: $lng, ')
           ..write('speedKmh: $speedKmh, ')
           ..write('accuracyMeters: $accuracyMeters, ')
+          ..write('altitudeMeters: $altitudeMeters, ')
           ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
@@ -1851,6 +2151,18 @@ class $UserSettingsTable extends UserSettings
     requiredDuringInsert: false,
     defaultValue: const Constant('regular'),
   );
+  static const VerificationMeta _minTripLengthMetersMeta =
+      const VerificationMeta('minTripLengthMeters');
+  @override
+  late final GeneratedColumn<double> minTripLengthMeters =
+      GeneratedColumn<double>(
+        'min_trip_length_meters',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(500),
+      );
   static const VerificationMeta _freeTripsUsedMeta = const VerificationMeta(
     'freeTripsUsed',
   );
@@ -1971,6 +2283,7 @@ class $UserSettingsTable extends UserSettings
     fuelPricePerUnit,
     currencyCode,
     selectedMapTheme,
+    minTripLengthMeters,
     freeTripsUsed,
     isPro,
     onboardingComplete,
@@ -2102,6 +2415,15 @@ class $UserSettingsTable extends UserSettings
         selectedMapTheme.isAcceptableOrUnknown(
           data['selected_map_theme']!,
           _selectedMapThemeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('min_trip_length_meters')) {
+      context.handle(
+        _minTripLengthMetersMeta,
+        minTripLengthMeters.isAcceptableOrUnknown(
+          data['min_trip_length_meters']!,
+          _minTripLengthMetersMeta,
         ),
       );
     }
@@ -2246,6 +2568,10 @@ class $UserSettingsTable extends UserSettings
         DriftSqlType.string,
         data['${effectivePrefix}selected_map_theme'],
       )!,
+      minTripLengthMeters: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}min_trip_length_meters'],
+      )!,
       freeTripsUsed: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}free_trips_used'],
@@ -2304,6 +2630,11 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   final double? fuelPricePerUnit;
   final String? currencyCode;
   final String selectedMapTheme;
+
+  /// Trips shorter than this (metres) are discarded on End, not saved.
+  /// Default 500 m filters out accidental Start→End taps without
+  /// eating a real short drive.
+  final double minTripLengthMeters;
   final int freeTripsUsed;
   final bool isPro;
   final bool onboardingComplete;
@@ -2347,6 +2678,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     this.fuelPricePerUnit,
     this.currencyCode,
     required this.selectedMapTheme,
+    required this.minTripLengthMeters,
     required this.freeTripsUsed,
     required this.isPro,
     required this.onboardingComplete,
@@ -2391,6 +2723,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       map['currency_code'] = Variable<String>(currencyCode);
     }
     map['selected_map_theme'] = Variable<String>(selectedMapTheme);
+    map['min_trip_length_meters'] = Variable<double>(minTripLengthMeters);
     map['free_trips_used'] = Variable<int>(freeTripsUsed);
     map['is_pro'] = Variable<bool>(isPro);
     map['onboarding_complete'] = Variable<bool>(onboardingComplete);
@@ -2442,6 +2775,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           ? const Value.absent()
           : Value(currencyCode),
       selectedMapTheme: Value(selectedMapTheme),
+      minTripLengthMeters: Value(minTripLengthMeters),
       freeTripsUsed: Value(freeTripsUsed),
       isPro: Value(isPro),
       onboardingComplete: Value(onboardingComplete),
@@ -2479,6 +2813,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       fuelPricePerUnit: serializer.fromJson<double?>(json['fuelPricePerUnit']),
       currencyCode: serializer.fromJson<String?>(json['currencyCode']),
       selectedMapTheme: serializer.fromJson<String>(json['selectedMapTheme']),
+      minTripLengthMeters: serializer.fromJson<double>(
+        json['minTripLengthMeters'],
+      ),
       freeTripsUsed: serializer.fromJson<int>(json['freeTripsUsed']),
       isPro: serializer.fromJson<bool>(json['isPro']),
       onboardingComplete: serializer.fromJson<bool>(json['onboardingComplete']),
@@ -2511,6 +2848,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       'fuelPricePerUnit': serializer.toJson<double?>(fuelPricePerUnit),
       'currencyCode': serializer.toJson<String?>(currencyCode),
       'selectedMapTheme': serializer.toJson<String>(selectedMapTheme),
+      'minTripLengthMeters': serializer.toJson<double>(minTripLengthMeters),
       'freeTripsUsed': serializer.toJson<int>(freeTripsUsed),
       'isPro': serializer.toJson<bool>(isPro),
       'onboardingComplete': serializer.toJson<bool>(onboardingComplete),
@@ -2541,6 +2879,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     Value<double?> fuelPricePerUnit = const Value.absent(),
     Value<String?> currencyCode = const Value.absent(),
     String? selectedMapTheme,
+    double? minTripLengthMeters,
     int? freeTripsUsed,
     bool? isPro,
     bool? onboardingComplete,
@@ -2570,6 +2909,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
         : this.fuelPricePerUnit,
     currencyCode: currencyCode.present ? currencyCode.value : this.currencyCode,
     selectedMapTheme: selectedMapTheme ?? this.selectedMapTheme,
+    minTripLengthMeters: minTripLengthMeters ?? this.minTripLengthMeters,
     freeTripsUsed: freeTripsUsed ?? this.freeTripsUsed,
     isPro: isPro ?? this.isPro,
     onboardingComplete: onboardingComplete ?? this.onboardingComplete,
@@ -2614,6 +2954,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       selectedMapTheme: data.selectedMapTheme.present
           ? data.selectedMapTheme.value
           : this.selectedMapTheme,
+      minTripLengthMeters: data.minTripLengthMeters.present
+          ? data.minTripLengthMeters.value
+          : this.minTripLengthMeters,
       freeTripsUsed: data.freeTripsUsed.present
           ? data.freeTripsUsed.value
           : this.freeTripsUsed,
@@ -2656,6 +2999,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           ..write('fuelPricePerUnit: $fuelPricePerUnit, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('selectedMapTheme: $selectedMapTheme, ')
+          ..write('minTripLengthMeters: $minTripLengthMeters, ')
           ..write('freeTripsUsed: $freeTripsUsed, ')
           ..write('isPro: $isPro, ')
           ..write('onboardingComplete: $onboardingComplete, ')
@@ -2686,6 +3030,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     fuelPricePerUnit,
     currencyCode,
     selectedMapTheme,
+    minTripLengthMeters,
     freeTripsUsed,
     isPro,
     onboardingComplete,
@@ -2715,6 +3060,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           other.fuelPricePerUnit == this.fuelPricePerUnit &&
           other.currencyCode == this.currencyCode &&
           other.selectedMapTheme == this.selectedMapTheme &&
+          other.minTripLengthMeters == this.minTripLengthMeters &&
           other.freeTripsUsed == this.freeTripsUsed &&
           other.isPro == this.isPro &&
           other.onboardingComplete == this.onboardingComplete &&
@@ -2742,6 +3088,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
   final Value<double?> fuelPricePerUnit;
   final Value<String?> currencyCode;
   final Value<String> selectedMapTheme;
+  final Value<double> minTripLengthMeters;
   final Value<int> freeTripsUsed;
   final Value<bool> isPro;
   final Value<bool> onboardingComplete;
@@ -2767,6 +3114,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.fuelPricePerUnit = const Value.absent(),
     this.currencyCode = const Value.absent(),
     this.selectedMapTheme = const Value.absent(),
+    this.minTripLengthMeters = const Value.absent(),
     this.freeTripsUsed = const Value.absent(),
     this.isPro = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
@@ -2793,6 +3141,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.fuelPricePerUnit = const Value.absent(),
     this.currencyCode = const Value.absent(),
     this.selectedMapTheme = const Value.absent(),
+    this.minTripLengthMeters = const Value.absent(),
     this.freeTripsUsed = const Value.absent(),
     this.isPro = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
@@ -2820,6 +3169,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Expression<double>? fuelPricePerUnit,
     Expression<String>? currencyCode,
     Expression<String>? selectedMapTheme,
+    Expression<double>? minTripLengthMeters,
     Expression<int>? freeTripsUsed,
     Expression<bool>? isPro,
     Expression<bool>? onboardingComplete,
@@ -2846,6 +3196,8 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       if (fuelPricePerUnit != null) 'fuel_price_per_unit': fuelPricePerUnit,
       if (currencyCode != null) 'currency_code': currencyCode,
       if (selectedMapTheme != null) 'selected_map_theme': selectedMapTheme,
+      if (minTripLengthMeters != null)
+        'min_trip_length_meters': minTripLengthMeters,
       if (freeTripsUsed != null) 'free_trips_used': freeTripsUsed,
       if (isPro != null) 'is_pro': isPro,
       if (onboardingComplete != null) 'onboarding_complete': onboardingComplete,
@@ -2875,6 +3227,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Value<double?>? fuelPricePerUnit,
     Value<String?>? currencyCode,
     Value<String>? selectedMapTheme,
+    Value<double>? minTripLengthMeters,
     Value<int>? freeTripsUsed,
     Value<bool>? isPro,
     Value<bool>? onboardingComplete,
@@ -2901,6 +3254,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       fuelPricePerUnit: fuelPricePerUnit ?? this.fuelPricePerUnit,
       currencyCode: currencyCode ?? this.currencyCode,
       selectedMapTheme: selectedMapTheme ?? this.selectedMapTheme,
+      minTripLengthMeters: minTripLengthMeters ?? this.minTripLengthMeters,
       freeTripsUsed: freeTripsUsed ?? this.freeTripsUsed,
       isPro: isPro ?? this.isPro,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
@@ -2964,6 +3318,11 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     if (selectedMapTheme.present) {
       map['selected_map_theme'] = Variable<String>(selectedMapTheme.value);
     }
+    if (minTripLengthMeters.present) {
+      map['min_trip_length_meters'] = Variable<double>(
+        minTripLengthMeters.value,
+      );
+    }
     if (freeTripsUsed.present) {
       map['free_trips_used'] = Variable<int>(freeTripsUsed.value);
     }
@@ -3012,6 +3371,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
           ..write('fuelPricePerUnit: $fuelPricePerUnit, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('selectedMapTheme: $selectedMapTheme, ')
+          ..write('minTripLengthMeters: $minTripLengthMeters, ')
           ..write('freeTripsUsed: $freeTripsUsed, ')
           ..write('isPro: $isPro, ')
           ..write('onboardingComplete: $onboardingComplete, ')
@@ -4351,6 +4711,9 @@ typedef $$TripsTableCreateCompanionBuilder =
       required double distanceKm,
       required int durationSeconds,
       Value<int> stoppedSeconds,
+      Value<int> stopCount,
+      Value<double?> elevationGainMeters,
+      Value<double?> maxElevationMeters,
       Value<double> maxGforce,
       Value<int> hardCornersCount,
       Value<int> hardBrakesCount,
@@ -4361,6 +4724,7 @@ typedef $$TripsTableCreateCompanionBuilder =
       Value<bool> isNightDrive,
       Value<String> mapTheme,
       Value<String?> country,
+      Value<String?> locationName,
       Value<String> roadSegmentIds,
       required DateTime startedAt,
       Value<DateTime?> endedAt,
@@ -4375,6 +4739,9 @@ typedef $$TripsTableUpdateCompanionBuilder =
       Value<double> distanceKm,
       Value<int> durationSeconds,
       Value<int> stoppedSeconds,
+      Value<int> stopCount,
+      Value<double?> elevationGainMeters,
+      Value<double?> maxElevationMeters,
       Value<double> maxGforce,
       Value<int> hardCornersCount,
       Value<int> hardBrakesCount,
@@ -4385,6 +4752,7 @@ typedef $$TripsTableUpdateCompanionBuilder =
       Value<bool> isNightDrive,
       Value<String> mapTheme,
       Value<String?> country,
+      Value<String?> locationName,
       Value<String> roadSegmentIds,
       Value<DateTime> startedAt,
       Value<DateTime?> endedAt,
@@ -4457,6 +4825,21 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get stopCount => $composableBuilder(
+    column: $table.stopCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get elevationGainMeters => $composableBuilder(
+    column: $table.elevationGainMeters,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get maxElevationMeters => $composableBuilder(
+    column: $table.maxElevationMeters,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<double> get maxGforce => $composableBuilder(
     column: $table.maxGforce,
     builder: (column) => ColumnFilters(column),
@@ -4504,6 +4887,11 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
 
   ColumnFilters<String> get country => $composableBuilder(
     column: $table.country,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationName => $composableBuilder(
+    column: $table.locationName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4597,6 +4985,21 @@ class $$TripsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get stopCount => $composableBuilder(
+    column: $table.stopCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get elevationGainMeters => $composableBuilder(
+    column: $table.elevationGainMeters,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get maxElevationMeters => $composableBuilder(
+    column: $table.maxElevationMeters,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get maxGforce => $composableBuilder(
     column: $table.maxGforce,
     builder: (column) => ColumnOrderings(column),
@@ -4644,6 +5047,11 @@ class $$TripsTableOrderingComposer
 
   ColumnOrderings<String> get country => $composableBuilder(
     column: $table.country,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationName => $composableBuilder(
+    column: $table.locationName,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4708,6 +5116,19 @@ class $$TripsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get stopCount =>
+      $composableBuilder(column: $table.stopCount, builder: (column) => column);
+
+  GeneratedColumn<double> get elevationGainMeters => $composableBuilder(
+    column: $table.elevationGainMeters,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get maxElevationMeters => $composableBuilder(
+    column: $table.maxElevationMeters,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<double> get maxGforce =>
       $composableBuilder(column: $table.maxGforce, builder: (column) => column);
 
@@ -4751,6 +5172,11 @@ class $$TripsTableAnnotationComposer
 
   GeneratedColumn<String> get country =>
       $composableBuilder(column: $table.country, builder: (column) => column);
+
+  GeneratedColumn<String> get locationName => $composableBuilder(
+    column: $table.locationName,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get roadSegmentIds => $composableBuilder(
     column: $table.roadSegmentIds,
@@ -4827,6 +5253,9 @@ class $$TripsTableTableManager
                 Value<double> distanceKm = const Value.absent(),
                 Value<int> durationSeconds = const Value.absent(),
                 Value<int> stoppedSeconds = const Value.absent(),
+                Value<int> stopCount = const Value.absent(),
+                Value<double?> elevationGainMeters = const Value.absent(),
+                Value<double?> maxElevationMeters = const Value.absent(),
                 Value<double> maxGforce = const Value.absent(),
                 Value<int> hardCornersCount = const Value.absent(),
                 Value<int> hardBrakesCount = const Value.absent(),
@@ -4837,6 +5266,7 @@ class $$TripsTableTableManager
                 Value<bool> isNightDrive = const Value.absent(),
                 Value<String> mapTheme = const Value.absent(),
                 Value<String?> country = const Value.absent(),
+                Value<String?> locationName = const Value.absent(),
                 Value<String> roadSegmentIds = const Value.absent(),
                 Value<DateTime> startedAt = const Value.absent(),
                 Value<DateTime?> endedAt = const Value.absent(),
@@ -4849,6 +5279,9 @@ class $$TripsTableTableManager
                 distanceKm: distanceKm,
                 durationSeconds: durationSeconds,
                 stoppedSeconds: stoppedSeconds,
+                stopCount: stopCount,
+                elevationGainMeters: elevationGainMeters,
+                maxElevationMeters: maxElevationMeters,
                 maxGforce: maxGforce,
                 hardCornersCount: hardCornersCount,
                 hardBrakesCount: hardBrakesCount,
@@ -4859,6 +5292,7 @@ class $$TripsTableTableManager
                 isNightDrive: isNightDrive,
                 mapTheme: mapTheme,
                 country: country,
+                locationName: locationName,
                 roadSegmentIds: roadSegmentIds,
                 startedAt: startedAt,
                 endedAt: endedAt,
@@ -4873,6 +5307,9 @@ class $$TripsTableTableManager
                 required double distanceKm,
                 required int durationSeconds,
                 Value<int> stoppedSeconds = const Value.absent(),
+                Value<int> stopCount = const Value.absent(),
+                Value<double?> elevationGainMeters = const Value.absent(),
+                Value<double?> maxElevationMeters = const Value.absent(),
                 Value<double> maxGforce = const Value.absent(),
                 Value<int> hardCornersCount = const Value.absent(),
                 Value<int> hardBrakesCount = const Value.absent(),
@@ -4883,6 +5320,7 @@ class $$TripsTableTableManager
                 Value<bool> isNightDrive = const Value.absent(),
                 Value<String> mapTheme = const Value.absent(),
                 Value<String?> country = const Value.absent(),
+                Value<String?> locationName = const Value.absent(),
                 Value<String> roadSegmentIds = const Value.absent(),
                 required DateTime startedAt,
                 Value<DateTime?> endedAt = const Value.absent(),
@@ -4895,6 +5333,9 @@ class $$TripsTableTableManager
                 distanceKm: distanceKm,
                 durationSeconds: durationSeconds,
                 stoppedSeconds: stoppedSeconds,
+                stopCount: stopCount,
+                elevationGainMeters: elevationGainMeters,
+                maxElevationMeters: maxElevationMeters,
                 maxGforce: maxGforce,
                 hardCornersCount: hardCornersCount,
                 hardBrakesCount: hardBrakesCount,
@@ -4905,6 +5346,7 @@ class $$TripsTableTableManager
                 isNightDrive: isNightDrive,
                 mapTheme: mapTheme,
                 country: country,
+                locationName: locationName,
                 roadSegmentIds: roadSegmentIds,
                 startedAt: startedAt,
                 endedAt: endedAt,
@@ -4968,6 +5410,7 @@ typedef $$WaypointsTableCreateCompanionBuilder =
       required double lng,
       required double speedKmh,
       required double accuracyMeters,
+      Value<double?> altitudeMeters,
       required DateTime timestamp,
     });
 typedef $$WaypointsTableUpdateCompanionBuilder =
@@ -4978,6 +5421,7 @@ typedef $$WaypointsTableUpdateCompanionBuilder =
       Value<double> lng,
       Value<double> speedKmh,
       Value<double> accuracyMeters,
+      Value<double?> altitudeMeters,
       Value<DateTime> timestamp,
     });
 
@@ -5035,6 +5479,11 @@ class $$WaypointsTableFilterComposer
 
   ColumnFilters<double> get accuracyMeters => $composableBuilder(
     column: $table.accuracyMeters,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get altitudeMeters => $composableBuilder(
+    column: $table.altitudeMeters,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5101,6 +5550,11 @@ class $$WaypointsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get altitudeMeters => $composableBuilder(
+    column: $table.altitudeMeters,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get timestamp => $composableBuilder(
     column: $table.timestamp,
     builder: (column) => ColumnOrderings(column),
@@ -5153,6 +5607,11 @@ class $$WaypointsTableAnnotationComposer
 
   GeneratedColumn<double> get accuracyMeters => $composableBuilder(
     column: $table.accuracyMeters,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get altitudeMeters => $composableBuilder(
+    column: $table.altitudeMeters,
     builder: (column) => column,
   );
 
@@ -5217,6 +5676,7 @@ class $$WaypointsTableTableManager
                 Value<double> lng = const Value.absent(),
                 Value<double> speedKmh = const Value.absent(),
                 Value<double> accuracyMeters = const Value.absent(),
+                Value<double?> altitudeMeters = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
               }) => WaypointsCompanion(
                 id: id,
@@ -5225,6 +5685,7 @@ class $$WaypointsTableTableManager
                 lng: lng,
                 speedKmh: speedKmh,
                 accuracyMeters: accuracyMeters,
+                altitudeMeters: altitudeMeters,
                 timestamp: timestamp,
               ),
           createCompanionCallback:
@@ -5235,6 +5696,7 @@ class $$WaypointsTableTableManager
                 required double lng,
                 required double speedKmh,
                 required double accuracyMeters,
+                Value<double?> altitudeMeters = const Value.absent(),
                 required DateTime timestamp,
               }) => WaypointsCompanion.insert(
                 id: id,
@@ -5243,6 +5705,7 @@ class $$WaypointsTableTableManager
                 lng: lng,
                 speedKmh: speedKmh,
                 accuracyMeters: accuracyMeters,
+                altitudeMeters: altitudeMeters,
                 timestamp: timestamp,
               ),
           withReferenceMapper: (p0) => p0
@@ -5330,6 +5793,7 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<double?> fuelPricePerUnit,
       Value<String?> currencyCode,
       Value<String> selectedMapTheme,
+      Value<double> minTripLengthMeters,
       Value<int> freeTripsUsed,
       Value<bool> isPro,
       Value<bool> onboardingComplete,
@@ -5357,6 +5821,7 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<double?> fuelPricePerUnit,
       Value<String?> currencyCode,
       Value<String> selectedMapTheme,
+      Value<double> minTripLengthMeters,
       Value<int> freeTripsUsed,
       Value<bool> isPro,
       Value<bool> onboardingComplete,
@@ -5453,6 +5918,11 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<String> get selectedMapTheme => $composableBuilder(
     column: $table.selectedMapTheme,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get minTripLengthMeters => $composableBuilder(
+    column: $table.minTripLengthMeters,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5586,6 +6056,11 @@ class $$UserSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get minTripLengthMeters => $composableBuilder(
+    column: $table.minTripLengthMeters,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get freeTripsUsed => $composableBuilder(
     column: $table.freeTripsUsed,
     builder: (column) => ColumnOrderings(column),
@@ -5698,6 +6173,11 @@ class $$UserSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get minTripLengthMeters => $composableBuilder(
+    column: $table.minTripLengthMeters,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get freeTripsUsed => $composableBuilder(
     column: $table.freeTripsUsed,
     builder: (column) => column,
@@ -5782,6 +6262,7 @@ class $$UserSettingsTableTableManager
                 Value<double?> fuelPricePerUnit = const Value.absent(),
                 Value<String?> currencyCode = const Value.absent(),
                 Value<String> selectedMapTheme = const Value.absent(),
+                Value<double> minTripLengthMeters = const Value.absent(),
                 Value<int> freeTripsUsed = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
@@ -5807,6 +6288,7 @@ class $$UserSettingsTableTableManager
                 fuelPricePerUnit: fuelPricePerUnit,
                 currencyCode: currencyCode,
                 selectedMapTheme: selectedMapTheme,
+                minTripLengthMeters: minTripLengthMeters,
                 freeTripsUsed: freeTripsUsed,
                 isPro: isPro,
                 onboardingComplete: onboardingComplete,
@@ -5834,6 +6316,7 @@ class $$UserSettingsTableTableManager
                 Value<double?> fuelPricePerUnit = const Value.absent(),
                 Value<String?> currencyCode = const Value.absent(),
                 Value<String> selectedMapTheme = const Value.absent(),
+                Value<double> minTripLengthMeters = const Value.absent(),
                 Value<int> freeTripsUsed = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
@@ -5859,6 +6342,7 @@ class $$UserSettingsTableTableManager
                 fuelPricePerUnit: fuelPricePerUnit,
                 currencyCode: currencyCode,
                 selectedMapTheme: selectedMapTheme,
+                minTripLengthMeters: minTripLengthMeters,
                 freeTripsUsed: freeTripsUsed,
                 isPro: isPro,
                 onboardingComplete: onboardingComplete,

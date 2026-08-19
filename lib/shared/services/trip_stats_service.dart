@@ -28,6 +28,37 @@ class TripStatsService {
     return _aggregateMonthly(trips, year, month);
   }
 
+  /// Total distance per calendar month for the last [months] months
+  /// (including the current one), oldest first. Months with no trips
+  /// are omitted entirely — the caller renders whatever comes back,
+  /// no empty bars.
+  Future<List<MonthlyDistanceStat>> monthlyDistanceTrend({
+    required String uid,
+    int months = 6,
+  }) async {
+    final now = DateTime.now();
+    final anchor = DateTime(now.year, now.month - (months - 1));
+    final trips = await _trips.getTripsSince(uid: uid, since: anchor);
+
+    final totals = <String, double>{};
+    for (final t in trips) {
+      final key = '${t.startedAt.year}-${t.startedAt.month}';
+      totals[key] = (totals[key] ?? 0) + t.distanceKm;
+    }
+
+    final result = <MonthlyDistanceStat>[];
+    for (var i = months - 1; i >= 0; i--) {
+      final d = DateTime(now.year, now.month - i);
+      final km = totals['${d.year}-${d.month}'];
+      if (km != null && km > 0) {
+        result.add(
+          MonthlyDistanceStat(year: d.year, month: d.month, distanceKm: km),
+        );
+      }
+    }
+    return result;
+  }
+
   /// Cross-trip totals for the profile screen.
   Future<LifetimeStats> lifetime({required String uid}) async {
     final all = await _trips.watchAll(uid: uid).first;

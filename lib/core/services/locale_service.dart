@@ -63,6 +63,10 @@ class LocaleService {
   String get distanceUnitLabel =>
       unitSystem == UnitSystem.imperial ? 'mi' : 'km';
 
+  /// "m" or "ft" — for elevation labels that don't include the number.
+  String get elevationUnitLabel =>
+      unitSystem == UnitSystem.imperial ? 'ft' : 'm';
+
   /// Format a speed for display. Input is always km/h (canonical storage).
   String formatSpeed(double kmh, {int fractionDigits = 0}) {
     final value = unitSystem == UnitSystem.imperial
@@ -86,6 +90,15 @@ class LocaleService {
         ? km * AppConstants.kmToMiles
         : km;
     return '${value.toStringAsFixed(fractionDigits)} $distanceUnitLabel';
+  }
+
+  /// Format an elevation for display. Input is always metres (canonical
+  /// storage).
+  String formatElevation(double metres, {int fractionDigits = 0}) {
+    final value = unitSystem == UnitSystem.imperial
+        ? metres * AppConstants.metresToFeet
+        : metres;
+    return '${value.toStringAsFixed(fractionDigits)} $elevationUnitLabel';
   }
 
   /// Format a currency amount using the device locale.

@@ -52,6 +52,31 @@ class CardExportService {
     return true;
   }
 
+  /// Captures every boundary in [boundaryKeys] and shares whichever
+  /// ones succeed as a single multi-image share sheet — e.g. the top
+  /// speed card plus the speed-over-time chart card in one tap.
+  /// Boundaries that fail to capture (not mounted, e.g. a chart hidden
+  /// for a too-short trip) are silently skipped rather than aborting
+  /// the whole share. Returns false only if nothing could be captured.
+  Future<bool> captureMultipleAndShare(
+    List<GlobalKey> boundaryKeys, {
+    String? subject,
+  }) async {
+    final files = <XFile>[];
+    for (final key in boundaryKeys) {
+      final bytes = await capture(key);
+      if (bytes == null) continue;
+      final file = await _writeTempPng(bytes);
+      files.add(XFile(file.path, mimeType: 'image/png'));
+    }
+    if (files.isEmpty) return false;
+    await Share.shareXFiles(
+      files,
+      subject: subject ?? AppStrings.tripSummaryShareSubject,
+    );
+    return true;
+  }
+
   Future<File> _writeTempPng(Uint8List bytes) async {
     final dir = await getTemporaryDirectory();
     final stamp = DateTime.now().millisecondsSinceEpoch;

@@ -11,6 +11,7 @@ class TripPoint {
     required this.speedKmh,
     required this.accuracyMeters,
     required this.timestamp,
+    this.altitudeMeters,
   });
 
   final double lat;
@@ -18,6 +19,11 @@ class TripPoint {
   final double speedKmh;
   final double accuracyMeters;
   final DateTime timestamp;
+
+  /// Altitude above sea level, or null when the fix's reported altitude
+  /// accuracy was too poor to trust (see
+  /// `AppConstants.maxReliableAltitudeAccuracyMeters`).
+  final double? altitudeMeters;
 
   @override
   bool operator ==(Object other) =>
@@ -27,9 +33,16 @@ class TripPoint {
           other.lng == lng &&
           other.speedKmh == speedKmh &&
           other.accuracyMeters == accuracyMeters &&
-          other.timestamp == timestamp);
+          other.timestamp == timestamp &&
+          other.altitudeMeters == altitudeMeters);
 
   @override
-  int get hashCode =>
-      Object.hash(lat, lng, speedKmh, accuracyMeters, timestamp);
+  int get hashCode => Object.hash(
+    lat,
+    lng,
+    speedKmh,
+    accuracyMeters,
+    timestamp,
+    altitudeMeters,
+  );
 }

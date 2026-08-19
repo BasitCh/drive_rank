@@ -21,5 +21,10 @@ class Waypoints extends Table {
   /// Reported GPS accuracy in metres (lower is better).
   RealColumn get accuracyMeters => real()();
 
+  /// Altitude above sea level in metres. Null when the fix's reported
+  /// altitude accuracy was too poor to trust — see
+  /// `GpsService._reliableAltitude`.
+  RealColumn get altitudeMeters => real().nullable()();
+
   DateTimeColumn get timestamp => dateTime()();
 }

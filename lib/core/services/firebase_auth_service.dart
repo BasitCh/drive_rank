@@ -159,6 +159,30 @@ class FirebaseAuthService implements AuthService {
     await ensureSignedIn();
   }
 
+  @override
+  Future<void> deleteAccount() async {
+    try {
+      await _auth.currentUser?.delete();
+      if (kDebugMode) debugPrint('[FirebaseAuth] ✓ account deleted');
+    } on fb.FirebaseAuthException catch (e) {
+      // `requires-recent-login` is the one realistic failure mode for
+      // an anonymous/lightly-authenticated user — Firebase wants a
+      // fresh credential before allowing deletion. We don't have a
+      // re-auth UI for this MVP; local data teardown (the part Play
+      // policy actually cares about) proceeds regardless, so this is
+      // logged, not rethrown.
+      if (kDebugMode) {
+        debugPrint('[FirebaseAuth] ✗ deleteAccount failed: ${e.code}');
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[FirebaseAuth] ✗ deleteAccount failed: $e');
+    }
+    // Every Firestore rule requires an authenticated principal — drop
+    // back to a fresh anonymous session the same way signOut() does,
+    // so the app doesn't end up in a signed-out-forever state.
+    await ensureSignedIn();
+  }
+
   /// Ensures `_auth.currentUser` is non-null by signing in
   /// anonymously if needed. Called from bootstrap right after
   /// Firebase init — Firestore reads/writes all gate on
