@@ -439,10 +439,11 @@ class _PlainStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           label,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             fontFamily: 'Outfit',
             fontSize: 12,
@@ -453,6 +454,7 @@ class _PlainStat extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           value,
+          textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -648,12 +650,7 @@ class _ActiveSurface extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            _SignalVehicleRow(
-              accuracyMeters: stats.lastPoint?.accuracyMeters,
-              vehicleType: VehicleType.fromId(
-                snap.data?.vehicleType ?? VehicleType.car.id,
-              ),
-            ),
+
             const Spacer(),
             Padding(
               padding: const EdgeInsets.symmetric(
