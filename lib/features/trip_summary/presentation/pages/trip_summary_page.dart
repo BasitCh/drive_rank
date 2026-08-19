@@ -108,7 +108,12 @@ class _Loaded extends StatelessWidget {
         final bundle = insights.bundle;
         return Stack(
           children: [
-            _ScrollBody(trip: trip, state: state, bundle: bundle, locale: locale),
+            _ScrollBody(
+              trip: trip,
+              state: state,
+              bundle: bundle,
+              locale: locale,
+            ),
             _HiddenExportLayer(
               trip: trip,
               state: state,
@@ -144,96 +149,91 @@ class _ScrollBody extends StatelessWidget {
     // doesn't promote instance fields the way it promotes locals.
     final bundle = this.bundle;
     return CustomScrollView(
-          slivers: [
-            _MapSliverAppBar(
-              trip: trip,
-              bundle: bundle,
-              locale: locale,
-              vehicleType: state.vehicleType,
-              isSharing: state.isSharing,
-              onShare: () => context.read<TripSummaryBloc>().add(
-                const TripSummaryShareRequested(),
-              ),
-              onDelete: () => _confirmDelete(context),
-            ),
-            SliverSafeArea(
-              top: false,
-              sliver: SliverPadding(
-                padding: const EdgeInsets.fromLTRB(14, AppSpacing.md, 14, 24),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    if (bundle != null)
-                      HeroStatStrip(
-                        trip: trip,
-                        locale: locale,
-                        bestAchievement: bundle.bestAchievement,
-                      ),
-                    if (bundle != null && bundle.breakdownEligible) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      SpeedBreakdownBar(
-                        slices: bundle.breakdown,
-                        locale: locale,
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-                    AnalyticsGrid(
-                      hardCorners: trip.hardCornersCount,
-                      hardBrakes: trip.hardBrakesCount,
-                      durationSeconds: trip.durationSeconds,
-                      fuelCostFormatted: _fuelLabel(locale, trip),
-                      stoppedTimeFormatted: locale.formatDuration(
-                        trip.stoppedSeconds,
-                      ),
-                      stopCount: trip.stopCount,
-                      elevationGainFormatted: trip.elevationGainMeters != null
-                          ? locale.formatElevation(trip.elevationGainMeters!)
-                          : null,
-                      maxElevationFormatted: trip.maxElevationMeters != null
-                          ? locale.formatElevation(trip.maxElevationMeters!)
-                          : null,
-                      zeroToHundredFormatted:
-                          bundle?.zeroToHundredSeconds != null
-                          ? '${bundle!.zeroToHundredSeconds!.toStringAsFixed(2)}s'
-                          : null,
-                      zeroToHundredLabel:
-                          locale.unitSystem == UnitSystem.imperial
-                          ? AppStrings.tripSummaryZeroToSixty
-                          : AppStrings.tripSummaryZeroToHundred,
-                    ),
-                    if (bundle != null && bundle.chartEligible) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      _ChartCard(
-                        title: AppStrings.speedOverTimeChartTitle,
-                        unitLabel: locale.speedUnitLabel,
-                        child: PerformanceChart(bundle: bundle, locale: locale),
-                      ),
-                    ],
-                    if (bundle != null && bundle.elevationEligible) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      _ChartCard(
-                        title: AppStrings.elevationChartTitle,
-                        unitLabel: locale.elevationUnitLabel,
-                        child: ElevationChart(bundle: bundle, locale: locale),
-                      ),
-                    ],
-                    if ((state.speedGoalKmh ?? 0) > 0 ||
-                        (state.distanceGoalKm ?? 0) > 0) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      _GoalNudge(state: state, locale: locale),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-                    _ShareableCardSection(
-                      trip: trip,
-                      state: state,
-                      locale: locale,
-                      onDelete: () => _confirmDelete(context),
-                    ),
-                  ]),
+      slivers: [
+        _MapSliverAppBar(
+          trip: trip,
+          bundle: bundle,
+          locale: locale,
+          vehicleType: state.vehicleType,
+          isSharing: state.isSharing,
+          onShare: () => context.read<TripSummaryBloc>().add(
+            const TripSummaryShareRequested(),
+          ),
+          onDelete: () => _confirmDelete(context),
+        ),
+        SliverSafeArea(
+          top: false,
+          sliver: SliverPadding(
+            padding: const EdgeInsets.fromLTRB(14, AppSpacing.md, 14, 24),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                if (bundle != null)
+                  HeroStatStrip(
+                    trip: trip,
+                    locale: locale,
+                    bestAchievement: bundle.bestAchievement,
+                  ),
+                if (bundle != null && bundle.breakdownEligible) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  SpeedBreakdownBar(slices: bundle.breakdown, locale: locale),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                AnalyticsGrid(
+                  hardCorners: trip.hardCornersCount,
+                  hardBrakes: trip.hardBrakesCount,
+                  durationSeconds: trip.durationSeconds,
+                  fuelCostFormatted: _fuelLabel(locale, trip),
+                  stoppedTimeFormatted: locale.formatDuration(
+                    trip.stoppedSeconds,
+                  ),
+                  stopCount: trip.stopCount,
+                  elevationGainFormatted: trip.elevationGainMeters != null
+                      ? locale.formatElevation(trip.elevationGainMeters!)
+                      : null,
+                  maxElevationFormatted: trip.maxElevationMeters != null
+                      ? locale.formatElevation(trip.maxElevationMeters!)
+                      : null,
+                  zeroToHundredFormatted: bundle?.zeroToHundredSeconds != null
+                      ? '${bundle!.zeroToHundredSeconds!.toStringAsFixed(2)}s'
+                      : null,
+                  zeroToHundredLabel: locale.unitSystem == UnitSystem.imperial
+                      ? AppStrings.tripSummaryZeroToSixty
+                      : AppStrings.tripSummaryZeroToHundred,
                 ),
-              ),
+                if (bundle != null && bundle.chartEligible) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _ChartCard(
+                    title: AppStrings.speedOverTimeChartTitle,
+                    unitLabel: locale.speedUnitLabel,
+                    child: PerformanceChart(bundle: bundle, locale: locale),
+                  ),
+                ],
+                if (bundle != null && bundle.elevationEligible) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _ChartCard(
+                    title: AppStrings.elevationChartTitle,
+                    unitLabel: locale.elevationUnitLabel,
+                    child: ElevationChart(bundle: bundle, locale: locale),
+                  ),
+                ],
+                if ((state.speedGoalKmh ?? 0) > 0 ||
+                    (state.distanceGoalKm ?? 0) > 0) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _GoalNudge(state: state, locale: locale),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                _ShareableCardSection(
+                  trip: trip,
+                  state: state,
+                  locale: locale,
+                  onDelete: () => _confirmDelete(context),
+                ),
+              ]),
             ),
-          ],
-        );
+          ),
+        ),
+      ],
+    );
   }
 
   String _fuelLabel(LocaleService locale, TripRow trip) {
@@ -484,15 +484,6 @@ class _ShareableCardSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          AppStrings.tripSummaryShareableCards,
-          style: AppTextStyles.label.copyWith(fontSize: 10),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          AppStrings.tripSummaryShareableCardsSub,
-          style: AppTextStyles.microLabel.copyWith(fontSize: 10),
-        ),
         const SizedBox(height: AppSpacing.md),
         StatCard(
           locale: locale,
@@ -510,7 +501,6 @@ class _ShareableCardSection extends StatelessWidget {
           transparent: state.isTransparent,
         ),
         const SizedBox(height: AppSpacing.sm),
-        _TransparentToggleRow(isTransparent: state.isTransparent),
         const SizedBox(height: AppSpacing.md),
         _DeleteTripButton(onTap: onDelete),
       ],
@@ -861,51 +851,6 @@ class _GoalRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// "Transparent" toggle for the shareable stat card above — strips the
-/// card's background fill so the exported PNG overlays cleanly on
-/// Instagram Stories. Purely a render-state toggle; the export path
-/// (`CardExportService`) always captures whatever's currently on
-/// screen, so no separate export-time branching is needed.
-class _TransparentToggleRow extends StatelessWidget {
-  const _TransparentToggleRow({required this.isTransparent});
-
-  final bool isTransparent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Text(
-              AppStrings.tripSummaryTransparent,
-              style: TextStyle(
-                fontFamily: 'Outfit',
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-          Switch(
-            value: isTransparent,
-            activeTrackColor: AppColors.teal,
-            onChanged: (v) => context.read<TripSummaryBloc>().add(
-              TripSummaryTransparentToggled(transparent: v),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
