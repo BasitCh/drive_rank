@@ -16,7 +16,6 @@ import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.da
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_state.dart';
 import 'package:drive_rank/features/tracking/presentation/widgets/live_badge.dart';
 import 'package:drive_rank/features/tracking/presentation/widgets/oem_battery_advice_sheet.dart';
-import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -277,7 +276,6 @@ class _IdleSurface extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.lg),
-
                       const Spacer(),
                       Padding(
                         padding: const EdgeInsets.symmetric(
@@ -465,64 +463,6 @@ class _PlainStat extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// GPS-signal dots + selected-vehicle glyph, shown directly under the
-/// gauge — the small pill from the reference design. Signal strength
-/// is derived from the last fix's reported accuracy; all three dots
-/// sit dim before the first fix or on the idle surface.
-class _SignalVehicleRow extends StatelessWidget {
-  const _SignalVehicleRow({
-    required this.accuracyMeters,
-    required this.vehicleType,
-  });
-
-  final double? accuracyMeters;
-  final VehicleType vehicleType;
-
-  int get _litDots {
-    final accuracy = accuracyMeters;
-    if (accuracy == null) return 0;
-    if (accuracy <= 10) return 3;
-    if (accuracy <= 25) return 2;
-    if (accuracy <= AppConstants.maxReliableAccuracyMeters) return 1;
-    return 0;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final lit = _litDots;
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < 3; i++) ...[
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i < lit ? AppColors.green : AppColors.border2,
-                ),
-              ),
-              if (i != 2) const SizedBox(width: 6),
-            ],
-            const SizedBox(width: 12),
-            Container(width: 1, height: 16, color: AppColors.border),
-            const SizedBox(width: 12),
-            Text(vehicleType.glyph, style: const TextStyle(fontSize: 18)),
-          ],
-        ),
-      ),
     );
   }
 }

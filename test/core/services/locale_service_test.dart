@@ -33,10 +33,15 @@ void main() {
       expect(svc.unitSystem, UnitSystem.imperial);
     });
 
-    test('Locale with no country falls back to US → imperial', () {
+    test('Locale with no country falls back to metric', () {
+      // countryCode itself still falls back to 'US' as a display default,
+      // but unitSystem deliberately defaults to metric when the locale
+      // carries no country at all — see LocaleService.unitSystem's doc:
+      // most of the world is metric, and guessing imperial for a
+      // region-less locale would show mph to users who'd never expect it.
       final svc = LocaleService.forLocale(const Locale('en'));
       expect(svc.countryCode, 'US');
-      expect(svc.unitSystem, UnitSystem.imperial);
+      expect(svc.unitSystem, UnitSystem.metric);
     });
 
     test('user override beats locale default', () {

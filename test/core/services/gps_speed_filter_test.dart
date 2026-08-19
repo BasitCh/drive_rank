@@ -7,8 +7,8 @@ import 'package:geolocator/geolocator.dart';
 /// filter without booting platform channels.
 ///
 /// Three things we care about:
-///   1. Stationary drift (<3 km/h or accuracy >20m) is clamped to 0.
-///   2. A speed delta bigger than 50 km/h between consecutive valid
+///   1. Stationary drift (<3 km/h or accuracy >40m) is clamped to 0.
+///   2. A speed delta bigger than 100 km/h between consecutive valid
 ///      samples is rejected and the previous reading is kept.
 ///   3. Normal driving samples pass straight through.
 void main() {
@@ -53,9 +53,9 @@ void main() {
     expect(received.single.speedKmh, 0);
   });
 
-  test('low accuracy (>20m) is clamped to zero regardless of speed', () async {
+  test('low accuracy (>40m) is clamped to zero regardless of speed', () async {
     // 60 km/h raw but the fix is junk.
-    gps.debugInject(make(speedMps: 16.67, accuracy: 35));
+    gps.debugInject(make(speedMps: 16.67, accuracy: 45));
     await Future<void>.delayed(Duration.zero);
     expect(received.single.speedKmh, 0);
   });
@@ -80,11 +80,11 @@ void main() {
   });
 
   test('big *deceleration* spike is also rejected', () async {
-    gps.debugInject(make(speedMps: 27.8, accuracy: 5)); // 100 km/h
+    gps.debugInject(make(speedMps: 55.6, accuracy: 5)); // 200 km/h
     await Future<void>.delayed(Duration.zero);
-    gps.debugInject(make(speedMps: 8, accuracy: 5)); // 28.8 km/h — diff>50
+    gps.debugInject(make(speedMps: 8, accuracy: 5)); // 28.8 km/h — diff>100
     await Future<void>.delayed(Duration.zero);
-    expect(received.last.speedKmh, closeTo(100, 0.5));
+    expect(received.last.speedKmh, closeTo(200, 0.5));
   });
 
   test('NaN speed is treated as zero (not propagated)', () async {
