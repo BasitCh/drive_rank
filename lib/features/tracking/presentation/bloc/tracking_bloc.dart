@@ -4,6 +4,7 @@ import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsRow;
 import 'package:drive_rank/core/database/tables/live_trips_table.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/active_trip_store.dart';
 import 'package:drive_rank/core/services/gps_service.dart';
 import 'package:drive_rank/core/services/live_trip_notification_service.dart';
@@ -20,6 +21,7 @@ import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/services/record_goal_evaluator.dart';
 import 'package:drive_rank/shared/services/road_segment_service.dart';
+import 'package:drive_rank/shared/services/sync_manager.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -135,6 +137,27 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   int _stopRunCommittedSeconds = 0;
   bool _stopRunCounted = false;
 
+  // Heading-based turn-direction / lane-change accumulator. One signed
+  // running total tracks the current "swing" — when it reverses
+  // direction before reaching the turn threshold, the swing that just
+  // ended is checked against the (smaller) lane-change band; when it
+  // reaches the turn threshold, it counts as a turn and resets. See
+  // `AppConstants.turnHeadingDeltaThresholdDeg` /
+  // `laneChangeHeadingDeltaMinDeg`.
+  double? _prevHeadingDeg;
+  double _headingAccumDeg = 0;
+  double _headingAccumPeakAbs = 0;
+  DateTime? _headingAccumStartedAt;
+  double _headingAccumMinSpeedKmh = double.infinity;
+  DateTime? _lastTurnAt;
+  DateTime? _lastLaneChangeAt;
+
+  // Δspeed/Δt accel/decel tracking — independent of the accelerometer
+  // (see `SensorService`'s doc on why: it only exposes an unsigned
+  // magnitude). Reset alongside the other per-leg detectors.
+  DateTime? _lastSpeedSampleAt;
+  double? _lastSpeedSampleKmh;
+
   // ---------- crash-recovery ----------
 
   /// Fired once at bloc construction. If the [ActiveTripStore] has a
@@ -171,6 +194,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _inHardBrake = false;
     _cornerSustainedSamples = 0;
     _lastCornerAt = null;
+    _resetHeadingAccumulator();
+    _lastSpeedSampleAt = null;
+    _lastSpeedSampleKmh = null;
     _stopRunStartedAt = null;
     _stopRunCommittedSeconds = 0;
     _stopRunCounted = false;
@@ -241,6 +267,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _inHardBrake = false;
     _cornerSustainedSamples = 0;
     _lastCornerAt = null;
+    _resetHeadingAccumulator();
+    _lastSpeedSampleAt = null;
+    _lastSpeedSampleKmh = null;
     _stopRunStartedAt = null;
     _stopRunCommittedSeconds = 0;
     _stopRunCounted = false;
@@ -365,6 +394,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _inHardBrake = false;
     _cornerSustainedSamples = 0;
     _lastCornerAt = null;
+    _resetHeadingAccumulator();
+    _lastSpeedSampleAt = null;
+    _lastSpeedSampleKmh = null;
     _stopRunStartedAt = null;
     _stopRunCommittedSeconds = 0;
     _stopRunCounted = false;
@@ -534,8 +566,15 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       );
       await _settings.incrementFreeTripsUsed();
 
-      // MVP scope: no cloud leaderboard sync. Personal Bests are
-      // recomputed locally from the trips table on demand.
+      // Kick a cloud-sync pass so this trip doesn't wait for the next
+      // reconnect tick — fire-and-forget. The trip is already durably
+      // saved to local Drift above; this is strictly a background
+      // concern layered on top, never something the save itself waits
+      // on (`SyncManager` no-ops harmlessly when Firestore isn't
+      // configured — its `RemoteTripSink` falls back to a no-op impl).
+      if (getIt.isRegistered<SyncManager>()) {
+        unawaited(getIt<SyncManager>().syncNow());
+      }
 
       final after = await _settings.read();
       final paywallDue =
@@ -556,6 +595,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
             'top_speed_kmh': state.stats.maxSpeedKmh,
             'hard_brakes': state.stats.hardBrakesCount,
             'hard_corners': state.stats.hardCornersCount,
+            'left_turns': state.stats.leftTurnCount,
+            'right_turns': state.stats.rightTurnCount,
+            'lane_changes': state.stats.laneChangeCount,
             'was_recovered':
                 state.recoveryStatus == TripRecoveryStatus.interruptedByOs,
           },
@@ -742,6 +784,11 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     // count, but DON'T touch the polyline / distance / lastPoint. GPS
     // drift around a parked car shouldn't pile up as fake travel.
     if (p.speedKmh == 0) {
+      // Heading/accel-decel are both meaningless while stopped — don't
+      // let a parked-car GPS wobble leak into the next moving leg.
+      _resetHeadingAccumulator();
+      _lastSpeedSampleAt = null;
+      _lastSpeedSampleKmh = null;
       var stoppedSeconds = prev.stoppedSeconds;
       var stopCount = prev.stopCount;
       if (_stopRunStartedAt == null) {
@@ -810,6 +857,9 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         ? 0.0
         : (newDistance / (durationSeconds / 3600));
 
+    final turn = _processHeading(p);
+    final accel = _processAcceleration(p);
+
     emit(
       state.copyWith(
         stats: prev.copyWith(
@@ -821,10 +871,169 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
           lastPoint: p,
           points: [...prev.points, p],
           hardBrakesCount: hardBrakes,
+          leftTurnCount: prev.leftTurnCount + turn.left,
+          rightTurnCount: prev.rightTurnCount + turn.right,
+          laneChangeCount: prev.laneChangeCount + turn.laneChanges,
+          topCorneringSpeedKmh: turn.topCorneringSpeedKmh > prev.topCorneringSpeedKmh
+              ? turn.topCorneringSpeedKmh
+              : prev.topCorneringSpeedKmh,
+          maxAccelerationMps2: accel.maxAccel > prev.maxAccelerationMps2
+              ? accel.maxAccel
+              : prev.maxAccelerationMps2,
+          maxDecelerationMps2: accel.maxDecel > prev.maxDecelerationMps2
+              ? accel.maxDecel
+              : prev.maxDecelerationMps2,
         ),
       ),
     );
     _persistWaypointAndSummary(p);
+  }
+
+  /// Resets the heading-delta accumulator — called whenever the vehicle
+  /// stops, or the trip starts/pauses/restores, so a stale swing from a
+  /// previous leg never bleeds into the next one.
+  void _resetHeadingAccumulator() {
+    _prevHeadingDeg = null;
+    _headingAccumDeg = 0;
+    _headingAccumPeakAbs = 0;
+    _headingAccumStartedAt = null;
+    _headingAccumMinSpeedKmh = double.infinity;
+  }
+
+  /// Signed angle from [a] to [b] in degrees, normalized to (-180, 180].
+  /// Positive = clockwise (a right-ward swing), negative = counter-
+  /// clockwise (left-ward).
+  static double _signedHeadingDelta(double a, double b) {
+    var delta = (b - a) % 360;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    return delta;
+  }
+
+  /// Feeds one GPS sample's heading into the turn/lane-change
+  /// accumulator described on the state fields above. Returns how many
+  /// left turns, right turns, and lane changes this single sample
+  /// resolved (almost always 0/0/0 — most samples just accumulate),
+  /// plus the sample's own speed if it happened to be the instant of a
+  /// counted turn (0 otherwise, so callers can `max()` it in safely).
+  _HeadingResult _processHeading(TripPoint p) {
+    final heading = p.heading;
+    if (heading == null) {
+      // No reliable heading this sample (too slow to trust — see
+      // `turnMinSpeedKmh` — or GPS didn't report one). Skip it without
+      // discarding progress: `_prevHeadingDeg` is left as-is, so the
+      // next reliable sample measures the swing across the *whole* gap
+      // in one delta. Real turns routinely dip below the speed floor
+      // for a beat while actually cornering, so resetting here was
+      // wiping out the very turns this is meant to detect. The
+      // staleness check below still resets if the gap runs too long,
+      // and a full stop resets separately in `_onPoint`.
+      return const _HeadingResult(0, 0, 0, 0);
+    }
+
+    final prevHeading = _prevHeadingDeg;
+    _prevHeadingDeg = heading;
+    if (prevHeading == null) {
+      _headingAccumStartedAt = p.timestamp;
+      _headingAccumMinSpeedKmh = p.speedKmh;
+      return const _HeadingResult(0, 0, 0, 0);
+    }
+
+    final delta = _signedHeadingDelta(prevHeading, heading);
+    final startedAt = _headingAccumStartedAt;
+    final stale =
+        startedAt != null &&
+        p.timestamp.difference(startedAt) > AppConstants.turnWindowMaxDuration;
+    final reversed =
+        !stale &&
+        _headingAccumDeg != 0 &&
+        delta.sign != 0 &&
+        delta.sign != _headingAccumDeg.sign;
+
+    var laneChanges = 0;
+    if (stale || reversed) {
+      if (reversed) {
+        // The swing that just ended reversed before reaching a full
+        // turn — check whether it was lane-change-shaped.
+        laneChanges = _maybeCountLaneChange(p.timestamp);
+      }
+      _headingAccumDeg = 0;
+      _headingAccumPeakAbs = 0;
+      _headingAccumStartedAt = p.timestamp;
+      _headingAccumMinSpeedKmh = p.speedKmh;
+    }
+
+    _headingAccumDeg += delta;
+    _headingAccumPeakAbs = _headingAccumDeg.abs() > _headingAccumPeakAbs
+        ? _headingAccumDeg.abs()
+        : _headingAccumPeakAbs;
+    _headingAccumMinSpeedKmh = p.speedKmh < _headingAccumMinSpeedKmh
+        ? p.speedKmh
+        : _headingAccumMinSpeedKmh;
+
+    if (_headingAccumDeg.abs() >= AppConstants.turnHeadingDeltaThresholdDeg) {
+      final now = p.timestamp;
+      final offCooldown =
+          _lastTurnAt == null ||
+          now.difference(_lastTurnAt!) >= AppConstants.turnCooldown;
+      if (offCooldown) {
+        _lastTurnAt = now;
+        final isRight = _headingAccumDeg > 0;
+        _resetHeadingAccumulator();
+        _prevHeadingDeg = heading;
+        return _HeadingResult(
+          isRight ? 0 : 1,
+          isRight ? 1 : 0,
+          laneChanges,
+          p.speedKmh,
+        );
+      }
+    }
+    return _HeadingResult(0, 0, laneChanges, 0);
+  }
+
+  /// Checks the swing that just reversed against the lane-change band
+  /// (peak magnitude + minimum speed sustained throughout) and the
+  /// lane-change cooldown. Returns 1 if it counts, else 0.
+  int _maybeCountLaneChange(DateTime now) {
+    final inBand =
+        _headingAccumPeakAbs >= AppConstants.laneChangeHeadingDeltaMinDeg &&
+        _headingAccumPeakAbs <= AppConstants.laneChangeHeadingDeltaMaxDeg;
+    final fastEnough =
+        _headingAccumMinSpeedKmh >= AppConstants.laneChangeMinSpeedKmh;
+    final offCooldown =
+        _lastLaneChangeAt == null ||
+        now.difference(_lastLaneChangeAt!) >= AppConstants.laneChangeCooldown;
+    if (inBand && fastEnough && offCooldown) {
+      _lastLaneChangeAt = now;
+      return 1;
+    }
+    return 0;
+  }
+
+  /// Δspeed/Δt between this sample and the last one, converted to m/s²
+  /// and split into a positive (accelerating) / negative (decelerating)
+  /// running max. Skips the computation entirely across a gap wider
+  /// than `maxAccelSampleGapSeconds` (pause/resume boundary) or a
+  /// physically-implausible result (GPS speed-glitch artifact).
+  _AccelResult _processAcceleration(TripPoint p) {
+    final lastAt = _lastSpeedSampleAt;
+    final lastSpeed = _lastSpeedSampleKmh;
+    _lastSpeedSampleAt = p.timestamp;
+    _lastSpeedSampleKmh = p.speedKmh;
+    if (lastAt == null || lastSpeed == null) return const _AccelResult(0, 0);
+
+    final dtSeconds = p.timestamp.difference(lastAt).inMilliseconds / 1000.0;
+    if (dtSeconds <= 0 || dtSeconds > AppConstants.maxAccelSampleGapSeconds) {
+      return const _AccelResult(0, 0);
+    }
+
+    final dvMetresPerSecond = (p.speedKmh - lastSpeed) / 3.6;
+    final aMps2 = dvMetresPerSecond / dtSeconds;
+    if (aMps2.abs() > AppConstants.maxPlausibleAccelMps2) {
+      return const _AccelResult(0, 0);
+    }
+    return aMps2 > 0 ? _AccelResult(aMps2, 0) : _AccelResult(0, -aMps2);
   }
 
   void _onGforce(TrackingGforceReceived event, Emitter<TrackingState> emit) {
@@ -926,4 +1135,28 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     await _teardown();
     return super.close();
   }
+}
+
+/// Result of feeding one GPS sample into the heading accumulator — see
+/// `TrackingBloc._processHeading`. `left`/`right`/`laneChanges` are
+/// almost always all 0 (most samples just accumulate); `topCorneringSpeedKmh`
+/// is the sample's own speed when it resolved a turn, else 0 (safe to
+/// `max()` into a running total unconditionally).
+class _HeadingResult {
+  const _HeadingResult(this.left, this.right, this.laneChanges, this.topCorneringSpeedKmh);
+
+  final int left;
+  final int right;
+  final int laneChanges;
+  final double topCorneringSpeedKmh;
+}
+
+/// Result of one Δspeed/Δt sample — see
+/// `TrackingBloc._processAcceleration`. Exactly one of the two is
+/// non-zero (or both zero when the sample was skipped/gated).
+class _AccelResult {
+  const _AccelResult(this.maxAccel, this.maxDecel);
+
+  final double maxAccel;
+  final double maxDecel;
 }

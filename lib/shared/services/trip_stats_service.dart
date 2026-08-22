@@ -1,6 +1,10 @@
 import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
+import 'package:drive_rank/features/trip_insights/domain/entities/speed_breakdown_slice.dart';
+import 'package:drive_rank/features/trip_insights/domain/usecases/bucket_speed_times.dart';
 import 'package:drive_rank/shared/models/monthly_report.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:injectable/injectable.dart';
 
 /// Aggregations over the trips table — distinct from `TripRepository`
@@ -66,17 +70,78 @@ class TripStatsService {
     var distance = 0.0;
     var topSpeed = 0.0;
     var bestG = 0.0;
+    var duration = 0;
+    var stoppedSeconds = 0;
+    var stopCount = 0;
+    double? bestZeroToHundred;
+    var leftTurns = 0;
+    var rightTurns = 0;
+    var laneChanges = 0;
+    var hardBrakes = 0;
+    var bestAccel = 0.0;
+    var bestDecel = 0.0;
+    var bestCorneringSpeed = 0.0;
     for (final t in all) {
       distance += t.distanceKm;
+      duration += t.durationSeconds;
+      stoppedSeconds += t.stoppedSeconds;
+      stopCount += t.stopCount;
+      leftTurns += t.leftTurnCount;
+      rightTurns += t.rightTurnCount;
+      laneChanges += t.laneChangeCount;
+      hardBrakes += t.hardBrakesCount;
       if (t.topSpeedKmh > topSpeed) topSpeed = t.topSpeedKmh;
       if (t.maxGforce > bestG) bestG = t.maxGforce;
+      if (t.maxAccelerationMps2 > bestAccel) bestAccel = t.maxAccelerationMps2;
+      if (t.maxDecelerationMps2 > bestDecel) bestDecel = t.maxDecelerationMps2;
+      if (t.topCorneringSpeedKmh > bestCorneringSpeed) {
+        bestCorneringSpeed = t.topCorneringSpeedKmh;
+      }
+      final zth = t.zeroToHundredSeconds;
+      if (zth != null && (bestZeroToHundred == null || zth < bestZeroToHundred)) {
+        bestZeroToHundred = zth;
+      }
     }
     return LifetimeStats(
       tripCount: all.length,
       totalDistanceKm: distance,
       topSpeedKmh: topSpeed,
       bestGforce: bestG,
+      totalDurationSeconds: duration,
+      totalStoppedSeconds: stoppedSeconds,
+      totalStopCount: stopCount,
+      bestZeroToHundredSeconds: bestZeroToHundred,
+      totalLeftTurns: leftTurns,
+      totalRightTurns: rightTurns,
+      totalLaneChanges: laneChanges,
+      totalHardBrakes: hardBrakes,
+      bestMaxAcceleration: bestAccel,
+      bestMaxDeceleration: bestDecel,
+      bestCorneringSpeedKmh: bestCorneringSpeed,
     );
+  }
+
+  /// Lifetime speed-distribution breakdown — same `SpeedBucket` contract
+  /// as the per-trip breakdown in `BuildInsights._bucketTimes`, just run
+  /// across every trip's waypoints instead of one. Walks every waypoint
+  /// of every trip, so this runs in a background isolate via
+  /// `_lifetimeSpeedBreakdown` (a pure top-level function — no
+  /// `LocaleService`/DI access inside the isolate).
+  Future<List<SpeedBreakdownSlice>> lifetimeSpeedBreakdown({
+    required String uid,
+  }) async {
+    final trips = await _trips.watchAll(uid: uid).first;
+    final allWaypoints = <TripPoint>[];
+    for (final t in trips) {
+      // Waypoints are per-trip contiguous sequences — concatenating them
+      // is safe for the bucket walk below because it already skips any
+      // consecutive pair with `dt > 60s` (which every trip boundary
+      // exceeds) or both-stationary, so no cross-trip pair ever
+      // contributes a bogus bucket sample.
+      allWaypoints.addAll(await _trips.getWaypoints(t.id));
+    }
+    if (allWaypoints.isEmpty) return const <SpeedBreakdownSlice>[];
+    return compute(_lifetimeSpeedBreakdown, allWaypoints);
   }
 
   MonthlyReport _aggregateMonthly(List<TripRow> trips, int year, int month) {
@@ -112,3 +177,9 @@ class TripStatsService {
     );
   }
 }
+
+/// Isolate entry point for `TripStatsService.lifetimeSpeedBreakdown` —
+/// a pure top-level function (no `LocaleService`/DI access) so it's
+/// safe to run via `compute()`.
+List<SpeedBreakdownSlice> _lifetimeSpeedBreakdown(List<TripPoint> waypoints) =>
+    bucketSpeedTimes(waypoints);

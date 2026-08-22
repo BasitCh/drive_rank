@@ -12,6 +12,7 @@ class TripPoint {
     required this.accuracyMeters,
     required this.timestamp,
     this.altitudeMeters,
+    this.heading,
   });
 
   final double lat;
@@ -25,6 +26,11 @@ class TripPoint {
   /// `AppConstants.maxReliableAltitudeAccuracyMeters`).
   final double? altitudeMeters;
 
+  /// Compass bearing in degrees (0-360), or null when the fix didn't
+  /// report one or the vehicle was too slow for heading to be
+  /// meaningful (see `AppConstants.turnMinSpeedKmh`).
+  final double? heading;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -34,7 +40,8 @@ class TripPoint {
           other.speedKmh == speedKmh &&
           other.accuracyMeters == accuracyMeters &&
           other.timestamp == timestamp &&
-          other.altitudeMeters == altitudeMeters);
+          other.altitudeMeters == altitudeMeters &&
+          other.heading == heading);
 
   @override
   int get hashCode => Object.hash(
@@ -44,5 +51,6 @@ class TripPoint {
     accuracyMeters,
     timestamp,
     altitudeMeters,
+    heading,
   );
 }

@@ -26,5 +26,12 @@ class Waypoints extends Table {
   /// `GpsService._reliableAltitude`.
   RealColumn get altitudeMeters => real().nullable()();
 
+  /// Compass bearing in degrees (0-360), the direction of travel at this
+  /// sample. Null when the fix didn't report one or the vehicle was too
+  /// slow for heading to be meaningful — see
+  /// `AppConstants.turnMinSpeedKmh`. Feeds turn-direction / lane-change
+  /// detection; never displayed directly.
+  RealColumn get heading => real().nullable()();
+
   DateTimeColumn get timestamp => dateTime()();
 }

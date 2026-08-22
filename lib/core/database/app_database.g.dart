@@ -156,6 +156,89 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _leftTurnCountMeta = const VerificationMeta(
+    'leftTurnCount',
+  );
+  @override
+  late final GeneratedColumn<int> leftTurnCount = GeneratedColumn<int>(
+    'left_turn_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _rightTurnCountMeta = const VerificationMeta(
+    'rightTurnCount',
+  );
+  @override
+  late final GeneratedColumn<int> rightTurnCount = GeneratedColumn<int>(
+    'right_turn_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _laneChangeCountMeta = const VerificationMeta(
+    'laneChangeCount',
+  );
+  @override
+  late final GeneratedColumn<int> laneChangeCount = GeneratedColumn<int>(
+    'lane_change_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _maxAccelerationMps2Meta =
+      const VerificationMeta('maxAccelerationMps2');
+  @override
+  late final GeneratedColumn<double> maxAccelerationMps2 =
+      GeneratedColumn<double>(
+        'max_acceleration_mps2',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _maxDecelerationMps2Meta =
+      const VerificationMeta('maxDecelerationMps2');
+  @override
+  late final GeneratedColumn<double> maxDecelerationMps2 =
+      GeneratedColumn<double>(
+        'max_deceleration_mps2',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _topCorneringSpeedKmhMeta =
+      const VerificationMeta('topCorneringSpeedKmh');
+  @override
+  late final GeneratedColumn<double> topCorneringSpeedKmh =
+      GeneratedColumn<double>(
+        'top_cornering_speed_kmh',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _zeroToHundredSecondsMeta =
+      const VerificationMeta('zeroToHundredSeconds');
+  @override
+  late final GeneratedColumn<double> zeroToHundredSeconds =
+      GeneratedColumn<double>(
+        'zero_to_hundred_seconds',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _fuelCostLocalMeta = const VerificationMeta(
     'fuelCostLocal',
   );
@@ -299,6 +382,17 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
+    'remoteId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+    'remote_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -314,6 +408,13 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     maxGforce,
     hardCornersCount,
     hardBrakesCount,
+    leftTurnCount,
+    rightTurnCount,
+    laneChangeCount,
+    maxAccelerationMps2,
+    maxDecelerationMps2,
+    topCorneringSpeedKmh,
+    zeroToHundredSeconds,
     fuelCostLocal,
     localCurrencyCode,
     weatherCondition,
@@ -326,6 +427,7 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
     startedAt,
     endedAt,
     isSynced,
+    remoteId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -448,6 +550,69 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         ),
       );
     }
+    if (data.containsKey('left_turn_count')) {
+      context.handle(
+        _leftTurnCountMeta,
+        leftTurnCount.isAcceptableOrUnknown(
+          data['left_turn_count']!,
+          _leftTurnCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('right_turn_count')) {
+      context.handle(
+        _rightTurnCountMeta,
+        rightTurnCount.isAcceptableOrUnknown(
+          data['right_turn_count']!,
+          _rightTurnCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lane_change_count')) {
+      context.handle(
+        _laneChangeCountMeta,
+        laneChangeCount.isAcceptableOrUnknown(
+          data['lane_change_count']!,
+          _laneChangeCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('max_acceleration_mps2')) {
+      context.handle(
+        _maxAccelerationMps2Meta,
+        maxAccelerationMps2.isAcceptableOrUnknown(
+          data['max_acceleration_mps2']!,
+          _maxAccelerationMps2Meta,
+        ),
+      );
+    }
+    if (data.containsKey('max_deceleration_mps2')) {
+      context.handle(
+        _maxDecelerationMps2Meta,
+        maxDecelerationMps2.isAcceptableOrUnknown(
+          data['max_deceleration_mps2']!,
+          _maxDecelerationMps2Meta,
+        ),
+      );
+    }
+    if (data.containsKey('top_cornering_speed_kmh')) {
+      context.handle(
+        _topCorneringSpeedKmhMeta,
+        topCorneringSpeedKmh.isAcceptableOrUnknown(
+          data['top_cornering_speed_kmh']!,
+          _topCorneringSpeedKmhMeta,
+        ),
+      );
+    }
+    if (data.containsKey('zero_to_hundred_seconds')) {
+      context.handle(
+        _zeroToHundredSecondsMeta,
+        zeroToHundredSeconds.isAcceptableOrUnknown(
+          data['zero_to_hundred_seconds']!,
+          _zeroToHundredSecondsMeta,
+        ),
+      );
+    }
     if (data.containsKey('fuel_cost_local')) {
       context.handle(
         _fuelCostLocalMeta,
@@ -543,6 +708,12 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
       );
     }
+    if (data.containsKey('remote_id')) {
+      context.handle(
+        _remoteIdMeta,
+        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
+      );
+    }
     return context;
   }
 
@@ -604,6 +775,34 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         DriftSqlType.int,
         data['${effectivePrefix}hard_brakes_count'],
       )!,
+      leftTurnCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}left_turn_count'],
+      )!,
+      rightTurnCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}right_turn_count'],
+      )!,
+      laneChangeCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lane_change_count'],
+      )!,
+      maxAccelerationMps2: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}max_acceleration_mps2'],
+      )!,
+      maxDecelerationMps2: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}max_deceleration_mps2'],
+      )!,
+      topCorneringSpeedKmh: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}top_cornering_speed_kmh'],
+      )!,
+      zeroToHundredSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}zero_to_hundred_seconds'],
+      ),
       fuelCostLocal: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}fuel_cost_local'],
@@ -652,6 +851,10 @@ class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
       )!,
+      remoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_id'],
+      ),
     );
   }
 
@@ -683,6 +886,32 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   final double maxGforce;
   final int hardCornersCount;
   final int hardBrakesCount;
+
+  /// Heading-based turn-direction counts — additive to, not a
+  /// replacement for, the g-force-based `hardCornersCount` above (that
+  /// stays exactly as-is; this is a separate, direction-aware signal).
+  /// See `AppConstants.turnHeadingDeltaThresholdDeg`.
+  final int leftTurnCount;
+  final int rightTurnCount;
+
+  /// Heuristic lane-change count — see `AppConstants.laneChangeHeadingDeltaMinDeg`.
+  final int laneChangeCount;
+
+  /// Peak acceleration/deceleration (m/s²), derived from Δspeed/Δt —
+  /// not the accelerometer. See `AppConstants.maxPlausibleAccelMps2`.
+  final double maxAccelerationMps2;
+  final double maxDecelerationMps2;
+
+  /// Fastest speed recorded at the instant of any detected turn
+  /// (left or right).
+  final double topCorneringSpeedKmh;
+
+  /// Fastest 0→100 km/h run, persisted once at save time so lifetime
+  /// "best 0-100" aggregation doesn't need to re-walk every trip's
+  /// waypoints. Null when the trip never reached 100 km/h from a
+  /// standstill. See `zeroToHundredSeconds` in
+  /// `lib/features/trip_insights/domain/usecases/zero_to_hundred.dart`.
+  final double? zeroToHundredSeconds;
 
   /// Fuel cost in the user's local currency at trip time. Null if the user
   /// hasn't configured fuel price/consumption — the UI shows "—" then.
@@ -717,6 +946,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
   final DateTime startedAt;
   final DateTime? endedAt;
   final bool isSynced;
+
+  /// Stable UUID used as the Firestore document id for cloud sync,
+  /// decoupled from the local autoincrement primary key so two devices
+  /// restoring/pushing under the same account can't collide on the same
+  /// path. Nullable — pre-existing trips get one lazily the first time
+  /// they're pushed; new trips get one unconditionally at save time.
+  final String? remoteId;
   const TripRow({
     required this.id,
     required this.uid,
@@ -731,6 +967,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     required this.maxGforce,
     required this.hardCornersCount,
     required this.hardBrakesCount,
+    required this.leftTurnCount,
+    required this.rightTurnCount,
+    required this.laneChangeCount,
+    required this.maxAccelerationMps2,
+    required this.maxDecelerationMps2,
+    required this.topCorneringSpeedKmh,
+    this.zeroToHundredSeconds,
     this.fuelCostLocal,
     this.localCurrencyCode,
     this.weatherCondition,
@@ -743,6 +986,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     required this.startedAt,
     this.endedAt,
     required this.isSynced,
+    this.remoteId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -764,6 +1008,15 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     map['max_gforce'] = Variable<double>(maxGforce);
     map['hard_corners_count'] = Variable<int>(hardCornersCount);
     map['hard_brakes_count'] = Variable<int>(hardBrakesCount);
+    map['left_turn_count'] = Variable<int>(leftTurnCount);
+    map['right_turn_count'] = Variable<int>(rightTurnCount);
+    map['lane_change_count'] = Variable<int>(laneChangeCount);
+    map['max_acceleration_mps2'] = Variable<double>(maxAccelerationMps2);
+    map['max_deceleration_mps2'] = Variable<double>(maxDecelerationMps2);
+    map['top_cornering_speed_kmh'] = Variable<double>(topCorneringSpeedKmh);
+    if (!nullToAbsent || zeroToHundredSeconds != null) {
+      map['zero_to_hundred_seconds'] = Variable<double>(zeroToHundredSeconds);
+    }
     if (!nullToAbsent || fuelCostLocal != null) {
       map['fuel_cost_local'] = Variable<double>(fuelCostLocal);
     }
@@ -790,6 +1043,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       map['ended_at'] = Variable<DateTime>(endedAt);
     }
     map['is_synced'] = Variable<bool>(isSynced);
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<String>(remoteId);
+    }
     return map;
   }
 
@@ -812,6 +1068,15 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       maxGforce: Value(maxGforce),
       hardCornersCount: Value(hardCornersCount),
       hardBrakesCount: Value(hardBrakesCount),
+      leftTurnCount: Value(leftTurnCount),
+      rightTurnCount: Value(rightTurnCount),
+      laneChangeCount: Value(laneChangeCount),
+      maxAccelerationMps2: Value(maxAccelerationMps2),
+      maxDecelerationMps2: Value(maxDecelerationMps2),
+      topCorneringSpeedKmh: Value(topCorneringSpeedKmh),
+      zeroToHundredSeconds: zeroToHundredSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(zeroToHundredSeconds),
       fuelCostLocal: fuelCostLocal == null && nullToAbsent
           ? const Value.absent()
           : Value(fuelCostLocal),
@@ -838,6 +1103,9 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ? const Value.absent()
           : Value(endedAt),
       isSynced: Value(isSynced),
+      remoteId: remoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteId),
     );
   }
 
@@ -864,6 +1132,21 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       maxGforce: serializer.fromJson<double>(json['maxGforce']),
       hardCornersCount: serializer.fromJson<int>(json['hardCornersCount']),
       hardBrakesCount: serializer.fromJson<int>(json['hardBrakesCount']),
+      leftTurnCount: serializer.fromJson<int>(json['leftTurnCount']),
+      rightTurnCount: serializer.fromJson<int>(json['rightTurnCount']),
+      laneChangeCount: serializer.fromJson<int>(json['laneChangeCount']),
+      maxAccelerationMps2: serializer.fromJson<double>(
+        json['maxAccelerationMps2'],
+      ),
+      maxDecelerationMps2: serializer.fromJson<double>(
+        json['maxDecelerationMps2'],
+      ),
+      topCorneringSpeedKmh: serializer.fromJson<double>(
+        json['topCorneringSpeedKmh'],
+      ),
+      zeroToHundredSeconds: serializer.fromJson<double?>(
+        json['zeroToHundredSeconds'],
+      ),
       fuelCostLocal: serializer.fromJson<double?>(json['fuelCostLocal']),
       localCurrencyCode: serializer.fromJson<String?>(
         json['localCurrencyCode'],
@@ -878,6 +1161,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       startedAt: serializer.fromJson<DateTime>(json['startedAt']),
       endedAt: serializer.fromJson<DateTime?>(json['endedAt']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
+      remoteId: serializer.fromJson<String?>(json['remoteId']),
     );
   }
   @override
@@ -897,6 +1181,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       'maxGforce': serializer.toJson<double>(maxGforce),
       'hardCornersCount': serializer.toJson<int>(hardCornersCount),
       'hardBrakesCount': serializer.toJson<int>(hardBrakesCount),
+      'leftTurnCount': serializer.toJson<int>(leftTurnCount),
+      'rightTurnCount': serializer.toJson<int>(rightTurnCount),
+      'laneChangeCount': serializer.toJson<int>(laneChangeCount),
+      'maxAccelerationMps2': serializer.toJson<double>(maxAccelerationMps2),
+      'maxDecelerationMps2': serializer.toJson<double>(maxDecelerationMps2),
+      'topCorneringSpeedKmh': serializer.toJson<double>(topCorneringSpeedKmh),
+      'zeroToHundredSeconds': serializer.toJson<double?>(zeroToHundredSeconds),
       'fuelCostLocal': serializer.toJson<double?>(fuelCostLocal),
       'localCurrencyCode': serializer.toJson<String?>(localCurrencyCode),
       'weatherCondition': serializer.toJson<String?>(weatherCondition),
@@ -909,6 +1200,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       'startedAt': serializer.toJson<DateTime>(startedAt),
       'endedAt': serializer.toJson<DateTime?>(endedAt),
       'isSynced': serializer.toJson<bool>(isSynced),
+      'remoteId': serializer.toJson<String?>(remoteId),
     };
   }
 
@@ -926,6 +1218,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     double? maxGforce,
     int? hardCornersCount,
     int? hardBrakesCount,
+    int? leftTurnCount,
+    int? rightTurnCount,
+    int? laneChangeCount,
+    double? maxAccelerationMps2,
+    double? maxDecelerationMps2,
+    double? topCorneringSpeedKmh,
+    Value<double?> zeroToHundredSeconds = const Value.absent(),
     Value<double?> fuelCostLocal = const Value.absent(),
     Value<String?> localCurrencyCode = const Value.absent(),
     Value<String?> weatherCondition = const Value.absent(),
@@ -938,6 +1237,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     DateTime? startedAt,
     Value<DateTime?> endedAt = const Value.absent(),
     bool? isSynced,
+    Value<String?> remoteId = const Value.absent(),
   }) => TripRow(
     id: id ?? this.id,
     uid: uid ?? this.uid,
@@ -956,6 +1256,15 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     maxGforce: maxGforce ?? this.maxGforce,
     hardCornersCount: hardCornersCount ?? this.hardCornersCount,
     hardBrakesCount: hardBrakesCount ?? this.hardBrakesCount,
+    leftTurnCount: leftTurnCount ?? this.leftTurnCount,
+    rightTurnCount: rightTurnCount ?? this.rightTurnCount,
+    laneChangeCount: laneChangeCount ?? this.laneChangeCount,
+    maxAccelerationMps2: maxAccelerationMps2 ?? this.maxAccelerationMps2,
+    maxDecelerationMps2: maxDecelerationMps2 ?? this.maxDecelerationMps2,
+    topCorneringSpeedKmh: topCorneringSpeedKmh ?? this.topCorneringSpeedKmh,
+    zeroToHundredSeconds: zeroToHundredSeconds.present
+        ? zeroToHundredSeconds.value
+        : this.zeroToHundredSeconds,
     fuelCostLocal: fuelCostLocal.present
         ? fuelCostLocal.value
         : this.fuelCostLocal,
@@ -974,6 +1283,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     startedAt: startedAt ?? this.startedAt,
     endedAt: endedAt.present ? endedAt.value : this.endedAt,
     isSynced: isSynced ?? this.isSynced,
+    remoteId: remoteId.present ? remoteId.value : this.remoteId,
   );
   TripRow copyWithCompanion(TripsCompanion data) {
     return TripRow(
@@ -1008,6 +1318,27 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       hardBrakesCount: data.hardBrakesCount.present
           ? data.hardBrakesCount.value
           : this.hardBrakesCount,
+      leftTurnCount: data.leftTurnCount.present
+          ? data.leftTurnCount.value
+          : this.leftTurnCount,
+      rightTurnCount: data.rightTurnCount.present
+          ? data.rightTurnCount.value
+          : this.rightTurnCount,
+      laneChangeCount: data.laneChangeCount.present
+          ? data.laneChangeCount.value
+          : this.laneChangeCount,
+      maxAccelerationMps2: data.maxAccelerationMps2.present
+          ? data.maxAccelerationMps2.value
+          : this.maxAccelerationMps2,
+      maxDecelerationMps2: data.maxDecelerationMps2.present
+          ? data.maxDecelerationMps2.value
+          : this.maxDecelerationMps2,
+      topCorneringSpeedKmh: data.topCorneringSpeedKmh.present
+          ? data.topCorneringSpeedKmh.value
+          : this.topCorneringSpeedKmh,
+      zeroToHundredSeconds: data.zeroToHundredSeconds.present
+          ? data.zeroToHundredSeconds.value
+          : this.zeroToHundredSeconds,
       fuelCostLocal: data.fuelCostLocal.present
           ? data.fuelCostLocal.value
           : this.fuelCostLocal,
@@ -1034,6 +1365,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
       startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
       endedAt: data.endedAt.present ? data.endedAt.value : this.endedAt,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
     );
   }
 
@@ -1053,6 +1385,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ..write('maxGforce: $maxGforce, ')
           ..write('hardCornersCount: $hardCornersCount, ')
           ..write('hardBrakesCount: $hardBrakesCount, ')
+          ..write('leftTurnCount: $leftTurnCount, ')
+          ..write('rightTurnCount: $rightTurnCount, ')
+          ..write('laneChangeCount: $laneChangeCount, ')
+          ..write('maxAccelerationMps2: $maxAccelerationMps2, ')
+          ..write('maxDecelerationMps2: $maxDecelerationMps2, ')
+          ..write('topCorneringSpeedKmh: $topCorneringSpeedKmh, ')
+          ..write('zeroToHundredSeconds: $zeroToHundredSeconds, ')
           ..write('fuelCostLocal: $fuelCostLocal, ')
           ..write('localCurrencyCode: $localCurrencyCode, ')
           ..write('weatherCondition: $weatherCondition, ')
@@ -1064,7 +1403,8 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           ..write('roadSegmentIds: $roadSegmentIds, ')
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
-          ..write('isSynced: $isSynced')
+          ..write('isSynced: $isSynced, ')
+          ..write('remoteId: $remoteId')
           ..write(')'))
         .toString();
   }
@@ -1084,6 +1424,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     maxGforce,
     hardCornersCount,
     hardBrakesCount,
+    leftTurnCount,
+    rightTurnCount,
+    laneChangeCount,
+    maxAccelerationMps2,
+    maxDecelerationMps2,
+    topCorneringSpeedKmh,
+    zeroToHundredSeconds,
     fuelCostLocal,
     localCurrencyCode,
     weatherCondition,
@@ -1096,6 +1443,7 @@ class TripRow extends DataClass implements Insertable<TripRow> {
     startedAt,
     endedAt,
     isSynced,
+    remoteId,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1114,6 +1462,13 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           other.maxGforce == this.maxGforce &&
           other.hardCornersCount == this.hardCornersCount &&
           other.hardBrakesCount == this.hardBrakesCount &&
+          other.leftTurnCount == this.leftTurnCount &&
+          other.rightTurnCount == this.rightTurnCount &&
+          other.laneChangeCount == this.laneChangeCount &&
+          other.maxAccelerationMps2 == this.maxAccelerationMps2 &&
+          other.maxDecelerationMps2 == this.maxDecelerationMps2 &&
+          other.topCorneringSpeedKmh == this.topCorneringSpeedKmh &&
+          other.zeroToHundredSeconds == this.zeroToHundredSeconds &&
           other.fuelCostLocal == this.fuelCostLocal &&
           other.localCurrencyCode == this.localCurrencyCode &&
           other.weatherCondition == this.weatherCondition &&
@@ -1125,7 +1480,8 @@ class TripRow extends DataClass implements Insertable<TripRow> {
           other.roadSegmentIds == this.roadSegmentIds &&
           other.startedAt == this.startedAt &&
           other.endedAt == this.endedAt &&
-          other.isSynced == this.isSynced);
+          other.isSynced == this.isSynced &&
+          other.remoteId == this.remoteId);
 }
 
 class TripsCompanion extends UpdateCompanion<TripRow> {
@@ -1142,6 +1498,13 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
   final Value<double> maxGforce;
   final Value<int> hardCornersCount;
   final Value<int> hardBrakesCount;
+  final Value<int> leftTurnCount;
+  final Value<int> rightTurnCount;
+  final Value<int> laneChangeCount;
+  final Value<double> maxAccelerationMps2;
+  final Value<double> maxDecelerationMps2;
+  final Value<double> topCorneringSpeedKmh;
+  final Value<double?> zeroToHundredSeconds;
   final Value<double?> fuelCostLocal;
   final Value<String?> localCurrencyCode;
   final Value<String?> weatherCondition;
@@ -1154,6 +1517,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
   final Value<DateTime> startedAt;
   final Value<DateTime?> endedAt;
   final Value<bool> isSynced;
+  final Value<String?> remoteId;
   const TripsCompanion({
     this.id = const Value.absent(),
     this.uid = const Value.absent(),
@@ -1168,6 +1532,13 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.maxGforce = const Value.absent(),
     this.hardCornersCount = const Value.absent(),
     this.hardBrakesCount = const Value.absent(),
+    this.leftTurnCount = const Value.absent(),
+    this.rightTurnCount = const Value.absent(),
+    this.laneChangeCount = const Value.absent(),
+    this.maxAccelerationMps2 = const Value.absent(),
+    this.maxDecelerationMps2 = const Value.absent(),
+    this.topCorneringSpeedKmh = const Value.absent(),
+    this.zeroToHundredSeconds = const Value.absent(),
     this.fuelCostLocal = const Value.absent(),
     this.localCurrencyCode = const Value.absent(),
     this.weatherCondition = const Value.absent(),
@@ -1180,6 +1551,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.startedAt = const Value.absent(),
     this.endedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.remoteId = const Value.absent(),
   });
   TripsCompanion.insert({
     this.id = const Value.absent(),
@@ -1195,6 +1567,13 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     this.maxGforce = const Value.absent(),
     this.hardCornersCount = const Value.absent(),
     this.hardBrakesCount = const Value.absent(),
+    this.leftTurnCount = const Value.absent(),
+    this.rightTurnCount = const Value.absent(),
+    this.laneChangeCount = const Value.absent(),
+    this.maxAccelerationMps2 = const Value.absent(),
+    this.maxDecelerationMps2 = const Value.absent(),
+    this.topCorneringSpeedKmh = const Value.absent(),
+    this.zeroToHundredSeconds = const Value.absent(),
     this.fuelCostLocal = const Value.absent(),
     this.localCurrencyCode = const Value.absent(),
     this.weatherCondition = const Value.absent(),
@@ -1207,6 +1586,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     required DateTime startedAt,
     this.endedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.remoteId = const Value.absent(),
   }) : uid = Value(uid),
        topSpeedKmh = Value(topSpeedKmh),
        avgSpeedKmh = Value(avgSpeedKmh),
@@ -1227,6 +1607,13 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Expression<double>? maxGforce,
     Expression<int>? hardCornersCount,
     Expression<int>? hardBrakesCount,
+    Expression<int>? leftTurnCount,
+    Expression<int>? rightTurnCount,
+    Expression<int>? laneChangeCount,
+    Expression<double>? maxAccelerationMps2,
+    Expression<double>? maxDecelerationMps2,
+    Expression<double>? topCorneringSpeedKmh,
+    Expression<double>? zeroToHundredSeconds,
     Expression<double>? fuelCostLocal,
     Expression<String>? localCurrencyCode,
     Expression<String>? weatherCondition,
@@ -1239,6 +1626,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Expression<DateTime>? startedAt,
     Expression<DateTime>? endedAt,
     Expression<bool>? isSynced,
+    Expression<String>? remoteId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1256,6 +1644,17 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       if (maxGforce != null) 'max_gforce': maxGforce,
       if (hardCornersCount != null) 'hard_corners_count': hardCornersCount,
       if (hardBrakesCount != null) 'hard_brakes_count': hardBrakesCount,
+      if (leftTurnCount != null) 'left_turn_count': leftTurnCount,
+      if (rightTurnCount != null) 'right_turn_count': rightTurnCount,
+      if (laneChangeCount != null) 'lane_change_count': laneChangeCount,
+      if (maxAccelerationMps2 != null)
+        'max_acceleration_mps2': maxAccelerationMps2,
+      if (maxDecelerationMps2 != null)
+        'max_deceleration_mps2': maxDecelerationMps2,
+      if (topCorneringSpeedKmh != null)
+        'top_cornering_speed_kmh': topCorneringSpeedKmh,
+      if (zeroToHundredSeconds != null)
+        'zero_to_hundred_seconds': zeroToHundredSeconds,
       if (fuelCostLocal != null) 'fuel_cost_local': fuelCostLocal,
       if (localCurrencyCode != null) 'local_currency_code': localCurrencyCode,
       if (weatherCondition != null) 'weather_condition': weatherCondition,
@@ -1268,6 +1667,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       if (startedAt != null) 'started_at': startedAt,
       if (endedAt != null) 'ended_at': endedAt,
       if (isSynced != null) 'is_synced': isSynced,
+      if (remoteId != null) 'remote_id': remoteId,
     });
   }
 
@@ -1285,6 +1685,13 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Value<double>? maxGforce,
     Value<int>? hardCornersCount,
     Value<int>? hardBrakesCount,
+    Value<int>? leftTurnCount,
+    Value<int>? rightTurnCount,
+    Value<int>? laneChangeCount,
+    Value<double>? maxAccelerationMps2,
+    Value<double>? maxDecelerationMps2,
+    Value<double>? topCorneringSpeedKmh,
+    Value<double?>? zeroToHundredSeconds,
     Value<double?>? fuelCostLocal,
     Value<String?>? localCurrencyCode,
     Value<String?>? weatherCondition,
@@ -1297,6 +1704,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     Value<DateTime>? startedAt,
     Value<DateTime?>? endedAt,
     Value<bool>? isSynced,
+    Value<String?>? remoteId,
   }) {
     return TripsCompanion(
       id: id ?? this.id,
@@ -1312,6 +1720,13 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       maxGforce: maxGforce ?? this.maxGforce,
       hardCornersCount: hardCornersCount ?? this.hardCornersCount,
       hardBrakesCount: hardBrakesCount ?? this.hardBrakesCount,
+      leftTurnCount: leftTurnCount ?? this.leftTurnCount,
+      rightTurnCount: rightTurnCount ?? this.rightTurnCount,
+      laneChangeCount: laneChangeCount ?? this.laneChangeCount,
+      maxAccelerationMps2: maxAccelerationMps2 ?? this.maxAccelerationMps2,
+      maxDecelerationMps2: maxDecelerationMps2 ?? this.maxDecelerationMps2,
+      topCorneringSpeedKmh: topCorneringSpeedKmh ?? this.topCorneringSpeedKmh,
+      zeroToHundredSeconds: zeroToHundredSeconds ?? this.zeroToHundredSeconds,
       fuelCostLocal: fuelCostLocal ?? this.fuelCostLocal,
       localCurrencyCode: localCurrencyCode ?? this.localCurrencyCode,
       weatherCondition: weatherCondition ?? this.weatherCondition,
@@ -1324,6 +1739,7 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
       isSynced: isSynced ?? this.isSynced,
+      remoteId: remoteId ?? this.remoteId,
     );
   }
 
@@ -1371,6 +1787,35 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     if (hardBrakesCount.present) {
       map['hard_brakes_count'] = Variable<int>(hardBrakesCount.value);
     }
+    if (leftTurnCount.present) {
+      map['left_turn_count'] = Variable<int>(leftTurnCount.value);
+    }
+    if (rightTurnCount.present) {
+      map['right_turn_count'] = Variable<int>(rightTurnCount.value);
+    }
+    if (laneChangeCount.present) {
+      map['lane_change_count'] = Variable<int>(laneChangeCount.value);
+    }
+    if (maxAccelerationMps2.present) {
+      map['max_acceleration_mps2'] = Variable<double>(
+        maxAccelerationMps2.value,
+      );
+    }
+    if (maxDecelerationMps2.present) {
+      map['max_deceleration_mps2'] = Variable<double>(
+        maxDecelerationMps2.value,
+      );
+    }
+    if (topCorneringSpeedKmh.present) {
+      map['top_cornering_speed_kmh'] = Variable<double>(
+        topCorneringSpeedKmh.value,
+      );
+    }
+    if (zeroToHundredSeconds.present) {
+      map['zero_to_hundred_seconds'] = Variable<double>(
+        zeroToHundredSeconds.value,
+      );
+    }
     if (fuelCostLocal.present) {
       map['fuel_cost_local'] = Variable<double>(fuelCostLocal.value);
     }
@@ -1407,6 +1852,9 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
     }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
+    }
     return map;
   }
 
@@ -1426,6 +1874,13 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
           ..write('maxGforce: $maxGforce, ')
           ..write('hardCornersCount: $hardCornersCount, ')
           ..write('hardBrakesCount: $hardBrakesCount, ')
+          ..write('leftTurnCount: $leftTurnCount, ')
+          ..write('rightTurnCount: $rightTurnCount, ')
+          ..write('laneChangeCount: $laneChangeCount, ')
+          ..write('maxAccelerationMps2: $maxAccelerationMps2, ')
+          ..write('maxDecelerationMps2: $maxDecelerationMps2, ')
+          ..write('topCorneringSpeedKmh: $topCorneringSpeedKmh, ')
+          ..write('zeroToHundredSeconds: $zeroToHundredSeconds, ')
           ..write('fuelCostLocal: $fuelCostLocal, ')
           ..write('localCurrencyCode: $localCurrencyCode, ')
           ..write('weatherCondition: $weatherCondition, ')
@@ -1437,7 +1892,8 @@ class TripsCompanion extends UpdateCompanion<TripRow> {
           ..write('roadSegmentIds: $roadSegmentIds, ')
           ..write('startedAt: $startedAt, ')
           ..write('endedAt: $endedAt, ')
-          ..write('isSynced: $isSynced')
+          ..write('isSynced: $isSynced, ')
+          ..write('remoteId: $remoteId')
           ..write(')'))
         .toString();
   }
@@ -1525,6 +1981,17 @@ class $WaypointsTable extends Waypoints
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _headingMeta = const VerificationMeta(
+    'heading',
+  );
+  @override
+  late final GeneratedColumn<double> heading = GeneratedColumn<double>(
+    'heading',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _timestampMeta = const VerificationMeta(
     'timestamp',
   );
@@ -1545,6 +2012,7 @@ class $WaypointsTable extends Waypoints
     speedKmh,
     accuracyMeters,
     altitudeMeters,
+    heading,
     timestamp,
   ];
   @override
@@ -1614,6 +2082,12 @@ class $WaypointsTable extends Waypoints
         ),
       );
     }
+    if (data.containsKey('heading')) {
+      context.handle(
+        _headingMeta,
+        heading.isAcceptableOrUnknown(data['heading']!, _headingMeta),
+      );
+    }
     if (data.containsKey('timestamp')) {
       context.handle(
         _timestampMeta,
@@ -1659,6 +2133,10 @@ class $WaypointsTable extends Waypoints
         DriftSqlType.double,
         data['${effectivePrefix}altitude_meters'],
       ),
+      heading: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}heading'],
+      ),
       timestamp: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}timestamp'],
@@ -1688,6 +2166,13 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
   /// altitude accuracy was too poor to trust — see
   /// `GpsService._reliableAltitude`.
   final double? altitudeMeters;
+
+  /// Compass bearing in degrees (0-360), the direction of travel at this
+  /// sample. Null when the fix didn't report one or the vehicle was too
+  /// slow for heading to be meaningful — see
+  /// `AppConstants.turnMinSpeedKmh`. Feeds turn-direction / lane-change
+  /// detection; never displayed directly.
+  final double? heading;
   final DateTime timestamp;
   const WaypointRow({
     required this.id,
@@ -1697,6 +2182,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
     required this.speedKmh,
     required this.accuracyMeters,
     this.altitudeMeters,
+    this.heading,
     required this.timestamp,
   });
   @override
@@ -1710,6 +2196,9 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
     map['accuracy_meters'] = Variable<double>(accuracyMeters);
     if (!nullToAbsent || altitudeMeters != null) {
       map['altitude_meters'] = Variable<double>(altitudeMeters);
+    }
+    if (!nullToAbsent || heading != null) {
+      map['heading'] = Variable<double>(heading);
     }
     map['timestamp'] = Variable<DateTime>(timestamp);
     return map;
@@ -1726,6 +2215,9 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
       altitudeMeters: altitudeMeters == null && nullToAbsent
           ? const Value.absent()
           : Value(altitudeMeters),
+      heading: heading == null && nullToAbsent
+          ? const Value.absent()
+          : Value(heading),
       timestamp: Value(timestamp),
     );
   }
@@ -1743,6 +2235,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
       speedKmh: serializer.fromJson<double>(json['speedKmh']),
       accuracyMeters: serializer.fromJson<double>(json['accuracyMeters']),
       altitudeMeters: serializer.fromJson<double?>(json['altitudeMeters']),
+      heading: serializer.fromJson<double?>(json['heading']),
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
     );
   }
@@ -1757,6 +2250,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
       'speedKmh': serializer.toJson<double>(speedKmh),
       'accuracyMeters': serializer.toJson<double>(accuracyMeters),
       'altitudeMeters': serializer.toJson<double?>(altitudeMeters),
+      'heading': serializer.toJson<double?>(heading),
       'timestamp': serializer.toJson<DateTime>(timestamp),
     };
   }
@@ -1769,6 +2263,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
     double? speedKmh,
     double? accuracyMeters,
     Value<double?> altitudeMeters = const Value.absent(),
+    Value<double?> heading = const Value.absent(),
     DateTime? timestamp,
   }) => WaypointRow(
     id: id ?? this.id,
@@ -1780,6 +2275,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
     altitudeMeters: altitudeMeters.present
         ? altitudeMeters.value
         : this.altitudeMeters,
+    heading: heading.present ? heading.value : this.heading,
     timestamp: timestamp ?? this.timestamp,
   );
   WaypointRow copyWithCompanion(WaypointsCompanion data) {
@@ -1795,6 +2291,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
       altitudeMeters: data.altitudeMeters.present
           ? data.altitudeMeters.value
           : this.altitudeMeters,
+      heading: data.heading.present ? data.heading.value : this.heading,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
     );
   }
@@ -1809,6 +2306,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
           ..write('speedKmh: $speedKmh, ')
           ..write('accuracyMeters: $accuracyMeters, ')
           ..write('altitudeMeters: $altitudeMeters, ')
+          ..write('heading: $heading, ')
           ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
@@ -1823,6 +2321,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
     speedKmh,
     accuracyMeters,
     altitudeMeters,
+    heading,
     timestamp,
   );
   @override
@@ -1836,6 +2335,7 @@ class WaypointRow extends DataClass implements Insertable<WaypointRow> {
           other.speedKmh == this.speedKmh &&
           other.accuracyMeters == this.accuracyMeters &&
           other.altitudeMeters == this.altitudeMeters &&
+          other.heading == this.heading &&
           other.timestamp == this.timestamp);
 }
 
@@ -1847,6 +2347,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
   final Value<double> speedKmh;
   final Value<double> accuracyMeters;
   final Value<double?> altitudeMeters;
+  final Value<double?> heading;
   final Value<DateTime> timestamp;
   const WaypointsCompanion({
     this.id = const Value.absent(),
@@ -1856,6 +2357,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     this.speedKmh = const Value.absent(),
     this.accuracyMeters = const Value.absent(),
     this.altitudeMeters = const Value.absent(),
+    this.heading = const Value.absent(),
     this.timestamp = const Value.absent(),
   });
   WaypointsCompanion.insert({
@@ -1866,6 +2368,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     required double speedKmh,
     required double accuracyMeters,
     this.altitudeMeters = const Value.absent(),
+    this.heading = const Value.absent(),
     required DateTime timestamp,
   }) : tripId = Value(tripId),
        lat = Value(lat),
@@ -1881,6 +2384,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     Expression<double>? speedKmh,
     Expression<double>? accuracyMeters,
     Expression<double>? altitudeMeters,
+    Expression<double>? heading,
     Expression<DateTime>? timestamp,
   }) {
     return RawValuesInsertable({
@@ -1891,6 +2395,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
       if (speedKmh != null) 'speed_kmh': speedKmh,
       if (accuracyMeters != null) 'accuracy_meters': accuracyMeters,
       if (altitudeMeters != null) 'altitude_meters': altitudeMeters,
+      if (heading != null) 'heading': heading,
       if (timestamp != null) 'timestamp': timestamp,
     });
   }
@@ -1903,6 +2408,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     Value<double>? speedKmh,
     Value<double>? accuracyMeters,
     Value<double?>? altitudeMeters,
+    Value<double?>? heading,
     Value<DateTime>? timestamp,
   }) {
     return WaypointsCompanion(
@@ -1913,6 +2419,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
       speedKmh: speedKmh ?? this.speedKmh,
       accuracyMeters: accuracyMeters ?? this.accuracyMeters,
       altitudeMeters: altitudeMeters ?? this.altitudeMeters,
+      heading: heading ?? this.heading,
       timestamp: timestamp ?? this.timestamp,
     );
   }
@@ -1941,6 +2448,9 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
     if (altitudeMeters.present) {
       map['altitude_meters'] = Variable<double>(altitudeMeters.value);
     }
+    if (heading.present) {
+      map['heading'] = Variable<double>(heading.value);
+    }
     if (timestamp.present) {
       map['timestamp'] = Variable<DateTime>(timestamp.value);
     }
@@ -1957,6 +2467,7 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
           ..write('speedKmh: $speedKmh, ')
           ..write('accuracyMeters: $accuracyMeters, ')
           ..write('altitudeMeters: $altitudeMeters, ')
+          ..write('heading: $heading, ')
           ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
@@ -4717,6 +5228,13 @@ typedef $$TripsTableCreateCompanionBuilder =
       Value<double> maxGforce,
       Value<int> hardCornersCount,
       Value<int> hardBrakesCount,
+      Value<int> leftTurnCount,
+      Value<int> rightTurnCount,
+      Value<int> laneChangeCount,
+      Value<double> maxAccelerationMps2,
+      Value<double> maxDecelerationMps2,
+      Value<double> topCorneringSpeedKmh,
+      Value<double?> zeroToHundredSeconds,
       Value<double?> fuelCostLocal,
       Value<String?> localCurrencyCode,
       Value<String?> weatherCondition,
@@ -4729,6 +5247,7 @@ typedef $$TripsTableCreateCompanionBuilder =
       required DateTime startedAt,
       Value<DateTime?> endedAt,
       Value<bool> isSynced,
+      Value<String?> remoteId,
     });
 typedef $$TripsTableUpdateCompanionBuilder =
     TripsCompanion Function({
@@ -4745,6 +5264,13 @@ typedef $$TripsTableUpdateCompanionBuilder =
       Value<double> maxGforce,
       Value<int> hardCornersCount,
       Value<int> hardBrakesCount,
+      Value<int> leftTurnCount,
+      Value<int> rightTurnCount,
+      Value<int> laneChangeCount,
+      Value<double> maxAccelerationMps2,
+      Value<double> maxDecelerationMps2,
+      Value<double> topCorneringSpeedKmh,
+      Value<double?> zeroToHundredSeconds,
       Value<double?> fuelCostLocal,
       Value<String?> localCurrencyCode,
       Value<String?> weatherCondition,
@@ -4757,6 +5283,7 @@ typedef $$TripsTableUpdateCompanionBuilder =
       Value<DateTime> startedAt,
       Value<DateTime?> endedAt,
       Value<bool> isSynced,
+      Value<String?> remoteId,
     });
 
 final class $$TripsTableReferences
@@ -4855,6 +5382,41 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get leftTurnCount => $composableBuilder(
+    column: $table.leftTurnCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rightTurnCount => $composableBuilder(
+    column: $table.rightTurnCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get laneChangeCount => $composableBuilder(
+    column: $table.laneChangeCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get maxAccelerationMps2 => $composableBuilder(
+    column: $table.maxAccelerationMps2,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get maxDecelerationMps2 => $composableBuilder(
+    column: $table.maxDecelerationMps2,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get topCorneringSpeedKmh => $composableBuilder(
+    column: $table.topCorneringSpeedKmh,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get zeroToHundredSeconds => $composableBuilder(
+    column: $table.zeroToHundredSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<double> get fuelCostLocal => $composableBuilder(
     column: $table.fuelCostLocal,
     builder: (column) => ColumnFilters(column),
@@ -4912,6 +5474,11 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
 
   ColumnFilters<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5015,6 +5582,41 @@ class $$TripsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get leftTurnCount => $composableBuilder(
+    column: $table.leftTurnCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rightTurnCount => $composableBuilder(
+    column: $table.rightTurnCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get laneChangeCount => $composableBuilder(
+    column: $table.laneChangeCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get maxAccelerationMps2 => $composableBuilder(
+    column: $table.maxAccelerationMps2,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get maxDecelerationMps2 => $composableBuilder(
+    column: $table.maxDecelerationMps2,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get topCorneringSpeedKmh => $composableBuilder(
+    column: $table.topCorneringSpeedKmh,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get zeroToHundredSeconds => $composableBuilder(
+    column: $table.zeroToHundredSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get fuelCostLocal => $composableBuilder(
     column: $table.fuelCostLocal,
     builder: (column) => ColumnOrderings(column),
@@ -5072,6 +5674,11 @@ class $$TripsTableOrderingComposer
 
   ColumnOrderings<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteId => $composableBuilder(
+    column: $table.remoteId,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -5142,6 +5749,41 @@ class $$TripsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get leftTurnCount => $composableBuilder(
+    column: $table.leftTurnCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rightTurnCount => $composableBuilder(
+    column: $table.rightTurnCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get laneChangeCount => $composableBuilder(
+    column: $table.laneChangeCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get maxAccelerationMps2 => $composableBuilder(
+    column: $table.maxAccelerationMps2,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get maxDecelerationMps2 => $composableBuilder(
+    column: $table.maxDecelerationMps2,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get topCorneringSpeedKmh => $composableBuilder(
+    column: $table.topCorneringSpeedKmh,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get zeroToHundredSeconds => $composableBuilder(
+    column: $table.zeroToHundredSeconds,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<double> get fuelCostLocal => $composableBuilder(
     column: $table.fuelCostLocal,
     builder: (column) => column,
@@ -5191,6 +5833,9 @@ class $$TripsTableAnnotationComposer
 
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
 
   Expression<T> waypointsRefs<T extends Object>(
     Expression<T> Function($$WaypointsTableAnnotationComposer a) f,
@@ -5259,6 +5904,13 @@ class $$TripsTableTableManager
                 Value<double> maxGforce = const Value.absent(),
                 Value<int> hardCornersCount = const Value.absent(),
                 Value<int> hardBrakesCount = const Value.absent(),
+                Value<int> leftTurnCount = const Value.absent(),
+                Value<int> rightTurnCount = const Value.absent(),
+                Value<int> laneChangeCount = const Value.absent(),
+                Value<double> maxAccelerationMps2 = const Value.absent(),
+                Value<double> maxDecelerationMps2 = const Value.absent(),
+                Value<double> topCorneringSpeedKmh = const Value.absent(),
+                Value<double?> zeroToHundredSeconds = const Value.absent(),
                 Value<double?> fuelCostLocal = const Value.absent(),
                 Value<String?> localCurrencyCode = const Value.absent(),
                 Value<String?> weatherCondition = const Value.absent(),
@@ -5271,6 +5923,7 @@ class $$TripsTableTableManager
                 Value<DateTime> startedAt = const Value.absent(),
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
               }) => TripsCompanion(
                 id: id,
                 uid: uid,
@@ -5285,6 +5938,13 @@ class $$TripsTableTableManager
                 maxGforce: maxGforce,
                 hardCornersCount: hardCornersCount,
                 hardBrakesCount: hardBrakesCount,
+                leftTurnCount: leftTurnCount,
+                rightTurnCount: rightTurnCount,
+                laneChangeCount: laneChangeCount,
+                maxAccelerationMps2: maxAccelerationMps2,
+                maxDecelerationMps2: maxDecelerationMps2,
+                topCorneringSpeedKmh: topCorneringSpeedKmh,
+                zeroToHundredSeconds: zeroToHundredSeconds,
                 fuelCostLocal: fuelCostLocal,
                 localCurrencyCode: localCurrencyCode,
                 weatherCondition: weatherCondition,
@@ -5297,6 +5957,7 @@ class $$TripsTableTableManager
                 startedAt: startedAt,
                 endedAt: endedAt,
                 isSynced: isSynced,
+                remoteId: remoteId,
               ),
           createCompanionCallback:
               ({
@@ -5313,6 +5974,13 @@ class $$TripsTableTableManager
                 Value<double> maxGforce = const Value.absent(),
                 Value<int> hardCornersCount = const Value.absent(),
                 Value<int> hardBrakesCount = const Value.absent(),
+                Value<int> leftTurnCount = const Value.absent(),
+                Value<int> rightTurnCount = const Value.absent(),
+                Value<int> laneChangeCount = const Value.absent(),
+                Value<double> maxAccelerationMps2 = const Value.absent(),
+                Value<double> maxDecelerationMps2 = const Value.absent(),
+                Value<double> topCorneringSpeedKmh = const Value.absent(),
+                Value<double?> zeroToHundredSeconds = const Value.absent(),
                 Value<double?> fuelCostLocal = const Value.absent(),
                 Value<String?> localCurrencyCode = const Value.absent(),
                 Value<String?> weatherCondition = const Value.absent(),
@@ -5325,6 +5993,7 @@ class $$TripsTableTableManager
                 required DateTime startedAt,
                 Value<DateTime?> endedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<String?> remoteId = const Value.absent(),
               }) => TripsCompanion.insert(
                 id: id,
                 uid: uid,
@@ -5339,6 +6008,13 @@ class $$TripsTableTableManager
                 maxGforce: maxGforce,
                 hardCornersCount: hardCornersCount,
                 hardBrakesCount: hardBrakesCount,
+                leftTurnCount: leftTurnCount,
+                rightTurnCount: rightTurnCount,
+                laneChangeCount: laneChangeCount,
+                maxAccelerationMps2: maxAccelerationMps2,
+                maxDecelerationMps2: maxDecelerationMps2,
+                topCorneringSpeedKmh: topCorneringSpeedKmh,
+                zeroToHundredSeconds: zeroToHundredSeconds,
                 fuelCostLocal: fuelCostLocal,
                 localCurrencyCode: localCurrencyCode,
                 weatherCondition: weatherCondition,
@@ -5351,6 +6027,7 @@ class $$TripsTableTableManager
                 startedAt: startedAt,
                 endedAt: endedAt,
                 isSynced: isSynced,
+                remoteId: remoteId,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -5411,6 +6088,7 @@ typedef $$WaypointsTableCreateCompanionBuilder =
       required double speedKmh,
       required double accuracyMeters,
       Value<double?> altitudeMeters,
+      Value<double?> heading,
       required DateTime timestamp,
     });
 typedef $$WaypointsTableUpdateCompanionBuilder =
@@ -5422,6 +6100,7 @@ typedef $$WaypointsTableUpdateCompanionBuilder =
       Value<double> speedKmh,
       Value<double> accuracyMeters,
       Value<double?> altitudeMeters,
+      Value<double?> heading,
       Value<DateTime> timestamp,
     });
 
@@ -5484,6 +6163,11 @@ class $$WaypointsTableFilterComposer
 
   ColumnFilters<double> get altitudeMeters => $composableBuilder(
     column: $table.altitudeMeters,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get heading => $composableBuilder(
+    column: $table.heading,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5555,6 +6239,11 @@ class $$WaypointsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get heading => $composableBuilder(
+    column: $table.heading,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get timestamp => $composableBuilder(
     column: $table.timestamp,
     builder: (column) => ColumnOrderings(column),
@@ -5614,6 +6303,9 @@ class $$WaypointsTableAnnotationComposer
     column: $table.altitudeMeters,
     builder: (column) => column,
   );
+
+  GeneratedColumn<double> get heading =>
+      $composableBuilder(column: $table.heading, builder: (column) => column);
 
   GeneratedColumn<DateTime> get timestamp =>
       $composableBuilder(column: $table.timestamp, builder: (column) => column);
@@ -5677,6 +6369,7 @@ class $$WaypointsTableTableManager
                 Value<double> speedKmh = const Value.absent(),
                 Value<double> accuracyMeters = const Value.absent(),
                 Value<double?> altitudeMeters = const Value.absent(),
+                Value<double?> heading = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
               }) => WaypointsCompanion(
                 id: id,
@@ -5686,6 +6379,7 @@ class $$WaypointsTableTableManager
                 speedKmh: speedKmh,
                 accuracyMeters: accuracyMeters,
                 altitudeMeters: altitudeMeters,
+                heading: heading,
                 timestamp: timestamp,
               ),
           createCompanionCallback:
@@ -5697,6 +6391,7 @@ class $$WaypointsTableTableManager
                 required double speedKmh,
                 required double accuracyMeters,
                 Value<double?> altitudeMeters = const Value.absent(),
+                Value<double?> heading = const Value.absent(),
                 required DateTime timestamp,
               }) => WaypointsCompanion.insert(
                 id: id,
@@ -5706,6 +6401,7 @@ class $$WaypointsTableTableManager
                 speedKmh: speedKmh,
                 accuracyMeters: accuracyMeters,
                 altitudeMeters: altitudeMeters,
+                heading: heading,
                 timestamp: timestamp,
               ),
           withReferenceMapper: (p0) => p0

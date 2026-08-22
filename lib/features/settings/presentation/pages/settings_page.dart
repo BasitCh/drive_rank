@@ -8,8 +8,10 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
+import 'package:drive_rank/core/network/network_info.dart';
 import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/account_deletion_service.dart';
+import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/debug_seed_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart' show UnitSystem;
 import 'package:drive_rank/core/services/paywall_service.dart';
@@ -19,6 +21,8 @@ import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/services/car_photo_service.dart';
+import 'package:drive_rank/shared/services/cloud_sign_in_flow.dart';
+import 'package:drive_rank/shared/services/sync_manager.dart';
 import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -120,6 +124,7 @@ class _Body extends StatelessWidget {
         _Section(
           title: AppStrings.settingsAccount,
           children: [
+            const _CloudAccountRow(),
             _TextFieldRow(
               label: AppStrings.settingsUsername,
               value: settings.username,
@@ -662,6 +667,252 @@ class _PickerRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Sign-in/sign-out row + sync status, at the top of the Account section.
+/// Reactive to `AuthService.userChanges` (scoped locally to this one row,
+/// not the whole page) so it flips between the anonymous and signed-in
+/// states without a manual refresh.
+class _CloudAccountRow extends StatefulWidget {
+  const _CloudAccountRow();
+
+  @override
+  State<_CloudAccountRow> createState() => _CloudAccountRowState();
+}
+
+class _CloudAccountRowState extends State<_CloudAccountRow> {
+  bool _busy = false;
+
+  Future<void> _handleSignIn() async {
+    if (!await getIt<NetworkInfo>().isConnected) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.errorNoInternetTitle)),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    final result = await performCloudSignIn();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    final message = switch (result.outcome) {
+      CloudSignInOutcome.success => result.tripsRestored > 0
+          ? '${AppStrings.cloudSignInWelcomeBack} — '
+                '${result.tripsRestored} trips restored'
+          : AppStrings.cloudSignInAllSet,
+      CloudSignInOutcome.cancelled => null,
+      CloudSignInOutcome.failed => null,
+    };
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _handleSignOut() async {
+    setState(() => _busy = true);
+    await getIt<AuthService>().signOut();
+    if (getIt.isRegistered<SyncManager>()) {
+      getIt<SyncManager>().resetForAccountChange();
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text(AppStrings.profileSignedOut)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = getIt<AuthService>();
+    return StreamBuilder<AuthUser>(
+      initialData: auth.currentUser,
+      stream: auth.userChanges,
+      builder: (context, snapshot) {
+        final user = snapshot.data ?? auth.currentUser;
+        if (user.isAnonymous) {
+          return _SignInRow(busy: _busy, onTap: _handleSignIn);
+        }
+        return _SignedInRow(
+          email: user.email ?? user.displayName ?? user.uid,
+          busy: _busy,
+          onSignOut: _handleSignOut,
+        );
+      },
+    );
+  }
+}
+
+class _SignInRow extends StatelessWidget {
+  const _SignInRow({required this.onTap, required this.busy});
+
+  final VoidCallback onTap;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: busy ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.login_rounded, color: AppColors.teal, size: 18),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                AppStrings.profileSignInGoogle,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            if (busy)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.teal,
+                ),
+              )
+            else
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textTertiary,
+                size: 18,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SignedInRow extends StatelessWidget {
+  const _SignedInRow({
+    required this.email,
+    required this.busy,
+    required this.onSignOut,
+  });
+
+  final String email;
+  final bool busy;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.account_circle_rounded,
+                color: AppColors.teal,
+                size: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${AppStrings.profileSignedInAs} $email',
+                  style: const TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (busy)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.red,
+                    ),
+                  ),
+                )
+              else
+                TextButton(
+                  onPressed: onSignOut,
+                  child: const Text(
+                    AppStrings.profileSignOut,
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 13,
+                      color: AppColors.red,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (getIt.isRegistered<SyncManager>()) const _SyncStatusLine(),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Syncing N trips…" / "✓ Everything is synced" / "Sync paused — tap to
+/// retry" — reactive to `SyncManager.statusStream`.
+class _SyncStatusLine extends StatelessWidget {
+  const _SyncStatusLine();
+
+  @override
+  Widget build(BuildContext context) {
+    final sync = getIt<SyncManager>();
+    return StreamBuilder<SyncStatus>(
+      initialData: sync.current,
+      stream: sync.statusStream,
+      builder: (context, snapshot) {
+        final status = snapshot.data ?? sync.current;
+        final (text, color, onTap) = switch (status.phase) {
+          SyncPhase.syncing => (
+            '${AppStrings.syncStatusSyncing} ${status.pendingCount} trips…',
+            AppColors.textSecondary,
+            null,
+          ),
+          SyncPhase.error => (
+            AppStrings.syncStatusError,
+            AppColors.orange,
+            sync.syncNow,
+          ),
+          SyncPhase.idle => (
+            '✓ ${AppStrings.syncStatusSynced}',
+            AppColors.textTertiary,
+            null,
+          ),
+        };
+        final label = Padding(
+          padding: const EdgeInsets.only(top: 4, left: 28),
+          child: Text(
+            text,
+            style: TextStyle(fontFamily: 'JetBrainsMono', fontSize: 11, color: color),
+          ),
+        );
+        if (onTap == null) return label;
+        return InkWell(onTap: onTap, child: label);
+      },
     );
   }
 }

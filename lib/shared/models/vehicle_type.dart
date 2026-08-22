@@ -1,4 +1,5 @@
 import 'package:drive_rank/core/constants/app_strings.dart';
+import 'package:flutter/material.dart' show IconData, Icons;
 
 enum VehicleType {
   car,
@@ -11,9 +12,9 @@ enum VehicleType {
     VehicleType.motorbike => AppStrings.vehicleMotorbike,
   };
 
-  String get glyph => switch (this) {
-    VehicleType.car => '🚗',
-    VehicleType.motorbike => '🏍️',
+  IconData get icon => switch (this) {
+    VehicleType.car => Icons.directions_car_filled_rounded,
+    VehicleType.motorbike => Icons.motorcycle_rounded,
   };
 
   static VehicleType fromId(String id) =>

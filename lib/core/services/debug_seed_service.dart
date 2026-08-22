@@ -305,6 +305,7 @@ class DebugSeedService {
             speedKmh: speedJittered.clamp(1, 300),
             accuracyMeters: 6 + rand.nextDouble() * 4,
             altitudeMeters: altitude,
+            heading: heading % 360,
             timestamp: t,
           ),
         );
@@ -328,6 +329,17 @@ class DebugSeedService {
       points: points,
       stoppedSeconds: stoppedSeconds,
       stopCount: stopCount,
+      // Plausible derived values — the real detection lives in
+      // TrackingBloc and this seeder bypasses it entirely (it builds
+      // LiveTripStats directly), so these are approximated from the
+      // blueprint's own numbers rather than left at zero, so the new
+      // Profile sections have something to render while testing.
+      leftTurnCount: (bp.hardCorners / 2).ceil(),
+      rightTurnCount: bp.hardCorners ~/ 2,
+      laneChangeCount: (bp.legs.length * 1.5).round(),
+      maxAccelerationMps2: bp.maxGforce * 9.8 * 0.6,
+      maxDecelerationMps2: bp.maxGforce * 9.8 * 0.7,
+      topCorneringSpeedKmh: maxSpeedKmh * 0.7,
     );
   }
 }

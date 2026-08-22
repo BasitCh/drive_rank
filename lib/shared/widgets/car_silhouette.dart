@@ -3,15 +3,24 @@ import 'dart:io';
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 /// Renders a car make as either:
 ///   - The user's uploaded photo (if [photoPath] points to an existing file).
-///   - The category-appropriate SVG silhouette (else).
+///   - A solid teal circle with a white category glyph (else) — motorbikes
+///     get a motorcycle icon, every 4-wheel category shares one filled car
+///     icon. A third-party vehicle-icon package would let each body style
+///     (sedan/SUV/hatchback/pickup/sports) get its own silhouette, but every
+///     option evaluated (`phosphor_flutter`, `iconsax_flutter`,
+///     `solar_icons`) either fails to build against the current Flutter SDK
+///     (`IconData` is now a `final` class; packages that subclass it don't
+///     compile) or is missing a motorcycle glyph — so this uses Flutter's
+///     own bundled icons instead, in a solid-fill badge rather than a thin
+///     outline, which reads as considerably more polished than the old
+///     hand-drawn per-category line-art SVGs it replaces.
 ///
 /// Used in the onboarding car picker, the live tracking header avatar, the
 /// stat card car tag, and the profile screen. Centralised so we never
-/// duplicate the photo-or-svg fallback logic across surfaces.
+/// duplicate the photo-or-icon fallback logic across surfaces.
 class CarSilhouette extends StatelessWidget {
   const CarSilhouette({
     required this.category,
@@ -21,11 +30,11 @@ class CarSilhouette extends StatelessWidget {
     this.size,
   });
 
-  /// Visual category — drives the SVG fallback.
+  /// Visual category — drives the icon fallback.
   final CarCategory category;
 
   /// Absolute filesystem path to the user's uploaded car photo. If non-null
-  /// and the file exists, takes precedence over the SVG.
+  /// and the file exists, takes precedence over the icon.
   final String? photoPath;
 
   final BoxFit fit;
@@ -46,49 +55,41 @@ class CarSilhouette extends StatelessWidget {
             child: Image.file(
               File(photoPath!),
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _buildSvg(),
+              errorBuilder: (_, __, ___) => _CategoryBadge(category: category),
             ),
           )
-        : _buildSvg();
+        : _CategoryBadge(category: category);
 
     if (size == null) return child;
     return SizedBox(width: size!.width, height: size!.height, child: child);
   }
-
-  Widget _buildSvg() {
-    return SvgPicture.asset(
-      category.svgAssetPath,
-      fit: fit,
-      // The SVGs ship with #3ECFBF strokes — never re-tint at render time
-      // unless a future theme variant needs it.
-      colorFilter: null,
-      placeholderBuilder: (_) => const _SvgFallback(),
-    );
-  }
 }
 
-/// Tiny placeholder rendered while the SVG decodes — keeps the layout
-/// stable on cold start. Just a faint teal ring.
-class _SvgFallback extends StatelessWidget {
-  const _SvgFallback();
+class _CategoryBadge extends StatelessWidget {
+  const _CategoryBadge({required this.category});
+
+  final CarCategory category;
 
   @override
   Widget build(BuildContext context) {
+    final icon = category == CarCategory.motorbike
+        ? Icons.motorcycle_rounded
+        : Icons.directions_car_filled_rounded;
     return LayoutBuilder(
       builder: (_, constraints) {
-        final side = constraints.biggest.shortestSide * 0.6;
-        return Center(
-          child: Container(
-            width: side,
-            height: side,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.teal.withValues(alpha: 0.4),
-                width: 2,
-              ),
-            ),
+        final side = constraints.biggest.shortestSide;
+        // Falls back to a sane default when the parent gives unbounded
+        // constraints (e.g. no SizedBox/AspectRatio wrapper).
+        final boxSide = side.isFinite ? side : 40.0;
+        return Container(
+          width: boxSide,
+          height: boxSide,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.teal,
           ),
+          alignment: Alignment.center,
+          child: Icon(icon, size: boxSide * 0.56, color: Colors.white),
         );
       },
     );

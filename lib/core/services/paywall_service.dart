@@ -16,6 +16,27 @@ enum PurchaseResult {
   failed,
 }
 
+/// Result of checking whether the current identity holds an active Pro
+/// entitlement — used at sign-in (see `CloudSyncService`/the sign-in
+/// sequence), where a plain bool can't safely drive the local `isPro`
+/// flag: "confirmed no entitlement" and "couldn't check" must be handled
+/// differently (the former should downgrade a stale `isPro = true` from a
+/// previous account; the latter must never downgrade a paying user on a
+/// transient network blip).
+enum ProEntitlementCheck {
+  /// Entitlement confirmed active — set local `isPro = true`.
+  active,
+
+  /// Successfully checked with the provider; no active entitlement —
+  /// set local `isPro = false`. This is the case a plain
+  /// `restorePurchases() == false` can't distinguish from [unknown].
+  inactive,
+
+  /// Network/API error — the provider couldn't be reached. Leave the
+  /// local `isPro` state exactly as it was; never guess.
+  unknown,
+}
+
 /// Wraps the store layer (RevenueCat in production) so the paywall UI never
 /// touches purchases_flutter directly. The interface is small on purpose —
 /// load offering, purchase, restore — so swapping in a different store SDK
@@ -24,6 +45,20 @@ abstract class PaywallService {
   Future<PaywallOffering?> loadOffering();
   Future<PurchaseResult> purchase(PaywallPackage package);
   Future<bool> restorePurchases();
+
+  /// Associates the store's notion of "who is this" with [appUserId]
+  /// (the Firebase Auth uid) — call after a sign-in identity change, so
+  /// entitlements follow the account rather than the device/install. A
+  /// no-op default lets `PreviewPaywallService` skip it harmlessly.
+  Future<void> identify(String appUserId) async {}
+
+  /// Explicit three-way entitlement check — see [ProEntitlementCheck]. A
+  /// no-op default (`unknown`) lets `PreviewPaywallService` skip it
+  /// harmlessly (the sign-in sequence then correctly leaves local
+  /// `isPro` untouched rather than granting/revoking Pro from a preview
+  /// build).
+  Future<ProEntitlementCheck> checkEntitlement() async =>
+      ProEntitlementCheck.unknown;
 }
 
 /// Development implementation that synthesises a locale-priced offering so
@@ -34,7 +69,7 @@ abstract class PaywallService {
 /// no purchase actually happens. Session 5 replaces this with a real
 /// `RevenueCatPaywallService`.
 @LazySingleton(as: PaywallService)
-class PreviewPaywallService implements PaywallService {
+class PreviewPaywallService extends PaywallService {
   PreviewPaywallService(this._locale);
 
   final LocaleService _locale;

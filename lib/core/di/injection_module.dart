@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/push_service.dart';
@@ -8,9 +9,7 @@ import 'package:injectable/injectable.dart';
 /// that has a "real" production swap-in. Bootstrap overrides these
 /// after Firebase / OneSignal init when their config is present.
 ///
-/// MVP scope: RemoteTripSink, SyncManager, and connectivity_plus
-/// bindings all went away with the cloud-sync feature. AuthService,
-/// PushService, and TelemetryService stay — they're still used for
+/// AuthService, PushService, and TelemetryService are still used for
 /// per-install identity, push notifications, and analytics.
 @module
 abstract class InjectionModule {
@@ -31,4 +30,12 @@ abstract class InjectionModule {
   // to the user, but noisy in logs on every single trip).
   @lazySingleton
   DeviceInfoPlugin deviceInfoPlugin() => DeviceInfoPlugin();
+
+  // `NetworkInfo` (used by `SyncManager` for the "just came back online"
+  // trigger) needs a `Connectivity` instance — connectivity_plus doesn't
+  // register itself. Same reasoning as `DeviceInfoPlugin` above: without
+  // this, `SyncManager` (an eager `@singleton`) fails to construct at
+  // all during `configureDependencies()`.
+  @lazySingleton
+  Connectivity connectivity() => Connectivity();
 }

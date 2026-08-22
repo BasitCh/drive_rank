@@ -136,7 +136,11 @@ class _VehicleCard extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Text(type.glyph, style: const TextStyle(fontSize: 28)),
+              Icon(
+                type.icon,
+                size: 28,
+                color: selected ? AppColors.teal : AppColors.textSecondary,
+              ),
               const SizedBox(height: 4),
               Text(
                 type.label,

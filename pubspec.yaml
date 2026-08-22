@@ -65,7 +65,6 @@ dependencies:
   intl: ^0.20.2
   flutter_dotenv: ^5.2.1
   cached_network_image: ^3.3.0
-  flutter_svg: ^2.0.10+1
   flutter_animate: ^4.5.0
   uuid: ^4.4.0
   audioplayers: ^6.1.0
@@ -94,7 +93,7 @@ dependencies:
   flutter_background_service: ^5.0.5
 
   cupertino_icons: ^1.0.8
-
+  firebase_storage: ^12.4.10
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -116,7 +115,6 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/images/cars/
     - assets/data/
     - assets/sound/
 

@@ -6,6 +6,7 @@ import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_bloc.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_event.dart';
 import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_state.dart';
+import 'package:drive_rank/features/onboarding/presentation/pages/cloud_signin_page.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_car_photo_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_car_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_community_step.dart';
@@ -45,8 +46,11 @@ class _OnboardingPageBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocConsumer<OnboardingBloc, OnboardingState>(
       listenWhen: (a, b) => a.completed != b.completed,
-      listener: (context, state) {
-        if (state.completed) context.go(RouteNames.home);
+      listener: (context, state) async {
+        if (state.completed) {
+          await pushCloudSignInPage(context);
+          if (context.mounted) context.go(RouteNames.home);
+        }
       },
       builder: (context, state) {
         // Splash step renders without progress chrome — it's the brand intro.

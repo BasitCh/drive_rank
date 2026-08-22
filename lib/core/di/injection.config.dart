@@ -71,7 +71,14 @@ import 'package:drive_rank/shared/repositories/trip_repository.dart' as _i634;
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart'
     as _i727;
 import 'package:drive_rank/shared/services/car_photo_service.dart' as _i405;
+import 'package:drive_rank/shared/services/cloud_sync_service.dart' as _i221;
+import 'package:drive_rank/shared/services/public_profile_service.dart'
+    as _i364;
+import 'package:drive_rank/shared/services/remote_trip_sink.dart' as _i88;
 import 'package:drive_rank/shared/services/road_segment_service.dart' as _i928;
+import 'package:drive_rank/shared/services/sync_manager.dart' as _i830;
+import 'package:drive_rank/shared/services/territory_stats_service.dart'
+    as _i970;
 import 'package:drive_rank/shared/services/trip_stats_service.dart' as _i67;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
@@ -91,6 +98,7 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i833.DeviceInfoPlugin>(
     () => injectionModule.deviceInfoPlugin(),
   );
+  gh.lazySingleton<_i895.Connectivity>(() => injectionModule.connectivity());
   gh.lazySingleton<_i595.BatteryOptimizationService>(
     () => const _i595.BatteryOptimizationService(),
   );
@@ -120,6 +128,10 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i495.PaywallService>(
     () => _i495.PreviewPaywallService(gh<_i447.LocaleService>()),
   );
+  gh.lazySingleton<_i88.RemoteTripSink>(() => const _i88.NoopRemoteTripSink());
+  gh.lazySingleton<_i364.PublicProfileService>(
+    () => _i364.NoopPublicProfileService(),
+  );
   gh.lazySingleton<_i1058.FreeTripCounterService>(
     () => _i1058.FreeTripCounterService(gh<_i529.DeviceIdentityService>()),
   );
@@ -138,6 +150,19 @@ _i174.GetIt $initGetIt(
     () => _i634.TripRepository(
       gh<_i425.AppDatabase>(),
       gh<_i853.GeocodingService>(),
+    ),
+  );
+  gh.lazySingleton<_i221.CloudSyncService>(
+    () => _i221.CloudSyncService(
+      gh<_i634.TripRepository>(),
+      gh<_i405.CarPhotoService>(),
+    ),
+  );
+  gh.singleton<_i830.SyncManager>(
+    () => _i830.SyncManager(
+      gh<_i425.AppDatabase>(),
+      gh<_i721.NetworkInfo>(),
+      gh<_i46.TelemetryService>(),
     ),
   );
   gh.lazySingleton<_i201.LiveTripNotificationService>(
@@ -167,6 +192,16 @@ _i174.GetIt $initGetIt(
   );
   gh.lazySingleton<_i766.ActiveTripStore>(
     () => _i766.ActiveTripStore(gh<_i425.AppDatabase>()),
+  );
+  gh.lazySingleton<_i427.AccountDeletionService>(
+    () => _i427.AccountDeletionService(
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i766.ActiveTripStore>(),
+      gh<_i1058.FreeTripCounterService>(),
+      gh<_i1009.AuthService>(),
+      gh<_i221.CloudSyncService>(),
+    ),
   );
   gh.factory<_i284.PaywallBloc>(
     () => _i284.PaywallBloc(
@@ -203,15 +238,6 @@ _i174.GetIt $initGetIt(
       gh<_i261.CardExportService>(),
     ),
   );
-  gh.lazySingleton<_i427.AccountDeletionService>(
-    () => _i427.AccountDeletionService(
-      gh<_i634.TripRepository>(),
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i766.ActiveTripStore>(),
-      gh<_i1058.FreeTripCounterService>(),
-      gh<_i1009.AuthService>(),
-    ),
-  );
   gh.factory<_i162.OnboardingBloc>(
     () => _i162.OnboardingBloc(
       gh<_i972.CarRepository>(),
@@ -222,6 +248,9 @@ _i174.GetIt $initGetIt(
       gh<_i488.PushService>(),
     ),
   );
+  gh.lazySingleton<_i970.TerritoryStatsService>(
+    () => _i970.TerritoryStatsService(gh<_i634.TripRepository>()),
+  );
   gh.lazySingleton<_i67.TripStatsService>(
     () => _i67.TripStatsService(gh<_i634.TripRepository>()),
   );
@@ -229,6 +258,13 @@ _i174.GetIt $initGetIt(
     () => _i723.InsightsBloc(
       gh<_i337.InsightsRepository>(),
       gh<_i46.TelemetryService>(),
+    ),
+  );
+  gh.factory<_i868.ProfileBloc>(
+    () => _i868.ProfileBloc(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i67.TripStatsService>(),
+      gh<_i970.TerritoryStatsService>(),
     ),
   );
   gh.factory<_i687.TrackingBloc>(
@@ -243,12 +279,6 @@ _i174.GetIt $initGetIt(
       gh<_i201.LiveTripNotificationService>(),
       gh<_i46.TelemetryService>(),
       gh<_i183.RetentionNotificationService>(),
-    ),
-  );
-  gh.factory<_i868.ProfileBloc>(
-    () => _i868.ProfileBloc(
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i67.TripStatsService>(),
     ),
   );
   return getIt;

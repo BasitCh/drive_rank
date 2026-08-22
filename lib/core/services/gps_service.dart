@@ -188,8 +188,27 @@ class GpsService {
         accuracyMeters: p.accuracy,
         timestamp: p.timestamp,
         altitudeMeters: _reliableAltitude(p),
+        heading: _reliableHeading(p, speedKmh),
       ),
     );
+  }
+
+  /// Returns `p.heading`, or null when the vehicle is too slow for
+  /// heading to be a meaningful direction-of-travel signal (heading is
+  /// derived from movement, not a compass — it's noise near-stationary)
+  /// — see `AppConstants.turnMinSpeedKmh`. `Position.heading` is a
+  /// non-nullable double that reads exactly `0.0` when the device
+  /// doesn't support heading at all — same footgun as `Position.altitude`,
+  /// except `0.0` is *also* a legitimate due-north reading, so it can't
+  /// be filtered on its own. `Position.headingAccuracy` uses the same
+  /// convention (forced to `0.0` exactly when heading is unsupported),
+  /// so a real fix is distinguished by having a non-zero accuracy
+  /// figure — that's the actual "do we have heading" signal here.
+  double? _reliableHeading(Position p, double speedKmh) {
+    if (speedKmh < AppConstants.turnMinSpeedKmh) return null;
+    if (p.heading.isNaN || p.heading < 0) return null;
+    if (p.headingAccuracy <= 0) return null;
+    return p.heading;
   }
 
   /// Returns `p.altitude`, or null when the fix's reported vertical

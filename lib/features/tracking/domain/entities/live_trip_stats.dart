@@ -20,6 +20,12 @@ class LiveTripStats {
     required this.points,
     this.stoppedSeconds = 0,
     this.stopCount = 0,
+    this.leftTurnCount = 0,
+    this.rightTurnCount = 0,
+    this.laneChangeCount = 0,
+    this.maxAccelerationMps2 = 0,
+    this.maxDecelerationMps2 = 0,
+    this.topCorneringSpeedKmh = 0,
   });
 
   factory LiveTripStats.initial() => const LiveTripStats(
@@ -35,6 +41,12 @@ class LiveTripStats {
     points: <TripPoint>[],
     stoppedSeconds: 0,
     stopCount: 0,
+    leftTurnCount: 0,
+    rightTurnCount: 0,
+    laneChangeCount: 0,
+    maxAccelerationMps2: 0,
+    maxDecelerationMps2: 0,
+    topCorneringSpeedKmh: 0,
   );
 
   final double currentSpeedKmh;
@@ -55,6 +67,24 @@ class LiveTripStats {
   /// Number of qualifying stops (see [stoppedSeconds]) this trip.
   final int stopCount;
 
+  /// Heading-based turn-direction counts — additive to, not a
+  /// replacement for, [hardCornersCount]. See
+  /// `AppConstants.turnHeadingDeltaThresholdDeg`.
+  final int leftTurnCount;
+  final int rightTurnCount;
+
+  /// Heuristic lane-change count — see
+  /// `AppConstants.laneChangeHeadingDeltaMinDeg`.
+  final int laneChangeCount;
+
+  /// Peak acceleration/deceleration (m/s²), derived from Δspeed/Δt —
+  /// not the accelerometer. See `AppConstants.maxPlausibleAccelMps2`.
+  final double maxAccelerationMps2;
+  final double maxDecelerationMps2;
+
+  /// Fastest speed recorded at the instant of any detected turn.
+  final double topCorneringSpeedKmh;
+
   LiveTripStats copyWith({
     double? currentSpeedKmh,
     double? maxSpeedKmh,
@@ -68,6 +98,12 @@ class LiveTripStats {
     List<TripPoint>? points,
     int? stoppedSeconds,
     int? stopCount,
+    int? leftTurnCount,
+    int? rightTurnCount,
+    int? laneChangeCount,
+    double? maxAccelerationMps2,
+    double? maxDecelerationMps2,
+    double? topCorneringSpeedKmh,
   }) {
     return LiveTripStats(
       currentSpeedKmh: currentSpeedKmh ?? this.currentSpeedKmh,
@@ -82,6 +118,13 @@ class LiveTripStats {
       points: points ?? this.points,
       stoppedSeconds: stoppedSeconds ?? this.stoppedSeconds,
       stopCount: stopCount ?? this.stopCount,
+      leftTurnCount: leftTurnCount ?? this.leftTurnCount,
+      rightTurnCount: rightTurnCount ?? this.rightTurnCount,
+      laneChangeCount: laneChangeCount ?? this.laneChangeCount,
+      maxAccelerationMps2: maxAccelerationMps2 ?? this.maxAccelerationMps2,
+      maxDecelerationMps2: maxDecelerationMps2 ?? this.maxDecelerationMps2,
+      topCorneringSpeedKmh:
+          topCorneringSpeedKmh ?? this.topCorneringSpeedKmh,
     );
   }
 }

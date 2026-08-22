@@ -48,6 +48,17 @@ class LifetimeStats {
     required this.totalDistanceKm,
     required this.topSpeedKmh,
     required this.bestGforce,
+    this.totalDurationSeconds = 0,
+    this.totalStoppedSeconds = 0,
+    this.totalStopCount = 0,
+    this.bestZeroToHundredSeconds,
+    this.totalLeftTurns = 0,
+    this.totalRightTurns = 0,
+    this.totalLaneChanges = 0,
+    this.totalHardBrakes = 0,
+    this.bestMaxAcceleration = 0,
+    this.bestMaxDeceleration = 0,
+    this.bestCorneringSpeedKmh = 0,
   });
 
   factory LifetimeStats.empty() => const LifetimeStats(
@@ -61,6 +72,30 @@ class LifetimeStats {
   final double totalDistanceKm;
   final double topSpeedKmh;
   final double bestGforce;
+
+  final int totalDurationSeconds;
+  final int totalStoppedSeconds;
+  final int totalStopCount;
+
+  /// Fastest 0→100 km/h run across every trip, or null if the user has
+  /// never reached 100 km/h from a standstill.
+  final double? bestZeroToHundredSeconds;
+
+  final int totalLeftTurns;
+  final int totalRightTurns;
+  final int totalLaneChanges;
+
+  /// Lifetime sum of the existing (g-force-based) hard-brake counter —
+  /// already tracked per-trip, just not surfaced on Profile until now.
+  final int totalHardBrakes;
+
+  final double bestMaxAcceleration;
+  final double bestMaxDeceleration;
+  final double bestCorneringSpeedKmh;
+
+  /// Average trip length — `totalDistanceKm / tripCount`, 0 when there
+  /// are no trips.
+  double get avgTripLengthKm => tripCount == 0 ? 0 : totalDistanceKm / tripCount;
 }
 
 /// One point on the profile's "last 6 months" distance trend chart.

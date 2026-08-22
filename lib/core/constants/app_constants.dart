@@ -193,4 +193,85 @@ class AppConstants {
   /// mirrors `BuildInsights._chartMinWaypoints`'s reasoning for the
   /// speed chart: below this a single noisy altitude sample dominates.
   static const int elevationChartMinWaypoints = 10;
+
+  // ---- Turn direction / lane change (heading-based) ----
+  //
+  // Heuristic, not ground truth — no consumer-GPS driving app can truly
+  // detect turns/lane-changes without lane-level map data, and neither
+  // can this. These thresholds classify a signed heading-delta pattern,
+  // same spirit as the hard-corner g-force detector above but keyed off
+  // `Position.heading` instead of the accelerometer.
+
+  /// Below this speed (km/h), GPS heading is unreliable (derived from
+  /// movement, meaningless near-stationary) — turn/lane-change tracking
+  /// is suspended entirely below this floor. Kept low deliberately: real
+  /// turns routinely slow well below typical cruising speed *while
+  /// turning*, so too high a floor here throws away the exact samples
+  /// the detector needs (see `TrackingBloc._processHeading`, which no
+  /// longer resets its accumulator on a dip below this floor — it just
+  /// skips those samples and picks the swing back up afterwards).
+  static const double turnMinSpeedKmh = 8;
+
+  /// Sustained signed heading change (degrees) that counts as a real
+  /// turn (as opposed to a lane change — see the lane-change band below,
+  /// which is deliberately lower).
+  static const double turnHeadingDeltaThresholdDeg = 25;
+
+  /// A heading swing that peaks in this band (degrees) and then reverses
+  /// back toward the original heading — without ever reaching
+  /// `turnHeadingDeltaThresholdDeg` — is classified as a lane change
+  /// rather than a turn.
+  static const double laneChangeHeadingDeltaMinDeg = 6;
+  static const double laneChangeHeadingDeltaMaxDeg = 20;
+
+  /// Minimum speed (km/h) for a heading swing to count as a lane change —
+  /// a parking-lot wiggle at 5 km/h isn't one.
+  static const double laneChangeMinSpeedKmh = 50;
+
+  /// A heading-delta accumulation run that's gone this long without
+  /// resolving (reaching the turn threshold or reversing) is stale —
+  /// reset rather than let drift slowly accumulate into a false turn.
+  static const Duration turnWindowMaxDuration = Duration(seconds: 6);
+
+  /// Minimum gap between two counted turn events — mirrors
+  /// `hardCornerCooldown`'s reasoning.
+  static const Duration turnCooldown = Duration(seconds: 2);
+
+  /// Minimum gap between two counted lane-change events.
+  static const Duration laneChangeCooldown = Duration(seconds: 3);
+
+  // ---- Acceleration / deceleration ----
+  //
+  // Derived from consecutive denoised speed samples (Δv/Δt), not the
+  // accelerometer — `SensorService` already reduces its stream to an
+  // unsigned g-force magnitude before anything downstream sees it, so a
+  // signed accel/decel split has to come from GPS speed instead.
+
+  /// Physical ceiling (m/s²) above which a computed accel/decel sample
+  /// is treated as a GPS speed glitch and dropped, not recorded as the
+  /// trip's peak. ~8 m/s² covers genuinely quick road cars (0-100 km/h
+  /// in ~3.5s) with margin; anything past it under normal driving is a
+  /// denoised-speed jump artifact, not a real g.
+  static const double maxPlausibleAccelMps2 = 8;
+
+  /// A speed-sample gap wider than this (seconds) isn't a continuous
+  /// acceleration/deceleration event (e.g. a pause/resume boundary) —
+  /// skip the Δv/Δt computation across it rather than record a fake
+  /// spike.
+  static const double maxAccelSampleGapSeconds = 5;
+
+  // ---- Territory Conquered ----
+  //
+  // No hex-grid library (H3, etc.) is a dependency of this project — a
+  // flat local axial hex grid (lat/lng treated as locally planar, the
+  // standard simplification at country/city scale) gets the same
+  // "explored area" visualization with no new native dependency.
+
+  /// Real-world radius (metres) of one territory hex cell — sized to
+  /// roughly city-block scale.
+  static const double territoryCellRadiusMeters = 120;
+
+  /// Earth's total land area (km²) — the denominator for the "% of
+  /// Earth" territory stat.
+  static const double earthLandAreaKm2 = 148940000;
 }

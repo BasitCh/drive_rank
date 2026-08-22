@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsCompanion;
@@ -17,6 +18,10 @@ import 'package:drive_rank/core/services/retention_notification_service.dart';
 import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/services/firestore_trip_sink.dart';
+import 'package:drive_rank/shared/services/public_profile_service.dart';
+import 'package:drive_rank/shared/services/remote_trip_sink.dart';
+import 'package:drive_rank/shared/services/sync_manager.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_core/firebase_core.dart';
@@ -253,11 +258,30 @@ Future<void> _maybeInitFirebase() async {
     await _replace<AuthService>(() => auth);
     await _replace<TelemetryService>(() => telemetry);
 
+    // Cloud trip sync — Firestore is available, so swap the no-op sink
+    // and public-profile service for the real ones, then start the
+    // background drain of any unsynced trips. Registered here (not via
+    // `@LazySingleton` on the class itself) for the same reason as
+    // `FirebaseAuthService` above — these must only exist once Firebase
+    // has actually initialised.
+    await _replace<RemoteTripSink>(
+      () => FirestoreTripSink(FirebaseFirestore.instance, getIt()),
+    );
+    await _replace<PublicProfileService>(
+      () => FirestorePublicProfileService(FirebaseFirestore.instance),
+    );
+    unawaited(getIt<SyncManager>().start());
+
     // Anonymous sign-in is the other slow leg — round-trips to Firebase
     // Auth on a fresh install and can hang on flaky networks. Kick it
     // off in the background instead of awaiting so bootstrap completes
     // even with no connectivity. Once the sign-in resolves we push the
-    // uid to telemetry for attribution.
+    // uid to telemetry for attribution and collapse the local
+    // pre-auth `'local'` placeholder into this session's uid — see
+    // `UserSettingsRepository.syncUid`. This call site is always safe
+    // (unlike the sign-in-time call, no account-switching risk): it
+    // runs before any user action, against whatever the current
+    // anonymous session already is.
     unawaited(
       auth
           .ensureSignedIn()
@@ -265,6 +289,7 @@ Future<void> _maybeInitFirebase() async {
           .then((_) {
             final uid = auth.currentUser.uid;
             if (uid.isNotEmpty && uid != 'pending') {
+              unawaited(getIt<UserSettingsRepository>().syncUid(uid));
               return telemetry.setUser(uid: uid);
             }
             return null;

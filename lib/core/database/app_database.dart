@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -106,6 +106,46 @@ class AppDatabase extends _$AppDatabase {
           'ALTER TABLE user_settings ADD COLUMN min_trip_length_meters '
           'REAL NOT NULL DEFAULT 500',
         );
+      }
+      if (from < 8) {
+        // v8 — heading-based turn direction / lane-change detection,
+        // accel/decel split, top cornering speed, and a persisted
+        // lifetime 0-100 time. See the Profile page revamp plan.
+        await customStatement('ALTER TABLE waypoints ADD COLUMN heading REAL');
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN left_turn_count INTEGER NOT NULL '
+          'DEFAULT 0',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN right_turn_count INTEGER NOT NULL '
+          'DEFAULT 0',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN lane_change_count INTEGER NOT NULL '
+          'DEFAULT 0',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN max_acceleration_mps2 REAL NOT '
+          'NULL DEFAULT 0',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN max_deceleration_mps2 REAL NOT '
+          'NULL DEFAULT 0',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN top_cornering_speed_kmh REAL NOT '
+          'NULL DEFAULT 0',
+        );
+        await customStatement(
+          'ALTER TABLE trips ADD COLUMN zero_to_hundred_seconds REAL',
+        );
+      }
+      if (from < 9) {
+        // v9 — remote_id: stable UUID used as the Firestore doc id for
+        // cloud trip sync, decoupled from the local autoincrement
+        // primary key so two devices restoring/pushing under the same
+        // account can't collide on the same path.
+        await customStatement('ALTER TABLE trips ADD COLUMN remote_id TEXT');
       }
     },
     beforeOpen: (details) async {

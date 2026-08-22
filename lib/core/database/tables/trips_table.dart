@@ -32,6 +32,35 @@ class Trips extends Table {
   IntColumn get hardCornersCount => integer().withDefault(const Constant(0))();
   IntColumn get hardBrakesCount => integer().withDefault(const Constant(0))();
 
+  /// Heading-based turn-direction counts — additive to, not a
+  /// replacement for, the g-force-based `hardCornersCount` above (that
+  /// stays exactly as-is; this is a separate, direction-aware signal).
+  /// See `AppConstants.turnHeadingDeltaThresholdDeg`.
+  IntColumn get leftTurnCount => integer().withDefault(const Constant(0))();
+  IntColumn get rightTurnCount => integer().withDefault(const Constant(0))();
+
+  /// Heuristic lane-change count — see `AppConstants.laneChangeHeadingDeltaMinDeg`.
+  IntColumn get laneChangeCount => integer().withDefault(const Constant(0))();
+
+  /// Peak acceleration/deceleration (m/s²), derived from Δspeed/Δt —
+  /// not the accelerometer. See `AppConstants.maxPlausibleAccelMps2`.
+  RealColumn get maxAccelerationMps2 =>
+      real().withDefault(const Constant(0))();
+  RealColumn get maxDecelerationMps2 =>
+      real().withDefault(const Constant(0))();
+
+  /// Fastest speed recorded at the instant of any detected turn
+  /// (left or right).
+  RealColumn get topCorneringSpeedKmh =>
+      real().withDefault(const Constant(0))();
+
+  /// Fastest 0→100 km/h run, persisted once at save time so lifetime
+  /// "best 0-100" aggregation doesn't need to re-walk every trip's
+  /// waypoints. Null when the trip never reached 100 km/h from a
+  /// standstill. See `zeroToHundredSeconds` in
+  /// `lib/features/trip_insights/domain/usecases/zero_to_hundred.dart`.
+  RealColumn get zeroToHundredSeconds => real().nullable()();
+
   /// Fuel cost in the user's local currency at trip time. Null if the user
   /// hasn't configured fuel price/consumption — the UI shows "—" then.
   RealColumn get fuelCostLocal => real().nullable()();
@@ -69,4 +98,11 @@ class Trips extends Table {
   DateTimeColumn get endedAt => dateTime().nullable()();
 
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+
+  /// Stable UUID used as the Firestore document id for cloud sync,
+  /// decoupled from the local autoincrement primary key so two devices
+  /// restoring/pushing under the same account can't collide on the same
+  /// path. Nullable — pre-existing trips get one lazily the first time
+  /// they're pushed; new trips get one unconditionally at save time.
+  TextColumn get remoteId => text().nullable()();
 }

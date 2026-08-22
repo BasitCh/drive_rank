@@ -3,6 +3,7 @@ import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/router/route_names.dart';
+import 'package:drive_rank/shared/widgets/connectivity_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -33,11 +34,10 @@ class MainShell extends StatelessWidget {
       icon: Icons.history_rounded,
       path: RouteNames.history,
     ),
-    _Tab(
-      label: AppStrings.navPersonalBests,
-      icon: Icons.emoji_events_rounded,
-      path: RouteNames.personalBests,
-    ),
+    // Personal Bests tab is hidden for now — this nav slot is earmarked
+    // for a future leaderboard feature. The route itself stays
+    // registered in `app_router.dart` (reachable via deep link), only
+    // the tab entry is removed here.
     _Tab(
       label: AppStrings.navProfile,
       icon: Icons.person_rounded,
@@ -57,7 +57,12 @@ class MainShell extends StatelessWidget {
     final active = _activeIndex;
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: child,
+      body: Column(
+        children: [
+          const ConnectivityBanner(),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(

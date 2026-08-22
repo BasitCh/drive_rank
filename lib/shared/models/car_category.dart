@@ -1,5 +1,5 @@
-/// Visual category of a car make — drives which SVG silhouette the car
-/// picker, onboarding hero, and stat card car-tag render.
+/// Visual category of a car make — drives which icon the car picker,
+/// onboarding hero, and stat card car-tag render (see `CarSilhouette`).
 ///
 /// Persisted as a lowercase string in `car_makes.json` so the seed data can
 /// be hand-edited or remote-pushed (Session-5 Firestore remote config)
@@ -17,9 +17,6 @@ enum CarCategory {
     CarCategory.defaultCategory => 'default',
     _ => name,
   };
-
-  /// Path to the matching SVG silhouette in `assets/images/cars/`.
-  String get svgAssetPath => 'assets/images/cars/$id.svg';
 
   static CarCategory fromId(String? raw) {
     if (raw == null || raw.isEmpty) return CarCategory.defaultCategory;

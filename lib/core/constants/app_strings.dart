@@ -332,15 +332,54 @@ class AppStrings {
   static const String profileSignedOut =
       'Signed out — your trips are local only';
   static const String profileDeleteAccount = 'Delete account';
-  static const String profileStatTopSpeed = 'TOP SPEED';
-  static const String profileStatTotalTrips = 'TOTAL TRIPS';
-  static const String profileStatTotalDistance = 'TOTAL DISTANCE';
+
+  // Cloud sign-in sheet (post-onboarding + Settings entry point).
+  static const String cloudSignInTitle = 'Never lose a trip';
+  static const String cloudSignInBody =
+      'Sign in to back up your trips and profile — switch phones anytime '
+      'and pick up right where you left off.';
+  static const String cloudSignInContinue = 'Continue with Google';
+  static const String cloudSignInNotNow = 'Not now';
+  static const String cloudSignInSyncing = 'Restoring your account…';
+  static const String cloudSignInWelcomeBack = 'Welcome back';
+  static const String cloudSignInAllSet = "You're all set";
+  static const String syncStatusSyncing = 'Syncing';
+  static const String syncStatusSynced = 'Everything is synced';
+  static const String syncStatusError = 'Sync paused — tap to retry';
+  static const String profileStatTopSpeed = 'Top Speed';
+  static const String profileStatTotalTrips = 'Total Trips';
+  static const String profileStatTotalDistance = 'Total Distance';
   static const String profileStatFuelSpent = 'FUEL SPENT';
-  static const String profileStatBestGforce = 'BEST G-FORCE';
+  static const String profileStatBestGforce = 'Peak G-Force';
   static const String profileEditSettings = 'Edit Settings';
   static const String profileSetUsernamePrompt = 'Set a username';
   static const String profileUsernameHint = 'username';
   static const String profileUsernamePlaceholder = 'driver';
+
+  // ---- Profile — lifetime stats revamp ----
+  static const String profileThisMonth = 'This Month';
+  static const String profileTerritoryTitle = 'Territory Conquered';
+  static const String profileTerritoryPageTitle = "Everything you've conquered";
+  static const String profileTerritoryOfEarth = 'of Earth';
+  static const String profileTerritoryOfCountry = 'of country';
+  static const String profileTerritoryEmptyTitle = 'No territory yet';
+  static const String profileTerritoryEmptyBody =
+      'Complete a trip and the roads you drive will start filling in here.';
+  static const String profileStatTotalDuration = 'Total Duration';
+  static const String profileManeuversTitle = 'Maneuvers';
+  static const String profileStatLeftTurns = 'Left Turns';
+  static const String profileStatRightTurns = 'Right Turns';
+  static const String profileStatBrakeEvents = 'Brake Events';
+  static const String profileStatLaneChanges = 'Lane Changes';
+  static const String profileTurnPreferenceTitle = 'Turn Preference';
+  static const String profileTurnPreferenceLeft = 'Left';
+  static const String profileTurnPreferenceRight = 'Right';
+  static const String profileStatMaxDeceleration = 'Max Deceleration';
+  static const String profileStatMaxAcceleration = 'Max Acceleration';
+  static const String profileStatTopCorneringSpeed = 'Top Corner Speed';
+  static const String profileMoreStatsTitle = 'More Stats';
+  static const String profileStatTotalStops = 'Total Stops';
+  static const String profileStatAvgTripLength = 'Avg Trip Length';
 
   // Paywall.
   static const String paywallTitle = 'Free trip limit reached';
@@ -441,6 +480,10 @@ class AppStrings {
   // Errors.
   static const String errorNoInternet =
       'No internet connection. Some features may be limited.';
+  static const String errorNoInternetTitle = 'No internet connection';
+  static const String errorNoInternetBody =
+      "This needs an internet connection. We'll continue automatically "
+      "once you're back online.";
   static const String errorGpsUnavailable =
       "Couldn't get a GPS signal. Try moving to an open area.";
   static const String errorLocationPermission =

@@ -75,12 +75,30 @@ class RevenueCatPaywallService implements PaywallService {
 
   /// Identify the RevenueCat customer once the local user signs in / is
   /// linked to a Firebase UID. Safe to call multiple times.
+  @override
   Future<void> identify(String appUserId) async {
     if (appUserId.isEmpty) return;
     try {
       await Purchases.logIn(appUserId);
     } catch (e) {
       if (kDebugMode) debugPrint('[RevenueCat] identify failed: $e');
+    }
+  }
+
+  /// Explicit three-way entitlement check — see [ProEntitlementCheck].
+  /// Used at sign-in, where identity can genuinely change and a stale
+  /// `isPro` from a previous account must not silently persist, but a
+  /// transient network failure also must never downgrade a paying user.
+  @override
+  Future<ProEntitlementCheck> checkEntitlement() async {
+    try {
+      final customer = await Purchases.getCustomerInfo();
+      return customer.entitlements.active.containsKey(entitlementId)
+          ? ProEntitlementCheck.active
+          : ProEntitlementCheck.inactive;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[RevenueCat] checkEntitlement failed: $e');
+      return ProEntitlementCheck.unknown;
     }
   }
 

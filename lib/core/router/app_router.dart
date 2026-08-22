@@ -10,6 +10,7 @@ import 'package:drive_rank/features/paywall/presentation/pages/paywall_page.dart
 import 'package:drive_rank/features/personal_bests/presentation/pages/personal_bests_page.dart';
 import 'package:drive_rank/features/profile/presentation/pages/profile_page.dart';
 import 'package:drive_rank/features/settings/presentation/pages/settings_page.dart';
+import 'package:drive_rank/features/territory/presentation/pages/territory_page.dart';
 import 'package:drive_rank/features/tracking/presentation/pages/tracking_page.dart';
 import 'package:drive_rank/features/trip_insights/presentation/pages/route_replay_page.dart';
 import 'package:drive_rank/features/trip_summary/presentation/pages/trip_summary_page.dart';
@@ -89,6 +90,11 @@ class AppRouter {
           path: RouteNames.monthlyReport,
           name: 'monthly_report',
           builder: (_, __) => const MonthlyReportPage(),
+        ),
+        GoRoute(
+          path: RouteNames.territory,
+          name: 'territory',
+          builder: (_, __) => const TerritoryPage(),
         ),
         ShellRoute(
           builder: (context, state, child) =>

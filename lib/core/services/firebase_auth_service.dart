@@ -76,11 +76,43 @@ class FirebaseAuthService implements AuthService {
               e.code == 'provider-already-linked' ||
               e.code == 'email-already-in-use') {
             // Google account already belongs to a different Firebase
-            // user — fall through and sign in straight to that one.
+            // user (the common case for a *returning* sign-in, post
+            // sign-out — this device's fresh anonymous session can
+            // never successfully link to an account that's already
+            // claimed). The exception carries the credential the user
+            // just finished consenting to — reuse it directly via
+            // signInWithCredential rather than starting a SECOND full
+            // OAuth browser round-trip via signInWithProvider below.
+            //
+            // That second round-trip was a real, reproducible bug: on
+            // iOS, the first (failed link) flow's redirect callback
+            // could arrive at SceneDelegate after the second flow had
+            // already started a new pending OAuth session with a
+            // different `state` — Auth.auth().canHandle(url) no longer
+            // recognised the late callback as current, so it fell
+            // through into Flutter's deep-link handling and go_router
+            // threw "no routes for location: ...". Completing sign-in
+            // from the already-obtained credential means there's only
+            // ever one browser round-trip per attempt, so that race
+            // can't happen.
+            final credential = e.credential;
+            if (credential != null) {
+              await _auth.signInWithCredential(credential);
+              if (kDebugMode) {
+                debugPrint(
+                  '[FirebaseAuth] ✓ signed in via already-obtained '
+                  'credential (link rejected: ${e.code})',
+                );
+              }
+              return SignInResult.success;
+            }
+            // No credential on the exception (shouldn't normally happen
+            // for these specific codes, but stay defensive) — fall back
+            // to a fresh signInWithProvider round-trip below.
             if (kDebugMode) {
               debugPrint(
-                '[FirebaseAuth] link rejected (${e.code}) — '
-                'falling back to signInWithProvider',
+                '[FirebaseAuth] link rejected (${e.code}), no credential '
+                'on exception — falling back to signInWithProvider',
               );
             }
           } else {
@@ -128,6 +160,7 @@ class FirebaseAuthService implements AuthService {
     switch (code) {
       case 'internal-error':
       case 'invalid-credential':
+      case 'invalid-cert-hash':
         return 'Likely: Android SHA-1 fingerprint missing from Firebase. '
             'Run `cd android && ./gradlew signingReport`, copy the '
             "debug variant's SHA-1 + SHA-256, paste them under "

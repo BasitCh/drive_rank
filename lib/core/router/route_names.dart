@@ -20,6 +20,7 @@ class RouteNames {
   static const String paywall = '/paywall';
   static const String settings = '/settings';
   static const String monthlyReport = '/monthly-report';
+  static const String territory = '/territory';
 
   // Helper — build a trip summary path for a given id.
   static String tripSummaryFor(int tripId) => '$tripSummary/$tripId';

@@ -2,10 +2,12 @@ import 'dart:async' show unawaited;
 
 import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/free_trip_counter_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
+import 'package:drive_rank/shared/services/public_profile_service.dart';
 import 'package:injectable/injectable.dart';
 
 /// Single source of truth for the *one* user-settings row.
@@ -14,9 +16,13 @@ import 'package:injectable/injectable.dart';
 /// Reactive callers should use [watch] — the live tracking screen,
 /// profile, paywall state, and the router redirect all depend on this.
 ///
-/// MVP scope: no cloud sync. The row is purely local. The `uid` field
-/// is still kept for analytics attribution but isn't used as a foreign
-/// key against any remote system.
+/// The `uid` column tracks the current Firebase Auth uid (anonymous or
+/// signed-in) — see [syncUid] — and every trip/stats query is scoped by
+/// it. It is a foreign key against the local `trips` table (both filtered
+/// by the same uid) and against Firestore paths for cloud sync, but it is
+/// NOT the Drift primary key — every method here still resolves the row
+/// by primary key / `.limit(1)`, not by uid, so it keeps working across
+/// a `syncUid`/`reassignUidOnly` call that changes the uid mid-session.
 @lazySingleton
 class UserSettingsRepository {
   UserSettingsRepository(this._db, this._locale, this._freeTripCounter);
@@ -56,8 +62,14 @@ class UserSettingsRepository {
     )..where((t) => t.id.equals(id))).getSingle();
   }
 
+  /// Guarantees the row exists before the stream starts — without this,
+  /// a subscriber that races `ensureExists()` (e.g. right after sign-out
+  /// triggers a bloc reload) can observe zero rows and `watchSingle()`
+  /// throws `Bad state: Expected exactly one element, but got 0`.
   Stream<UserSettingsRow> watch() {
-    return (_db.select(_db.userSettings)..limit(1)).watchSingle();
+    return Stream.fromFuture(
+      ensureExists(),
+    ).asyncExpand((_) => (_db.select(_db.userSettings)..limit(1)).watchSingle());
   }
 
   Future<UserSettingsRow> read() async {
@@ -83,15 +95,124 @@ class UserSettingsRepository {
     )..where((t) => t.id.equals(row.id))).write(patch);
   }
 
+  /// Mirrors the public-profile text fields to Firestore. Best-effort:
+  /// failures inside the service are logged and swallowed there. Always
+  /// reads the *current* row first so a partial update (e.g. only the
+  /// car changed) still sends a complete doc.
+  ///
+  /// Resolved lazily via `getIt` rather than taken as a constructor
+  /// dependency on purpose: this repository is constructed before
+  /// bootstrap swaps the real `FirestorePublicProfileService` in for the
+  /// no-op default, so a hard constructor reference would permanently
+  /// point at the no-op.
+  ///
+  /// Text fields only — the car photo URL is not included here. Photo
+  /// upload needs Firebase Storage access, which is a `CloudSyncService`
+  /// concern (see the sign-in sequence), not something this Drift-only
+  /// repository takes a dependency on.
+  Future<void> _republishPublicProfile() async {
+    final row = await read();
+    await getIt<PublicProfileService>().publish(
+      PublicProfilePayload(
+        uid: row.uid,
+        username: row.username,
+        carMake: row.carMake,
+        carModel: row.carModel,
+        carYear: row.carYear,
+        countryCode: row.country ?? '',
+      ),
+    );
+  }
+
+  // ---- Cloud-sync identity ----
+
+  /// Migrates the settings row AND every trip currently tagged with its
+  /// old uid over to [authUid]. Safe/idempotent — no-ops if the row
+  /// already matches.
+  ///
+  /// Called from two places: (1) bootstrap, right after anonymous
+  /// sign-in resolves, collapsing the pre-auth `'local'` placeholder into
+  /// the current session's uid; (2) after a successful Google sign-in,
+  /// but ONLY when the local data being claimed was genuinely unclaimed
+  /// (anonymous) immediately beforehand — see [reassignUidOnly] for the
+  /// other branch. Callers own that safety check; this method just does
+  /// the migration once told it's safe.
+  Future<void> syncUid(String authUid) async {
+    if (authUid.isEmpty) return;
+    final row = await read();
+    if (row.uid == authUid) return; // idempotent
+    final oldUid = row.uid;
+    await _db.transaction(() async {
+      await (_db.update(_db.userSettings)..where((t) => t.id.equals(row.id)))
+          .write(UserSettingsCompanion(uid: Value(authUid)));
+      await (_db.update(_db.trips)..where((t) => t.uid.equals(oldUid)))
+          .write(TripsCompanion(uid: Value(authUid)));
+    });
+  }
+
+  /// Repoints the settings row to a different account's uid WITHOUT
+  /// touching the trips table — used when signing into an account that is
+  /// NOT the one this device's local data was already claimed by (see
+  /// `syncUid`'s account-switching guard, applied by the caller before
+  /// choosing between the two methods).
+  ///
+  /// Existing local trips are left exactly as they are, still tagged with
+  /// the previous account's uid — not deleted, not migrated, simply no
+  /// longer matched by any uid-scoped query once this row's uid changes,
+  /// so they stop being shown or synced under the new identity. If that
+  /// previous account signs back in later (via `syncUid` or this same
+  /// method, whichever the guard picks), its trips become visible again
+  /// automatically — the moment the settings row's uid matches theirs
+  /// again, every uid-scoped query starts matching them, with no restore
+  /// step required.
+  Future<void> reassignUidOnly(String newUid) async {
+    final row = await read();
+    if (row.uid == newUid) return;
+    await (_db.update(_db.userSettings)..where((t) => t.id.equals(row.id)))
+        .write(UserSettingsCompanion(uid: Value(newUid)));
+  }
+
+  /// Overwrites local profile fields (username, car, country, photo) with
+  /// a payload restored from Firestore — used only when the signing-in
+  /// account is a *returning* one (a `users/{uid}` doc already exists),
+  /// so there's no risk of discarding onboarding data the user just
+  /// entered on this device (a first-time account has nothing to
+  /// overwrite it with — see `CloudSyncService`/the sign-in sequence).
+  ///
+  /// [localCarPhotoPath] is the already-downloaded local file path for
+  /// [PublicProfilePayload.carPhotoUrl] (downloading is the caller's job —
+  /// this repository has no network/Storage access), or null if the
+  /// remote profile has no photo.
+  Future<void> applyRemoteProfile(
+    PublicProfilePayload payload, {
+    String? localCarPhotoPath,
+  }) {
+    return patch(
+      UserSettingsCompanion(
+        username: Value(payload.username),
+        carMake: Value(payload.carMake),
+        carModel: Value(payload.carModel),
+        carYear: Value(payload.carYear),
+        country: Value(payload.countryCode),
+        carPhotoPath: localCarPhotoPath != null
+            ? Value(localCarPhotoPath)
+            : const Value.absent(),
+      ),
+    );
+  }
+
   // ---- Typed setters used by onboarding + settings ----
   //
-  // MVP scope: these are local-only writes. Earlier versions also
-  // mirrored country / car / username to a Firestore /users/{uid}
-  // document for friend search — that whole feature is gone now,
-  // so the setters do nothing more than patch the Drift row.
+  // setCountry / setCar / setUsername all republish the public-profile
+  // text fields to Firestore afterward (best-effort, no-op when signed
+  // out / Firestore unavailable) — those are exactly the fields a
+  // restored-on-a-new-device profile, and eventually a leaderboard,
+  // read back.
 
-  Future<void> setCountry(String countryCode) =>
-      patch(UserSettingsCompanion(country: Value(countryCode)));
+  Future<void> setCountry(String countryCode) async {
+    await patch(UserSettingsCompanion(country: Value(countryCode)));
+    await _republishPublicProfile();
+  }
 
   Future<void> setVehicleType(VehicleType type) =>
       patch(UserSettingsCompanion(vehicleType: Value(type.id)));
@@ -100,24 +221,32 @@ class UserSettingsRepository {
     required String make,
     required String model,
     int? year,
-  }) => patch(
-    UserSettingsCompanion(
-      carMake: Value(make),
-      carModel: Value(model),
-      carYear: Value(year),
-    ),
-  );
+  }) async {
+    await patch(
+      UserSettingsCompanion(
+        carMake: Value(make),
+        carModel: Value(model),
+        carYear: Value(year),
+      ),
+    );
+    await _republishPublicProfile();
+  }
 
   /// Persists the absolute filesystem path to the user's uploaded car
-  /// photo. Pass `null` to clear (e.g. user tapped Skip).
+  /// photo. Pass `null` to clear (e.g. user tapped Skip). Does not
+  /// upload to Storage / republish the cloud profile photo — see
+  /// `CloudSyncService` for that (Storage access lives there, not in
+  /// this Drift-only repository).
   Future<void> setCarPhotoPath(String? path) =>
       patch(UserSettingsCompanion(carPhotoPath: Value(path)));
 
   /// Persists the user's chosen username locally so the stat card,
   /// profile, and personal-bests surfaces can read it. No cloud
   /// uniqueness check in MVP — the field is purely cosmetic.
-  Future<void> setUsername(String username) =>
-      patch(UserSettingsCompanion(username: Value(username)));
+  Future<void> setUsername(String username) async {
+    await patch(UserSettingsCompanion(username: Value(username)));
+    await _republishPublicProfile();
+  }
 
   Future<void> setMapTheme(MapTheme theme) =>
       patch(UserSettingsCompanion(selectedMapTheme: Value(theme.id)));

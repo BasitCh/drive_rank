@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/services/geocoding_service.dart';
@@ -246,5 +247,92 @@ void main() {
     );
     expect(since.length, 1);
     expect(since.single.startedAt, DateTime(2026, 5, 10));
+  });
+
+  group('restoreTrip — cloud-sync restore', () {
+    TripsCompanion companionFor(String remoteId) {
+      return TripsCompanion.insert(
+        uid: 'firebase-uid-1',
+        remoteId: Value(remoteId),
+        isSynced: const Value(true),
+        topSpeedKmh: 180,
+        avgSpeedKmh: 90,
+        distanceKm: 30,
+        durationSeconds: 1800,
+        startedAt: DateTime(2026, 6, 1),
+      );
+    }
+
+    test('inserts a new local trip + its waypoints', () async {
+      final points = [
+        TripPoint(
+          lat: 31.5,
+          lng: 74.3,
+          speedKmh: 80,
+          accuracyMeters: 5,
+          timestamp: DateTime(2026, 6, 1, 10),
+        ),
+      ];
+      await repo.restoreTrip(
+        remoteId: 'remote-1',
+        trip: companionFor('remote-1'),
+        waypoints: points,
+      );
+
+      final all = await repo.watchAll(uid: 'firebase-uid-1').first;
+      expect(all, hasLength(1));
+      expect(all.single.remoteId, 'remote-1');
+      expect(all.single.isSynced, isTrue);
+
+      final waypoints = await repo.getWaypoints(all.single.id);
+      expect(waypoints, hasLength(1));
+      expect(waypoints.single.lat, 31.5);
+    });
+
+    test(
+      'is idempotent by remoteId — calling twice with the same remoteId '
+      'does not duplicate the trip. This is the exact cross-device '
+      'collision scenario a stable remoteId (instead of the local '
+      'autoincrement id) exists to prevent: two devices independently '
+      'restoring the same cloud trip must land on exactly one local row.',
+      () async {
+        await repo.restoreTrip(
+          remoteId: 'remote-2',
+          trip: companionFor('remote-2'),
+          waypoints: const [],
+        );
+        // Simulates a second restore pass (e.g. the user reopens the app
+        // and restore runs again, or a second "device" pulling the same
+        // cloud trip down).
+        await repo.restoreTrip(
+          remoteId: 'remote-2',
+          trip: companionFor('remote-2'),
+          waypoints: const [],
+        );
+
+        final all = await repo.watchAll(uid: 'firebase-uid-1').first;
+        expect(all, hasLength(1));
+      },
+    );
+
+    test('a local trip saved before this device ever synced is kept — '
+        'restore only ADDS trips missing by remoteId, never overwrites '
+        'or removes an existing local one', () async {
+      await repo.saveTrip(
+        uid: 'firebase-uid-1',
+        stats: statsOf(),
+        startedAt: DateTime(2026, 5, 20),
+        endedAt: DateTime(2026, 5, 20, 1),
+        mapTheme: 'regular',
+      );
+      await repo.restoreTrip(
+        remoteId: 'remote-3',
+        trip: companionFor('remote-3'),
+        waypoints: const [],
+      );
+
+      final all = await repo.watchAll(uid: 'firebase-uid-1').first;
+      expect(all, hasLength(2));
+    });
   });
 }

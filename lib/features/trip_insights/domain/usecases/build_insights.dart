@@ -10,6 +10,8 @@ import 'package:drive_rank/features/trip_insights/domain/entities/replay_point.d
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_breakdown_slice.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_bucket.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_segment.dart';
+import 'package:drive_rank/features/trip_insights/domain/usecases/bucket_speed_times.dart';
+import 'package:drive_rank/features/trip_insights/domain/usecases/zero_to_hundred.dart';
 import 'package:flutter/foundation.dart' show compute, immutable;
 import 'package:injectable/injectable.dart';
 import 'package:latlong2/latlong.dart';
@@ -272,7 +274,7 @@ _HeavyOutput _runHeavyCompute(_HeavyInput input) {
     targetBuckets: _chartTargetBuckets,
   );
   final segments = _groupSegments(waypoints);
-  final breakdown = _bucketTimes(waypoints);
+  final breakdown = bucketSpeedTimes(waypoints);
 
   // Elevation series — only waypoints with a reliable altitude sample
   // feed the chart; a mixed reliable/unreliable stream would smooth
@@ -303,27 +305,8 @@ _HeavyOutput _runHeavyCompute(_HeavyInput input) {
     decimatedElevationMeters: decElevation,
     decimatedElevationSeconds: decElevationSeconds,
     replayPoints: _buildReplayPoints(waypoints, seconds),
-    zeroToHundredSeconds: _zeroToHundred(waypoints),
+    zeroToHundredSeconds: zeroToHundredSecondsFrom(waypoints),
   );
-}
-
-/// Fastest 0→100 km/h run: for each near-standstill sample (≤5 km/h,
-/// the "start line"), the elapsed time to the next sample reaching
-/// 100 km/h. Reports the minimum across every such run in the trip —
-/// a spirited trip usually has several accelerations from a stop.
-double? _zeroToHundred(List<TripPoint> waypoints) {
-  double? best;
-  DateTime? startLine;
-  for (final p in waypoints) {
-    if (p.speedKmh <= 5) {
-      startLine = p.timestamp;
-    } else if (p.speedKmh >= 100 && startLine != null) {
-      final dt = p.timestamp.difference(startLine).inMilliseconds / 1000.0;
-      if (dt > 0 && (best == null || dt < best)) best = dt;
-      startLine = null;
-    }
-  }
-  return best;
 }
 
 /// Full-resolution replay series — position, speed, cumulative
@@ -475,43 +458,4 @@ List<SpeedSegment> _groupSegments(List<TripPoint> waypoints) {
     segments.add(SpeedSegment(bucket: currentBucket, points: currentPoints));
   }
   return segments;
-}
-
-/// Time-in-bucket histogram from consecutive-pair durations.
-///
-/// Pairs with a delta over 60 s are skipped — they're either GPS
-/// dropouts or paused-and-resumed segments, both of which would
-/// inflate the bucket the user happened to be in when paused. Pairs
-/// where both samples are at the GPS noise floor (zero speed, no
-/// distance covered — a red light, a stop sign, standing still) are
-/// skipped too: that's idle time, not a speed the driver was doing,
-/// and counting it as "under 40 km/h" skews the whole distribution
-/// toward a bucket that's really just "not moving".
-List<SpeedBreakdownSlice> _bucketTimes(List<TripPoint> waypoints) {
-  final acc = <SpeedBucket, double>{for (final b in SpeedBucket.values) b: 0};
-  for (var i = 0; i < waypoints.length - 1; i++) {
-    final a = waypoints[i];
-    final b = waypoints[i + 1];
-    final dt = b.timestamp.difference(a.timestamp).inMilliseconds / 1000.0;
-    if (dt <= 0 || dt > 60) continue;
-    if (a.speedKmh <= 0 && b.speedKmh <= 0) continue;
-    final mean = (a.speedKmh + b.speedKmh) / 2;
-    final bucket = SpeedBucket.from(mean);
-    acc[bucket] = (acc[bucket] ?? 0) + dt;
-  }
-  final total = acc.values.fold<double>(0, (s, v) => s + v);
-  if (total <= 0) {
-    return [
-      for (final b in SpeedBucket.values)
-        SpeedBreakdownSlice(bucket: b, secondsInBucket: 0, percentage: 0),
-    ];
-  }
-  return [
-    for (final b in SpeedBucket.values)
-      SpeedBreakdownSlice(
-        bucket: b,
-        secondsInBucket: acc[b] ?? 0,
-        percentage: (acc[b] ?? 0) / total,
-      ),
-  ];
 }

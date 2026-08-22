@@ -8,6 +8,19 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>DriveRank</string>
+	<!-- The app has no external deep-linking (no app_links/uni_links, no
+	     Android intent-filters, go_router never handles an incoming URL)
+	     — the ONLY custom URL scheme in this app is the FirebaseAuth OAuth
+	     callback below, which SceneDelegate.swift already consumes via
+	     Auth.auth().canHandle(url). Without this flag, Flutter's engine
+	     independently forwards every opened URL to go_router as well; on
+	     a second Google sign-in (credential-already-in-use, re-sign-in
+	     after sign-out) that produced "GoException: no routes for
+	     location: app-1-...://firebaseauth/link?..." — this disables that
+	     redundant engine-level forwarding entirely so it can't happen
+	     regardless of any timing edge case in the canHandle check. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>DriveRank uses your location to track your trips — distance, speed, and route. We only record while you have an active trip.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
@@ -17,6 +30,25 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+	</array>
+	<!-- Required by FirebaseAuth's OAuthProvider flow (Google sign-in —
+	     see FirebaseAuthService.signInWithGoogle) so the
+	     ASWebAuthenticationSession callback can route back into the app.
+	     This is the reversed GOOGLE_APP_ID from GoogleService-Info.plist
+	     (1:920301624321:ios:15f0d2fad362ba4ccdb400), NOT the
+	     REVERSED_CLIENT_ID — Firebase's own generic OAuth flow needs the
+	     app-id-based scheme, distinct from what the classic
+	     google_sign_in package would need (this app doesn't use that
+	     package). Without this, sign-in crashes with a Swift fatalError
+	     at OAuthProvider.swift:275 the moment the user taps continue. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>app-1-920301624321-ios-15f0d2fad362ba4ccdb400</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>

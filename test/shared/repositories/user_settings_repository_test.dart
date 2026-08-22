@@ -63,4 +63,118 @@ void main() {
       expect(row.distanceGoalKm, isNull);
     });
   });
+
+  group('syncUid', () {
+    test('migrates the settings row and every trip tagged with its old '
+        'uid to the new uid', () async {
+      final before = await repo.read(); // creates the row, uid = 'local'
+      await db
+          .into(db.trips)
+          .insert(
+            TripsCompanion.insert(
+              uid: before.uid,
+              topSpeedKmh: 120,
+              avgSpeedKmh: 60,
+              distanceKm: 10,
+              durationSeconds: 600,
+              startedAt: DateTime(2026, 1, 1),
+            ),
+          );
+
+      await repo.syncUid('firebase-uid-1');
+
+      final after = await repo.read();
+      expect(after.uid, 'firebase-uid-1');
+      final trips = await db.select(db.trips).get();
+      expect(trips, hasLength(1));
+      expect(trips.single.uid, 'firebase-uid-1');
+    });
+
+    test('is a no-op when the row already matches', () async {
+      final before = await repo.read();
+      await repo.syncUid(before.uid); // already 'local' — no-op
+      final after = await repo.read();
+      expect(after.uid, before.uid);
+    });
+  });
+
+  group('reassignUidOnly — account-switching isolation', () {
+    test("repoints the settings row WITHOUT touching a different account's "
+        'trips — this is the guarantee the account-switching guard '
+        '(isSafeToClaimLocalData) relies on: signing into Account B on a '
+        "device that already holds Account A's claimed local data must "
+        "never migrate or expose A's trips under B.", () async {
+      final before = await repo.read();
+      await db
+          .into(db.trips)
+          .insert(
+            TripsCompanion.insert(
+              uid: before.uid,
+              topSpeedKmh: 200,
+              avgSpeedKmh: 90,
+              distanceKm: 25,
+              durationSeconds: 1200,
+              startedAt: DateTime(2026, 1, 1),
+            ),
+          );
+
+      // Simulate: this device already claimed the data for Account A.
+      await repo.syncUid('account-a-uid');
+
+      // Now Account B signs in on the same device — the guard decided
+      // this is NOT safe to claim, so the caller uses reassignUidOnly
+      // instead of syncUid.
+      await repo.reassignUidOnly('account-b-uid');
+
+      final after = await repo.read();
+      expect(after.uid, 'account-b-uid');
+
+      // A's trip must still exist, still tagged with A's uid — never
+      // deleted, never migrated to B.
+      final trips = await db.select(db.trips).get();
+      expect(trips, hasLength(1));
+      expect(trips.single.uid, 'account-a-uid');
+    });
+
+    test("Account A's trips become visible again automatically once the "
+        'settings row uid matches A again — no explicit restore step, '
+        'just the existing uid-scoped query behavior', () async {
+      final before = await repo.read();
+      await db
+          .into(db.trips)
+          .insert(
+            TripsCompanion.insert(
+              uid: before.uid,
+              topSpeedKmh: 150,
+              avgSpeedKmh: 70,
+              distanceKm: 15,
+              durationSeconds: 900,
+              startedAt: DateTime(2026, 1, 1),
+            ),
+          );
+      await repo.syncUid('account-a-uid');
+      await repo.reassignUidOnly('account-b-uid'); // switch to B
+
+      var currentUid = (await repo.read()).uid;
+      var visibleToCurrentUid = await (db.select(
+        db.trips,
+      )..where((t) => t.uid.equals(currentUid))).get();
+      expect(visibleToCurrentUid, isEmpty); // B sees nothing yet
+
+      await repo.reassignUidOnly('account-a-uid'); // A signs back in
+
+      currentUid = (await repo.read()).uid;
+      visibleToCurrentUid = await (db.select(
+        db.trips,
+      )..where((t) => t.uid.equals(currentUid))).get();
+      expect(visibleToCurrentUid, hasLength(1)); // A's trip is back
+    });
+
+    test('is a no-op when the row already matches', () async {
+      final before = await repo.read();
+      await repo.reassignUidOnly(before.uid);
+      final after = await repo.read();
+      expect(after.uid, before.uid);
+    });
+  });
 }

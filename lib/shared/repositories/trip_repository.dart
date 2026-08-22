@@ -3,7 +3,9 @@ import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/services/geocoding_service.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
+import 'package:drive_rank/features/trip_insights/domain/usecases/zero_to_hundred.dart';
 import 'package:injectable/injectable.dart';
+import 'package:uuid/uuid.dart';
 
 /// Persistence layer for trips.
 ///
@@ -64,6 +66,16 @@ class TripRepository {
               maxGforce: Value(stats.maxGforce),
               hardCornersCount: Value(stats.hardCornersCount),
               hardBrakesCount: Value(stats.hardBrakesCount),
+              leftTurnCount: Value(stats.leftTurnCount),
+              rightTurnCount: Value(stats.rightTurnCount),
+              laneChangeCount: Value(stats.laneChangeCount),
+              maxAccelerationMps2: Value(stats.maxAccelerationMps2),
+              maxDecelerationMps2: Value(stats.maxDecelerationMps2),
+              topCorneringSpeedKmh: Value(stats.topCorneringSpeedKmh),
+              zeroToHundredSeconds: Value(
+                zeroToHundredSecondsFrom(stats.points),
+              ),
+              remoteId: Value(const Uuid().v4()),
               fuelCostLocal: Value(fuelCostLocal),
               localCurrencyCode: Value(localCurrencyCode),
               weatherCondition: Value(weatherCondition),
@@ -90,6 +102,7 @@ class TripRepository {
                     speedKmh: p.speedKmh,
                     accuracyMeters: p.accuracyMeters,
                     altitudeMeters: Value(p.altitudeMeters),
+                    heading: Value(p.heading),
                     timestamp: p.timestamp,
                   ),
                 )
@@ -98,6 +111,54 @@ class TripRepository {
         });
       }
       return tripId;
+    });
+  }
+
+  /// Inserts a trip restored from the cloud (see
+  /// `CloudSyncService.restoreTripsFromCloud`) — a sibling to [saveTrip],
+  /// not an overload: restore has different provenance (the trip already
+  /// carries a `remoteId` and should start `isSynced = true` since it
+  /// came *from* the cloud, and there's no local geocoding/elevation
+  /// recomputation to do — the payload already has everything).
+  ///
+  /// Idempotent by `remoteId` — a trip already present locally (matched
+  /// by `remoteId`, not the local autoincrement id, which won't agree
+  /// across devices) is skipped rather than duplicated, so restore is
+  /// safe to call more than once.
+  Future<void> restoreTrip({
+    required String remoteId,
+    required TripsCompanion trip,
+    required List<TripPoint> waypoints,
+  }) async {
+    final existing = await (_db.select(_db.trips)
+          ..where((t) => t.remoteId.equals(remoteId))
+          ..limit(1))
+        .getSingleOrNull();
+    if (existing != null) return;
+
+    await _db.transaction(() async {
+      final tripId = await _db.into(_db.trips).insert(trip);
+      if (waypoints.isNotEmpty) {
+        await _db.batch((b) {
+          b.insertAll(
+            _db.waypoints,
+            waypoints
+                .map(
+                  (p) => WaypointsCompanion.insert(
+                    tripId: tripId,
+                    lat: p.lat,
+                    lng: p.lng,
+                    speedKmh: p.speedKmh,
+                    accuracyMeters: p.accuracyMeters,
+                    altitudeMeters: Value(p.altitudeMeters),
+                    heading: Value(p.heading),
+                    timestamp: p.timestamp,
+                  ),
+                )
+                .toList(),
+          );
+        });
+      }
     });
   }
 
@@ -169,6 +230,7 @@ class TripRepository {
             speedKmh: r.speedKmh,
             accuracyMeters: r.accuracyMeters,
             altitudeMeters: r.altitudeMeters,
+            heading: r.heading,
             timestamp: r.timestamp,
           ),
         )
