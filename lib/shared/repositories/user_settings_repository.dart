@@ -41,35 +41,48 @@ class UserSettingsRepository {
   /// if none exists. Safe to call repeatedly. We look up by row count
   /// (there's only ever one) rather than filtering by uid — the uid
   /// column isn't a foreign key in the MVP, it's just a label.
-  Future<UserSettingsRow> ensureExists() async {
-    final existing = await (_db.select(
-      _db.userSettings,
-    )..limit(1)).getSingleOrNull();
-    if (existing != null) return existing;
+  Future<UserSettingsRow> ensureExists() {
+    // Wrapped in a transaction so two concurrent callers racing the
+    // SELECT-then-INSERT below (e.g. two blocs both subscribing to
+    // `watch()` on a fresh install) can't both observe "no row" and
+    // both insert, leaving two rows behind.
+    return _db.transaction(() async {
+      final existing = await (_db.select(
+        _db.userSettings,
+      )..limit(1)).getSingleOrNull();
+      if (existing != null) return existing;
 
-    final defaults = UserSettingsCompanion.insert(
-      uid: _initialUid,
-      country: Value(_locale.countryCode),
-      unitSystem: Value(
-        _locale.unitSystem == UnitSystem.imperial ? 'imperial' : 'metric',
-      ),
-      currencyCode: Value(_locale.defaultCurrencyCode),
-      createdAt: DateTime.now(),
-    );
-    final id = await _db.into(_db.userSettings).insert(defaults);
-    return (_db.select(
-      _db.userSettings,
-    )..where((t) => t.id.equals(id))).getSingle();
+      final defaults = UserSettingsCompanion.insert(
+        uid: _initialUid,
+        country: Value(_locale.countryCode),
+        unitSystem: Value(
+          _locale.unitSystem == UnitSystem.imperial ? 'imperial' : 'metric',
+        ),
+        currencyCode: Value(_locale.defaultCurrencyCode),
+        createdAt: DateTime.now(),
+      );
+      final id = await _db.into(_db.userSettings).insert(defaults);
+      return (_db.select(
+        _db.userSettings,
+      )..where((t) => t.id.equals(id))).getSingle();
+    });
   }
 
-  /// Guarantees the row exists before the stream starts — without this,
-  /// a subscriber that races `ensureExists()` (e.g. right after sign-out
-  /// triggers a bloc reload) can observe zero rows and `watchSingle()`
-  /// throws `Bad state: Expected exactly one element, but got 0`.
+  /// Recovers instead of crashing whenever the underlying query observes
+  /// zero rows — not just at subscribe time, but for the entire lifetime
+  /// of the stream. `watchSingle()`'s "exactly one element" assertion
+  /// (used previously here) only guarded the very first emission; a
+  /// long-lived subscriber (Profile/Settings/router, all held open for
+  /// the app's lifetime) still crashed with "Expected exactly one
+  /// element, but got 0" if the row was ever wiped (account deletion)
+  /// while it was already listening. `.watch()` never throws on an
+  /// empty result — it just emits `[]`, which we recreate the row and
+  /// recover from on every occurrence, not only the first.
   Stream<UserSettingsRow> watch() {
-    return Stream.fromFuture(
-      ensureExists(),
-    ).asyncExpand((_) => (_db.select(_db.userSettings)..limit(1)).watchSingle());
+    return (_db.select(_db.userSettings)..limit(1)).watch().asyncMap((rows) {
+      if (rows.isNotEmpty) return rows.first;
+      return ensureExists();
+    });
   }
 
   Future<UserSettingsRow> read() async {

@@ -67,6 +67,7 @@ class FirebaseAuthService implements AuthService {
       if (current != null && current.isAnonymous) {
         try {
           await current.linkWithProvider(provider);
+          _refreshCurrentUser();
           if (kDebugMode) {
             debugPrint('[FirebaseAuth] ✓ linked anonymous → Google');
           }
@@ -98,6 +99,7 @@ class FirebaseAuthService implements AuthService {
             final credential = e.credential;
             if (credential != null) {
               await _auth.signInWithCredential(credential);
+              _refreshCurrentUser();
               if (kDebugMode) {
                 debugPrint(
                   '[FirebaseAuth] ✓ signed in via already-obtained '
@@ -122,6 +124,7 @@ class FirebaseAuthService implements AuthService {
       }
 
       await _auth.signInWithProvider(provider);
+      _refreshCurrentUser();
       if (kDebugMode) {
         debugPrint(
           '[FirebaseAuth] ✓ signInWithGoogle uid=${_auth.currentUser?.uid}',
@@ -238,6 +241,23 @@ class FirebaseAuthService implements AuthService {
       }
       rethrow;
     }
+  }
+
+  /// Re-reads `_auth.currentUser` and pushes it into `userChanges`
+  /// immediately after a link/sign-in call succeeds.
+  ///
+  /// Needed because `authStateChanges()` doesn't reliably re-emit for
+  /// `linkWithProvider` — the common path, since it upgrades the
+  /// existing anonymous session in place rather than swapping to a new
+  /// user. The uid never changes, only `isAnonymous`/`email`/etc. on the
+  /// same `User` object, and Firebase's own stream can silently skip
+  /// notifying for that. Without this, sign-in genuinely succeeds (the
+  /// cloud restore/push all run correctly, since those don't depend on
+  /// this stream) but any UI driven by `userChanges` — e.g. Settings'
+  /// sign-in row — keeps showing the anonymous state indefinitely.
+  void _refreshCurrentUser() {
+    _last = _toAuthUser(_auth.currentUser) ?? _pendingAnonymous;
+    _controller.add(_last);
   }
 
   AuthUser? _toAuthUser(fb.User? u) {
