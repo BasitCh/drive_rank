@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
 import 'package:drive_rank/core/constants/app_colors.dart';
@@ -11,6 +12,7 @@ import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/oem_battery_advisor.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
+import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_state.dart';
@@ -165,15 +167,19 @@ class _TrackingPageBodyState extends State<_TrackingPageBody>
               );
               return;
             }
-            // Trip saved successfully → push summary → optionally paywall.
+            // Trip saved successfully → push summary. Deliberately NOT
+            // followed by an automatic paywall push, even when the
+            // free allowance is now spent (`state.shouldShowPaywall`,
+            // kept on state only for the idle surface's copy/CTA) —
+            // showing the paywall unprompted the instant someone closes
+            // their own trip summary is the wrong moment. The paywall
+            // shows only when the user deliberately attempts a next
+            // trip or taps "See plans" (see _IdleSurface._onStart /
+            // _goToPaywall).
             if (state.phase == TrackingPhase.idle &&
                 state.completedTripId != null) {
               final tripId = state.completedTripId!;
-              final paywallDue = state.shouldShowPaywall;
               await context.push(RouteNames.tripSummaryFor(tripId));
-              if (paywallDue && context.mounted) {
-                await context.push(RouteNames.paywall);
-              }
               if (context.mounted) {
                 context.read<TrackingBloc>().add(const TrackingReset());
               }
@@ -238,7 +244,7 @@ class _IdleSurface extends StatelessWidget {
         final settings = snap.data;
         final isPro = settings?.isPro ?? false;
         final used = settings?.freeTripsUsed ?? 0;
-        const limit = AppConstants.freeTripLimit;
+        final limit = settings?.freeTripLimit ?? AppConstants.defaultFreeTripLimit;
         final remaining = (limit - used).clamp(0, limit);
         final isLast = !isPro && remaining == 1;
         final isExhausted = !isPro && remaining == 0;
@@ -316,6 +322,7 @@ class _IdleSurface extends StatelessWidget {
                           total: limit,
                           isLast: isLast,
                           isExhausted: isExhausted,
+                          onSeePlans: () => _goToPaywall(context, source: 'other'),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.lg),
@@ -332,10 +339,27 @@ class _IdleSurface extends StatelessWidget {
 
   void _onStart(BuildContext context, bool isExhausted) {
     if (isExhausted) {
-      context.push(RouteNames.paywall);
+      // The precise "attempted a second trip" moment — this is the
+      // sole place the paywall is triggered from, by design: it fires
+      // only on a deliberate user action, never automatically right
+      // after a trip summary is dismissed.
+      unawaited(
+        getIt<TelemetryService>().track(TelemetryEvents.secondTripAttempted),
+      );
+      _goToPaywall(context, source: 'second_trip_attempt');
       return;
     }
     context.read<TrackingBloc>().add(const TrackingStartRequested());
+  }
+
+  void _goToPaywall(BuildContext context, {required String source}) {
+    unawaited(
+      getIt<TelemetryService>().track(
+        TelemetryEvents.paywallViewed,
+        properties: <String, Object?>{'source': source},
+      ),
+    );
+    context.push(RouteNames.paywall);
   }
 }
 
@@ -519,6 +543,7 @@ class _FreeTripsLabel extends StatelessWidget {
     required this.total,
     required this.isLast,
     required this.isExhausted,
+    required this.onSeePlans,
   });
 
   final bool isPro;
@@ -526,6 +551,10 @@ class _FreeTripsLabel extends StatelessWidget {
   final int total;
   final bool isLast;
   final bool isExhausted;
+
+  /// Tapped from the "you've used your free trip" state below — the
+  /// user reaches the paywall by choice here, not automatically.
+  final VoidCallback onSeePlans;
 
   @override
   Widget build(BuildContext context) {
@@ -535,9 +564,34 @@ class _FreeTripsLabel extends StatelessWidget {
         style: AppTextStyles.tag.copyWith(color: AppColors.teal),
       );
     }
-    final color = isLast || isExhausted
-        ? AppColors.orange
-        : AppColors.textSecondary;
+    if (isExhausted) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            AppStrings.homeFreeTripUsedTitle,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.orange,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          InkWell(
+            onTap: onSeePlans,
+            child: Text(
+              AppStrings.homeSeePlans,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.teal,
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    final color = isLast ? AppColors.orange : AppColors.textSecondary;
     final label = isLast
         ? AppStrings.homeLastFreeTripWarning
         : AppStrings.homeFreeTripsRemaining(remaining, total);

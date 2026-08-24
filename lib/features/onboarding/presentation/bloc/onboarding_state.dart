@@ -25,10 +25,13 @@ enum UsernameCheckStatus {
 enum OnboardingStep {
   splash, // not in the progress bar
   countryAndVehicle,
+  countrySocialProof,
+  unit,
   car,
   username,
   carPhoto,
   community,
+  territoryTeaser,
   mapTheme,
   reviews,
   safety,
@@ -39,14 +42,17 @@ enum OnboardingStep {
   /// the progress chrome.
   double get progress => switch (this) {
     splash || done => 0,
-    countryAndVehicle => 0.11,
-    car => 0.22,
-    username => 0.33,
-    carPhoto => 0.44,
-    community => 0.55,
-    mapTheme => 0.66,
+    countryAndVehicle => 0.08,
+    countrySocialProof => 0.15,
+    unit => 0.23,
+    car => 0.31,
+    username => 0.38,
+    carPhoto => 0.46,
+    community => 0.54,
+    territoryTeaser => 0.62,
+    mapTheme => 0.69,
     reviews => 0.77,
-    safety => 0.88,
+    safety => 0.85,
     locationPermission => 0.95,
   };
 
@@ -128,10 +134,13 @@ class OnboardingState {
   bool get canAdvance => switch (step) {
     OnboardingStep.splash => true,
     OnboardingStep.countryAndVehicle => country != null,
+    OnboardingStep.countrySocialProof => true,
+    OnboardingStep.unit => true,
     OnboardingStep.car => carMake != null && carModel != null,
     OnboardingStep.username => usernameStatus == UsernameCheckStatus.available,
     OnboardingStep.carPhoto => true, // Skip is always valid.
     OnboardingStep.community => true,
+    OnboardingStep.territoryTeaser => true,
     OnboardingStep.mapTheme => true,
     OnboardingStep.reviews => true,
     OnboardingStep.safety => safetyAccepted,

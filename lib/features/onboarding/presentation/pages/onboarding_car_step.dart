@@ -127,41 +127,16 @@ class OnboardingCarStep extends StatelessWidget {
                               builder: (context) {
                                 final size =
                                     MediaQuery.sizeOf(context).width * 0.45;
-                                final hasPhoto =
-                                    state.carPhotoPath != null &&
-                                    state.carPhotoPath!.isNotEmpty;
-                                return Container(
-                                  width: size,
-                                  height: size,
-                                  alignment: Alignment.center,
-                                  // A photo fills the whole circle (BoxFit.cover);
-                                  // the SVG keeps a 12% inner breathing room so
-                                  // it doesn't crowd the teal ring.
-                                  padding: hasPhoto
-                                      ? EdgeInsets.zero
-                                      : EdgeInsets.all(size * 0.12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: AppColors.teal,
-                                      width: 3,
-                                    ),
-                                  ),
-                                  child: ClipOval(
-                                    child: CarSilhouette(
-                                      category:
-                                          state.carMake?.category ??
-                                          (state.vehicleType ==
-                                                  VehicleType.motorbike
-                                              ? CarCategory.motorbike
-                                              : CarCategory.defaultCategory),
-                                      photoPath: state.carPhotoPath,
-                                      fit: hasPhoto
-                                          ? BoxFit.cover
-                                          : BoxFit.contain,
-                                    ),
-                                  ),
+                                return _CarRevealCircle(
+                                  size: size,
+                                  category:
+                                      state.carMake?.category ??
+                                      (state.vehicleType ==
+                                              VehicleType.motorbike
+                                          ? CarCategory.motorbike
+                                          : CarCategory.defaultCategory),
+                                  makeId: state.carMake?.id,
+                                  photoPath: state.carPhotoPath,
                                 );
                               },
                             ),
@@ -426,6 +401,107 @@ class _CustomModelSheetState extends State<_CustomModelSheet> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Grey silhouette → white circle + teal ring + spinner → the actual
+/// silhouette fades in — triggered whenever [category]/[photoPath]
+/// change (i.e. the user actually picks a make, or adds a photo). This
+/// is the moment the screen stops feeling like a generic app and starts
+/// feeling like "my car" — see A4 in the onboarding animation notes.
+class _CarRevealCircle extends StatefulWidget {
+  const _CarRevealCircle({
+    required this.size,
+    required this.category,
+    required this.photoPath,
+    this.makeId,
+  });
+
+  final double size;
+  final CarCategory category;
+  final String? makeId;
+  final String? photoPath;
+
+  @override
+  State<_CarRevealCircle> createState() => _CarRevealCircleState();
+}
+
+class _CarRevealCircleState extends State<_CarRevealCircle> {
+  bool _revealed = true;
+  late CarCategory _shownCategory;
+  String? _shownMakeId;
+  String? _shownPhotoPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _shownCategory = widget.category;
+    _shownMakeId = widget.makeId;
+    _shownPhotoPath = widget.photoPath;
+  }
+
+  @override
+  void didUpdateWidget(covariant _CarRevealCircle old) {
+    super.didUpdateWidget(old);
+    if (widget.category != old.category ||
+        widget.makeId != old.makeId ||
+        widget.photoPath != old.photoPath) {
+      _reveal();
+    }
+  }
+
+  Future<void> _reveal() async {
+    setState(() => _revealed = false);
+    await Future<void>.delayed(const Duration(milliseconds: 420));
+    if (!mounted) return;
+    setState(() {
+      _shownCategory = widget.category;
+      _shownMakeId = widget.makeId;
+      _shownPhotoPath = widget.photoPath;
+      _revealed = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = _shownPhotoPath != null && _shownPhotoPath!.isNotEmpty;
+    return Container(
+      width: widget.size,
+      height: widget.size,
+      alignment: Alignment.center,
+      // A photo fills the whole circle (BoxFit.cover); the SVG keeps a
+      // 12% inner breathing room so it doesn't crowd the teal ring.
+      padding: hasPhoto && _revealed
+          ? EdgeInsets.zero
+          : EdgeInsets.all(widget.size * 0.12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.teal, width: 3),
+      ),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        child: !_revealed
+            ? SizedBox(
+                key: const ValueKey('spinner'),
+                width: widget.size * 0.28,
+                height: widget.size * 0.28,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppColors.teal,
+                ),
+              )
+            : ClipOval(
+                key: ValueKey('$_shownCategory-$_shownMakeId-$_shownPhotoPath'),
+                child: CarSilhouette(
+                  category: _shownCategory,
+                  makeId: _shownMakeId,
+                  photoPath: _shownPhotoPath,
+                  fit: hasPhoto ? BoxFit.cover : BoxFit.contain,
+                ),
+              ),
       ),
     );
   }

@@ -18,6 +18,9 @@ enum CarCategory {
     _ => name,
   };
 
+  /// Path to the matching SVG silhouette in `assets/images/cars/`.
+  String get svgAssetPath => 'assets/images/cars/$id.svg';
+
   static CarCategory fromId(String? raw) {
     if (raw == null || raw.isEmpty) return CarCategory.defaultCategory;
     return switch (raw.toLowerCase()) {

@@ -173,6 +173,20 @@ class TelemetryEvents {
   static const String firstTripCompleted = 'first_trip_completed';
   static const String secondTripCompleted = 'second_trip_completed';
 
+  /// Fired the instant `TrackingBloc` detects the just-saved trip has
+  /// used up this user's free-trip allowance (`freeTripsUsed >=
+  /// freeTripLimit`) — the funnel-entry moment for the 1-free-trip
+  /// paywall change. Paired with `secondTripAttempted` below: the ratio
+  /// between the two is the actual metric for whether that change
+  /// worked, per the monetization change spec.
+  static const String freeTripUsed = 'free_trip_used';
+
+  /// Fired when the user taps Start Trip while `isExhausted` — the
+  /// precise "attempted a second trip" moment, distinct from
+  /// `secondTripCompleted` above (which fires only once they've
+  /// actually recorded a 2nd trip, e.g. after subscribing).
+  static const String secondTripAttempted = 'second_trip_attempted';
+
   // ---- Engagement / retention-notification system ----
   //
   // Deliberately NOT duplicating events that already exist:
@@ -227,12 +241,29 @@ class TelemetryEvents {
   /// property so PostHog can slice/funnel per campaign type.
   static const String notificationOpened = 'notification_opened';
 
+  // Naming note: kept the existing `paywall_`/`paywallPurchase` prefix
+  // convention below rather than renaming to the monetization spec's
+  // bare `plan_selected`/`purchase_started`/etc — these are live
+  // PostHog events with real history; renaming would silently break
+  // existing dashboards/funnels built on the old names. Two genuinely
+  // new events (`freeTripUsed`/`secondTripAttempted` above,
+  // `offeringsLoadFailed` below) use the spec's exact names since
+  // there's no existing event to collide with. `paywallPurchaseFailed`
+  // now also carries a `reason` and cancellation is split into its own
+  // event, both from the monetization spec.
   static const String paywallViewed = 'paywall_viewed';
   static const String paywallPlanSelected = 'paywall_plan_selected';
   static const String paywallPurchaseStarted = 'paywall_purchase_started';
   static const String paywallPurchaseSucceeded = 'paywall_purchase_succeeded';
+  static const String paywallPurchaseCancelled = 'paywall_purchase_cancelled';
   static const String paywallPurchaseFailed = 'paywall_purchase_failed';
   static const String paywallRestored = 'paywall_restored';
+
+  /// Fired when `Purchases.getOfferings().current` is null, or the
+  /// fetch throws — the "paywall may be showing empty" failure mode.
+  /// Distinct from `paywallPurchaseFailed` (a purchase attempt failing)
+  /// — this is offerings failing to *load* in the first place.
+  static const String offeringsLoadFailed = 'offerings_load_failed';
 
   static const String mapThemeChanged = 'map_theme_changed';
   static const String unitsChanged = 'units_changed';

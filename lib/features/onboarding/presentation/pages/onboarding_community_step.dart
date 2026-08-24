@@ -58,15 +58,30 @@ class OnboardingCommunityStep extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    _formatThousands(count),
-                    style: const TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 52,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.teal,
-                      height: 1,
-                    ),
+                  // A static "5,379" is a fact; a number racing upward
+                  // decelerating into place feels like a crowd — same
+                  // data, entirely different impact. Keyed by the count
+                  // itself so re-entering this step with a different
+                  // make (back button, different selection) replays the
+                  // count-up instead of freezing at the old value. See
+                  // A5 in the onboarding animation notes.
+                  TweenAnimationBuilder<double>(
+                    key: ValueKey('count-$count'),
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 1200),
+                    curve: Curves.easeOutExpo,
+                    builder: (context, t, _) {
+                      return Text(
+                        _formatThousands((count * t).round()),
+                        style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 52,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.teal,
+                          height: 1,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -100,17 +115,35 @@ class OnboardingCommunityStep extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                    ),
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < bars.length; i++)
-                          _BrandRow(bar: bars[i], isLast: i == bars.length - 1),
-                      ],
-                    ),
+                  // Same duration/curve as the count-up above so the
+                  // bars visibly fill "at the same time" as the number
+                  // races up — the doc's exact description of what
+                  // makes this screen read as a live crowd, not a chart.
+                  TweenAnimationBuilder<double>(
+                    key: ValueKey('bars-$count'),
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 1200),
+                    curve: Curves.easeOutExpo,
+                    builder: (context, t, _) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusLg,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < bars.length; i++)
+                              _BrandRow(
+                                bar: bars[i],
+                                isLast: i == bars.length - 1,
+                                fillProgress: t,
+                              ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -163,10 +196,17 @@ class _Bar {
 }
 
 class _BrandRow extends StatelessWidget {
-  const _BrandRow({required this.bar, required this.isLast});
+  const _BrandRow({
+    required this.bar,
+    required this.isLast,
+    required this.fillProgress,
+  });
 
   final _Bar bar;
   final bool isLast;
+
+  /// 0..1 — how far through the fill-in animation this row currently is.
+  final double fillProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +258,7 @@ class _BrandRow extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.08),
                   ),
                   FractionallySizedBox(
-                    widthFactor: bar.fillRatio,
+                    widthFactor: bar.fillRatio * fillProgress,
                     child: Container(
                       height: 6,
                       color: AppColors.teal.withValues(alpha: isHl ? 1.0 : 0.4),

@@ -107,29 +107,41 @@ class RevenueCatPaywallService implements PaywallService {
     try {
       final offerings = await Purchases.getOfferings();
       final current = offerings.current;
-      if (current == null) return null;
+      if (current == null) {
+        // Distinct, greppable log line — this is the exact "paywall
+        // renders with no plans" failure mode: offering not marked
+        // current, products not Active in Play Console, or a bad/
+        // missing SDK key. Silently returning null here previously made
+        // this indistinguishable from "users don't want to pay."
+        debugPrint(
+          '[RevenueCat] loadOffering: Purchases.getOfferings().current is '
+          'null — no offering marked current in the dashboard, or the SDK '
+          "isn't configured correctly. offeringId expected: '$offeringId'",
+        );
+        return null;
+      }
 
-      final annual =
-          current.annual ??
-          _fallback(current.availablePackages, PackageType.annual);
-      final monthly =
-          current.monthly ??
-          _fallback(current.availablePackages, PackageType.monthly);
-      if (annual == null || monthly == null) return null;
+      final packages = [
+        for (final p in current.availablePackages) _mapPackage(p),
+      ];
+      if (packages.isEmpty) {
+        debugPrint(
+          '[RevenueCat] loadOffering: offering "${current.identifier}" is '
+          'current but has zero available packages — check that the '
+          'attached products are Active in Play Console.',
+        );
+        return null;
+      }
 
-      return PaywallOffering(
-        identifier: current.identifier,
-        annual: _mapPackage(annual, PaywallPeriod.annual),
-        monthly: _mapPackage(monthly, PaywallPeriod.monthly),
-      );
+      return PaywallOffering(identifier: current.identifier, packages: packages);
     } catch (e) {
-      if (kDebugMode) debugPrint('[RevenueCat] loadOffering failed: $e');
+      debugPrint('[RevenueCat] loadOffering failed: $e');
       return null;
     }
   }
 
   @override
-  Future<PurchaseResult> purchase(PaywallPackage package) async {
+  Future<(PurchaseResult, String?)> purchase(PaywallPackage package) async {
     try {
       // Look up the live Package by id — we don't keep a reference around
       // because RevenueCat caches them internally and the dashboard's
@@ -139,7 +151,9 @@ class RevenueCatPaywallService implements PaywallService {
       final match = all
           .where((p) => p.storeProduct.identifier == package.id)
           .firstOrNull;
-      if (match == null) return PurchaseResult.failed;
+      if (match == null) {
+        return (PurchaseResult.failed, 'package_not_found');
+      }
 
       // New API: Purchases.purchase(PurchaseParams.package(...)) returns a
       // `PurchaseResult` (hidden from our import to avoid the name clash
@@ -149,28 +163,32 @@ class RevenueCatPaywallService implements PaywallService {
       final isActive = result.customerInfo.entitlements.active.containsKey(
         entitlementId,
       );
-      return isActive ? PurchaseResult.granted : PurchaseResult.failed;
+      return isActive
+          ? (PurchaseResult.granted, null)
+          : (PurchaseResult.failed, 'entitlement_not_active_after_purchase');
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);
       if (code == PurchasesErrorCode.purchaseCancelledError) {
-        return PurchaseResult.cancelled;
+        return (PurchaseResult.cancelled, null);
       }
       if (kDebugMode) debugPrint('[RevenueCat] purchase failed: $code');
-      return PurchaseResult.failed;
+      return (PurchaseResult.failed, code.name);
     } catch (e) {
       if (kDebugMode) debugPrint('[RevenueCat] purchase failed: $e');
-      return PurchaseResult.failed;
+      return (PurchaseResult.failed, e.toString());
     }
   }
 
   @override
-  Future<bool> restorePurchases() async {
+  Future<ProEntitlementCheck> restorePurchases() async {
     try {
       final customer = await Purchases.restorePurchases();
-      return customer.entitlements.active.containsKey(entitlementId);
+      return customer.entitlements.active.containsKey(entitlementId)
+          ? ProEntitlementCheck.active
+          : ProEntitlementCheck.inactive;
     } catch (e) {
-      if (kDebugMode) debugPrint('[RevenueCat] restore failed: $e');
-      return false;
+      debugPrint('[RevenueCat] restorePurchases failed: $e');
+      return ProEntitlementCheck.unknown;
     }
   }
 
@@ -184,18 +202,23 @@ class RevenueCatPaywallService implements PaywallService {
     }
   }
 
-  Package? _fallback(List<Package> all, PackageType type) {
-    for (final p in all) {
-      if (p.packageType == type) return p;
-    }
-    return null;
-  }
+  static PaywallPeriod _periodFor(PackageType type) => switch (type) {
+    PackageType.annual => PaywallPeriod.annual,
+    PackageType.sixMonth => PaywallPeriod.sixMonth,
+    PackageType.threeMonth => PaywallPeriod.threeMonth,
+    PackageType.twoMonth => PaywallPeriod.twoMonth,
+    PackageType.monthly => PaywallPeriod.monthly,
+    PackageType.weekly => PaywallPeriod.weekly,
+    PackageType.lifetime => PaywallPeriod.lifetime,
+    PackageType.unknown ||
+    PackageType.custom => PaywallPeriod.other,
+  };
 
-  PaywallPackage _mapPackage(Package p, PaywallPeriod period) {
+  PaywallPackage _mapPackage(Package p) {
     final product = p.storeProduct;
     return PaywallPackage(
       id: product.identifier,
-      period: period,
+      period: _periodFor(p.packageType),
       priceString: product.priceString,
       priceMicros: (product.price * 1000000).round(),
       currencyCode: product.currencyCode,

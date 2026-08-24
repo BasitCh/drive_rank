@@ -43,8 +43,21 @@ enum ProEntitlementCheck {
 /// later is local to this file.
 abstract class PaywallService {
   Future<PaywallOffering?> loadOffering();
-  Future<PurchaseResult> purchase(PaywallPackage package);
-  Future<bool> restorePurchases();
+
+  /// Attempts to purchase [package]. The second element of the result
+  /// is a short human-readable failure reason — populated only when the
+  /// result is [PurchaseResult.failed], null otherwise (a cancellation
+  /// isn't a "failure reason," it's an expected user choice).
+  Future<(PurchaseResult, String?)> purchase(PaywallPackage package);
+
+  /// Three-way like [checkEntitlement] — a plain bool return here would
+  /// conflate "we checked, no previous purchase found" with "network
+  /// error, couldn't check," and this is a deliberate user action (they
+  /// tapped Restore), so it deserves the same distinction: `inactive`
+  /// should tell the user nothing was found; `unknown` should ask them
+  /// to check their connection and try again, and must never be shown
+  /// as "no subscription" or silently do nothing.
+  Future<ProEntitlementCheck> restorePurchases();
 
   /// Associates the store's notion of "who is this" with [appUserId]
   /// (the Firebase Auth uid) — call after a sign-in identity change, so
@@ -93,36 +106,39 @@ class PreviewPaywallService extends PaywallService {
 
     return PaywallOffering(
       identifier: 'preview_default',
-      annual: PaywallPackage(
-        id: 'driverank_pro_annual_preview',
-        period: PaywallPeriod.annual,
-        priceString: '${fmt(annual)}/yr',
-        priceMicros: (annual * 1000000).round(),
-        currencyCode: code,
-        // No crossed-out / "was" price — DriveRank's paywall has zero
-        // dark patterns. Don't reintroduce one in the preview impl
-        // either; the field has been dropped from the model.
-        perWeekPriceString: '${fmt(perWeek)}/week',
-      ),
-      monthly: PaywallPackage(
-        id: 'driverank_pro_monthly_preview',
-        period: PaywallPeriod.monthly,
-        priceString: '${fmt(monthly)}/mo',
-        priceMicros: (monthly * 1000000).round(),
-        currencyCode: code,
-      ),
+      packages: [
+        PaywallPackage(
+          id: 'driverank_pro_annual_preview',
+          period: PaywallPeriod.annual,
+          priceString: '${fmt(annual)}/yr',
+          priceMicros: (annual * 1000000).round(),
+          currencyCode: code,
+          // No crossed-out / "was" price — DriveRank's paywall has zero
+          // dark patterns. Don't reintroduce one in the preview impl
+          // either; the field has been dropped from the model.
+          perWeekPriceString: '${fmt(perWeek)}/week',
+        ),
+        PaywallPackage(
+          id: 'driverank_pro_monthly_preview',
+          period: PaywallPeriod.monthly,
+          priceString: '${fmt(monthly)}/mo',
+          priceMicros: (monthly * 1000000).round(),
+          currencyCode: code,
+        ),
+      ],
     );
   }
 
   @override
-  Future<PurchaseResult> purchase(PaywallPackage package) async {
+  Future<(PurchaseResult, String?)> purchase(PaywallPackage package) async {
     // Preview can't actually charge — succeed silently so we can flow-test
     // the post-purchase navigation. Replaced with real flow in Session 5.
-    return PurchaseResult.granted;
+    return (PurchaseResult.granted, null);
   }
 
   @override
-  Future<bool> restorePurchases() async => false;
+  Future<ProEntitlementCheck> restorePurchases() async =>
+      ProEntitlementCheck.inactive;
 
   /// Currency-aware tier table. Numbers are illustrative and meant to look
   /// reasonable next to real store pricing for each market — not used to

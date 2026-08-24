@@ -45,6 +45,16 @@ class UserSettings extends Table {
 
   // Paywall + onboarding state.
   IntColumn get freeTripsUsed => integer().withDefault(const Constant(0))();
+
+  /// The free-trip allowance actually granted to THIS user, persisted at
+  /// creation time rather than read from a global constant — so a later
+  /// change to the default (3 → 1) can't retroactively cut an existing
+  /// user's already-granted allowance. Null on rows created before this
+  /// column existed; the migration backfills those to the old default
+  /// (3) so nobody already using the app loses trips they were promised.
+  /// New rows get the new default (1) explicitly at insert time.
+  IntColumn get freeTripLimit => integer().nullable()();
+
   BoolColumn get isPro => boolean().withDefault(const Constant(false))();
   BoolColumn get onboardingComplete =>
       boolean().withDefault(const Constant(false))();

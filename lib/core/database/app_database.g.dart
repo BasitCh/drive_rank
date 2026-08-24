@@ -2686,6 +2686,17 @@ class $UserSettingsTable extends UserSettings
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _freeTripLimitMeta = const VerificationMeta(
+    'freeTripLimit',
+  );
+  @override
+  late final GeneratedColumn<int> freeTripLimit = GeneratedColumn<int>(
+    'free_trip_limit',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isProMeta = const VerificationMeta('isPro');
   @override
   late final GeneratedColumn<bool> isPro = GeneratedColumn<bool>(
@@ -2796,6 +2807,7 @@ class $UserSettingsTable extends UserSettings
     selectedMapTheme,
     minTripLengthMeters,
     freeTripsUsed,
+    freeTripLimit,
     isPro,
     onboardingComplete,
     oemAdviceShown,
@@ -2947,6 +2959,15 @@ class $UserSettingsTable extends UserSettings
         ),
       );
     }
+    if (data.containsKey('free_trip_limit')) {
+      context.handle(
+        _freeTripLimitMeta,
+        freeTripLimit.isAcceptableOrUnknown(
+          data['free_trip_limit']!,
+          _freeTripLimitMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_pro')) {
       context.handle(
         _isProMeta,
@@ -3087,6 +3108,10 @@ class $UserSettingsTable extends UserSettings
         DriftSqlType.int,
         data['${effectivePrefix}free_trips_used'],
       )!,
+      freeTripLimit: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}free_trip_limit'],
+      ),
       isPro: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_pro'],
@@ -3147,6 +3172,15 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   /// eating a real short drive.
   final double minTripLengthMeters;
   final int freeTripsUsed;
+
+  /// The free-trip allowance actually granted to THIS user, persisted at
+  /// creation time rather than read from a global constant — so a later
+  /// change to the default (3 → 1) can't retroactively cut an existing
+  /// user's already-granted allowance. Null on rows created before this
+  /// column existed; the migration backfills those to the old default
+  /// (3) so nobody already using the app loses trips they were promised.
+  /// New rows get the new default (1) explicitly at insert time.
+  final int? freeTripLimit;
   final bool isPro;
   final bool onboardingComplete;
 
@@ -3191,6 +3225,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     required this.selectedMapTheme,
     required this.minTripLengthMeters,
     required this.freeTripsUsed,
+    this.freeTripLimit,
     required this.isPro,
     required this.onboardingComplete,
     required this.oemAdviceShown,
@@ -3236,6 +3271,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     map['selected_map_theme'] = Variable<String>(selectedMapTheme);
     map['min_trip_length_meters'] = Variable<double>(minTripLengthMeters);
     map['free_trips_used'] = Variable<int>(freeTripsUsed);
+    if (!nullToAbsent || freeTripLimit != null) {
+      map['free_trip_limit'] = Variable<int>(freeTripLimit);
+    }
     map['is_pro'] = Variable<bool>(isPro);
     map['onboarding_complete'] = Variable<bool>(onboardingComplete);
     map['oem_advice_shown'] = Variable<bool>(oemAdviceShown);
@@ -3288,6 +3326,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       selectedMapTheme: Value(selectedMapTheme),
       minTripLengthMeters: Value(minTripLengthMeters),
       freeTripsUsed: Value(freeTripsUsed),
+      freeTripLimit: freeTripLimit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(freeTripLimit),
       isPro: Value(isPro),
       onboardingComplete: Value(onboardingComplete),
       oemAdviceShown: Value(oemAdviceShown),
@@ -3328,6 +3369,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
         json['minTripLengthMeters'],
       ),
       freeTripsUsed: serializer.fromJson<int>(json['freeTripsUsed']),
+      freeTripLimit: serializer.fromJson<int?>(json['freeTripLimit']),
       isPro: serializer.fromJson<bool>(json['isPro']),
       onboardingComplete: serializer.fromJson<bool>(json['onboardingComplete']),
       oemAdviceShown: serializer.fromJson<bool>(json['oemAdviceShown']),
@@ -3361,6 +3403,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       'selectedMapTheme': serializer.toJson<String>(selectedMapTheme),
       'minTripLengthMeters': serializer.toJson<double>(minTripLengthMeters),
       'freeTripsUsed': serializer.toJson<int>(freeTripsUsed),
+      'freeTripLimit': serializer.toJson<int?>(freeTripLimit),
       'isPro': serializer.toJson<bool>(isPro),
       'onboardingComplete': serializer.toJson<bool>(onboardingComplete),
       'oemAdviceShown': serializer.toJson<bool>(oemAdviceShown),
@@ -3392,6 +3435,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     String? selectedMapTheme,
     double? minTripLengthMeters,
     int? freeTripsUsed,
+    Value<int?> freeTripLimit = const Value.absent(),
     bool? isPro,
     bool? onboardingComplete,
     bool? oemAdviceShown,
@@ -3422,6 +3466,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     selectedMapTheme: selectedMapTheme ?? this.selectedMapTheme,
     minTripLengthMeters: minTripLengthMeters ?? this.minTripLengthMeters,
     freeTripsUsed: freeTripsUsed ?? this.freeTripsUsed,
+    freeTripLimit: freeTripLimit.present
+        ? freeTripLimit.value
+        : this.freeTripLimit,
     isPro: isPro ?? this.isPro,
     onboardingComplete: onboardingComplete ?? this.onboardingComplete,
     oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
@@ -3471,6 +3518,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       freeTripsUsed: data.freeTripsUsed.present
           ? data.freeTripsUsed.value
           : this.freeTripsUsed,
+      freeTripLimit: data.freeTripLimit.present
+          ? data.freeTripLimit.value
+          : this.freeTripLimit,
       isPro: data.isPro.present ? data.isPro.value : this.isPro,
       onboardingComplete: data.onboardingComplete.present
           ? data.onboardingComplete.value
@@ -3512,6 +3562,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           ..write('selectedMapTheme: $selectedMapTheme, ')
           ..write('minTripLengthMeters: $minTripLengthMeters, ')
           ..write('freeTripsUsed: $freeTripsUsed, ')
+          ..write('freeTripLimit: $freeTripLimit, ')
           ..write('isPro: $isPro, ')
           ..write('onboardingComplete: $onboardingComplete, ')
           ..write('oemAdviceShown: $oemAdviceShown, ')
@@ -3543,6 +3594,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     selectedMapTheme,
     minTripLengthMeters,
     freeTripsUsed,
+    freeTripLimit,
     isPro,
     onboardingComplete,
     oemAdviceShown,
@@ -3573,6 +3625,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           other.selectedMapTheme == this.selectedMapTheme &&
           other.minTripLengthMeters == this.minTripLengthMeters &&
           other.freeTripsUsed == this.freeTripsUsed &&
+          other.freeTripLimit == this.freeTripLimit &&
           other.isPro == this.isPro &&
           other.onboardingComplete == this.onboardingComplete &&
           other.oemAdviceShown == this.oemAdviceShown &&
@@ -3601,6 +3654,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
   final Value<String> selectedMapTheme;
   final Value<double> minTripLengthMeters;
   final Value<int> freeTripsUsed;
+  final Value<int?> freeTripLimit;
   final Value<bool> isPro;
   final Value<bool> onboardingComplete;
   final Value<bool> oemAdviceShown;
@@ -3627,6 +3681,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.selectedMapTheme = const Value.absent(),
     this.minTripLengthMeters = const Value.absent(),
     this.freeTripsUsed = const Value.absent(),
+    this.freeTripLimit = const Value.absent(),
     this.isPro = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
     this.oemAdviceShown = const Value.absent(),
@@ -3654,6 +3709,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.selectedMapTheme = const Value.absent(),
     this.minTripLengthMeters = const Value.absent(),
     this.freeTripsUsed = const Value.absent(),
+    this.freeTripLimit = const Value.absent(),
     this.isPro = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
     this.oemAdviceShown = const Value.absent(),
@@ -3682,6 +3738,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Expression<String>? selectedMapTheme,
     Expression<double>? minTripLengthMeters,
     Expression<int>? freeTripsUsed,
+    Expression<int>? freeTripLimit,
     Expression<bool>? isPro,
     Expression<bool>? onboardingComplete,
     Expression<bool>? oemAdviceShown,
@@ -3710,6 +3767,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       if (minTripLengthMeters != null)
         'min_trip_length_meters': minTripLengthMeters,
       if (freeTripsUsed != null) 'free_trips_used': freeTripsUsed,
+      if (freeTripLimit != null) 'free_trip_limit': freeTripLimit,
       if (isPro != null) 'is_pro': isPro,
       if (onboardingComplete != null) 'onboarding_complete': onboardingComplete,
       if (oemAdviceShown != null) 'oem_advice_shown': oemAdviceShown,
@@ -3740,6 +3798,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Value<String>? selectedMapTheme,
     Value<double>? minTripLengthMeters,
     Value<int>? freeTripsUsed,
+    Value<int?>? freeTripLimit,
     Value<bool>? isPro,
     Value<bool>? onboardingComplete,
     Value<bool>? oemAdviceShown,
@@ -3767,6 +3826,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       selectedMapTheme: selectedMapTheme ?? this.selectedMapTheme,
       minTripLengthMeters: minTripLengthMeters ?? this.minTripLengthMeters,
       freeTripsUsed: freeTripsUsed ?? this.freeTripsUsed,
+      freeTripLimit: freeTripLimit ?? this.freeTripLimit,
       isPro: isPro ?? this.isPro,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
@@ -3837,6 +3897,9 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     if (freeTripsUsed.present) {
       map['free_trips_used'] = Variable<int>(freeTripsUsed.value);
     }
+    if (freeTripLimit.present) {
+      map['free_trip_limit'] = Variable<int>(freeTripLimit.value);
+    }
     if (isPro.present) {
       map['is_pro'] = Variable<bool>(isPro.value);
     }
@@ -3884,6 +3947,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
           ..write('selectedMapTheme: $selectedMapTheme, ')
           ..write('minTripLengthMeters: $minTripLengthMeters, ')
           ..write('freeTripsUsed: $freeTripsUsed, ')
+          ..write('freeTripLimit: $freeTripLimit, ')
           ..write('isPro: $isPro, ')
           ..write('onboardingComplete: $onboardingComplete, ')
           ..write('oemAdviceShown: $oemAdviceShown, ')
@@ -6491,6 +6555,7 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<String> selectedMapTheme,
       Value<double> minTripLengthMeters,
       Value<int> freeTripsUsed,
+      Value<int?> freeTripLimit,
       Value<bool> isPro,
       Value<bool> onboardingComplete,
       Value<bool> oemAdviceShown,
@@ -6519,6 +6584,7 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<String> selectedMapTheme,
       Value<double> minTripLengthMeters,
       Value<int> freeTripsUsed,
+      Value<int?> freeTripLimit,
       Value<bool> isPro,
       Value<bool> onboardingComplete,
       Value<bool> oemAdviceShown,
@@ -6624,6 +6690,11 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<int> get freeTripsUsed => $composableBuilder(
     column: $table.freeTripsUsed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get freeTripLimit => $composableBuilder(
+    column: $table.freeTripLimit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6762,6 +6833,11 @@ class $$UserSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get freeTripLimit => $composableBuilder(
+    column: $table.freeTripLimit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isPro => $composableBuilder(
     column: $table.isPro,
     builder: (column) => ColumnOrderings(column),
@@ -6879,6 +6955,11 @@ class $$UserSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get freeTripLimit => $composableBuilder(
+    column: $table.freeTripLimit,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isPro =>
       $composableBuilder(column: $table.isPro, builder: (column) => column);
 
@@ -6960,6 +7041,7 @@ class $$UserSettingsTableTableManager
                 Value<String> selectedMapTheme = const Value.absent(),
                 Value<double> minTripLengthMeters = const Value.absent(),
                 Value<int> freeTripsUsed = const Value.absent(),
+                Value<int?> freeTripLimit = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
                 Value<bool> oemAdviceShown = const Value.absent(),
@@ -6986,6 +7068,7 @@ class $$UserSettingsTableTableManager
                 selectedMapTheme: selectedMapTheme,
                 minTripLengthMeters: minTripLengthMeters,
                 freeTripsUsed: freeTripsUsed,
+                freeTripLimit: freeTripLimit,
                 isPro: isPro,
                 onboardingComplete: onboardingComplete,
                 oemAdviceShown: oemAdviceShown,
@@ -7014,6 +7097,7 @@ class $$UserSettingsTableTableManager
                 Value<String> selectedMapTheme = const Value.absent(),
                 Value<double> minTripLengthMeters = const Value.absent(),
                 Value<int> freeTripsUsed = const Value.absent(),
+                Value<int?> freeTripLimit = const Value.absent(),
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
                 Value<bool> oemAdviceShown = const Value.absent(),
@@ -7040,6 +7124,7 @@ class $$UserSettingsTableTableManager
                 selectedMapTheme: selectedMapTheme,
                 minTripLengthMeters: minTripLengthMeters,
                 freeTripsUsed: freeTripsUsed,
+                freeTripLimit: freeTripLimit,
                 isPro: isPro,
                 onboardingComplete: onboardingComplete,
                 oemAdviceShown: oemAdviceShown,

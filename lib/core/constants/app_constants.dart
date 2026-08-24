@@ -7,10 +7,20 @@ class AppConstants {
   const AppConstants._();
 
   // ---- Free tier ----
-  /// Free trips before the paywall is shown. DriveRank's free tier is
-  /// deliberately tight so users see the value of pro fast — three free
-  /// trips is enough to taste the tracker + see one personal best.
-  static const int freeTripLimit = 3;
+  /// Default free-trip allowance granted to a **newly created**
+  /// `UserSettings` row — one full trip (summary, stat card, sharing,
+  /// all fully accessible) before the paywall gates a second one.
+  ///
+  /// NOT the value to compare `freeTripsUsed` against directly — the
+  /// actual per-user allowance lives in `UserSettingsRow.freeTripLimit`,
+  /// persisted at row-creation time rather than read from this constant
+  /// at check time. That's deliberate: existing users who signed up
+  /// under the old 3-trip model keep 3 (see the v10 Drift migration in
+  /// `app_database.dart`, which backfills every pre-existing row to 3)
+  /// — only installs created after this constant changed get the new
+  /// default. Changing this value again in the future only affects
+  /// brand-new installs from that point on, never retroactively.
+  static const int defaultFreeTripLimit = 1;
 
   // ---- Speed noise filter (Issue 7) ----
   /// Speeds below this (km/h) are clamped to zero — under it, GPS drift

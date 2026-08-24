@@ -2,9 +2,6 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:drift/drift.dart' show Value;
-import 'package:drive_rank/core/database/app_database.dart'
-    show UserSettingsCompanion;
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/firebase_auth_service.dart';
@@ -441,20 +438,23 @@ Future<void> _maybeInitRevenueCat() async {
 
   // Restore entitlement automatically after a reinstall. Google Play
   // remembers the active subscription against the user's Google account,
-  // so this round-trip resolves to `true` even though Drift's local
-  // `isPro` flag is fresh. Only flips Drift on success — we never
+  // so this round-trip resolves to `active` even though Drift's local
+  // `isPro` flag is fresh. Three-way, not a bool: `active` grants,
+  // `inactive` is a *confirmed* absence of entitlement (safe to revoke
+  // a stale local `isPro = true`, e.g. an expired/cancelled sub since
+  // last launch), `unknown` is a transient failure (network, RevenueCat
+  // down) and must leave local `isPro` exactly as it was — never
   // downgrade a locally-pro user just because the remote check failed.
   try {
-    final restored = await service.restorePurchases();
-    if (restored) {
-      await getIt<UserSettingsRepository>().patch(
-        const UserSettingsCompanion(isPro: Value(true)),
-      );
-      if (kDebugMode) {
-        debugPrint('[bootstrap] RC restorePurchases → pro restored');
-      }
-    } else if (kDebugMode) {
-      debugPrint('[bootstrap] RC restorePurchases → no active entitlement');
+    final restoreResult = await service.restorePurchases();
+    // Fail-open/fail-closed logic lives in one place —
+    // UserSettingsRepository.applyEntitlementCheck — not re-implemented
+    // here.
+    await getIt<UserSettingsRepository>().applyEntitlementCheck(
+      restoreResult,
+    );
+    if (kDebugMode) {
+      debugPrint('[bootstrap] RC restorePurchases → $restoreResult');
     }
   } catch (e) {
     if (kDebugMode) debugPrint('[bootstrap] RC restore failed: $e');

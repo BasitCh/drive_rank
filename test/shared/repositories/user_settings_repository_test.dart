@@ -1,9 +1,13 @@
 import 'dart:ui';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
+import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/services/free_trip_counter_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/core/services/paywall_service.dart'
+    show ProEntitlementCheck;
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -176,5 +180,76 @@ void main() {
       final after = await repo.read();
       expect(after.uid, before.uid);
     });
+  });
+
+  group('free-trip limit — 1-free-trip monetization change', () {
+    test(
+      'a newly created row is granted the current default limit (1), '
+      'not the old global constant (3)',
+      () async {
+        final row = await repo.read(); // triggers ensureExists()
+        expect(row.freeTripLimit, AppConstants.defaultFreeTripLimit);
+        expect(row.freeTripLimit, 1);
+      },
+    );
+
+    test(
+      'a row that already existed before the free_trip_limit column was '
+      'added keeps its migration-backfilled allowance (3), not the new '
+      'default — this is what the v10 migration itself does; here we '
+      'simulate that state directly and confirm the repository respects '
+      'whatever is persisted rather than overwriting it',
+      () async {
+        final existing = await repo.read();
+        // Simulate what the v10 migration's backfill does to a
+        // pre-existing row: set free_trip_limit to the OLD default (3),
+        // independent of whatever AppConstants.defaultFreeTripLimit is
+        // today.
+        await (db.update(
+          db.userSettings,
+        )..where((t) => t.id.equals(existing.id))).write(
+          const UserSettingsCompanion(freeTripLimit: Value(3)),
+        );
+        final after = await repo.read();
+        expect(after.freeTripLimit, 3);
+        expect(after.freeTripLimit, isNot(AppConstants.defaultFreeTripLimit));
+      },
+    );
+  });
+
+  group('applyEntitlementCheck — fail-open on network errors', () {
+    test('active sets isPro true', () async {
+      await repo.applyEntitlementCheck(ProEntitlementCheck.active);
+      expect((await repo.read()).isPro, isTrue);
+    });
+
+    test(
+      'inactive (confirmed, not an error) sets isPro false — revokes a '
+      'stale local Pro flag',
+      () async {
+        await repo.patch(const UserSettingsCompanion(isPro: Value(true)));
+        await repo.applyEntitlementCheck(ProEntitlementCheck.inactive);
+        expect((await repo.read()).isPro, isFalse);
+      },
+    );
+
+    test(
+      'unknown (transient failure) leaves an existing Pro flag untouched '
+      '— a known-Pro user must never be revoked by a network error',
+      () async {
+        await repo.patch(const UserSettingsCompanion(isPro: Value(true)));
+        await repo.applyEntitlementCheck(ProEntitlementCheck.unknown);
+        expect((await repo.read()).isPro, isTrue);
+      },
+    );
+
+    test(
+      'unknown also leaves a non-Pro flag untouched (does not '
+      'spuriously grant Pro either)',
+      () async {
+        await repo.applyEntitlementCheck(ProEntitlementCheck.unknown);
+        expect((await repo.read()).isPro, isFalse);
+      },
+    );
   });
 }

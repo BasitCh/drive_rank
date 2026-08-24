@@ -1,10 +1,12 @@
 import 'dart:async' show unawaited;
 
 import 'package:drift/drift.dart';
+import 'package:drive_rank/core/constants/app_constants.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/free_trip_counter_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/core/services/paywall_service.dart' show ProEntitlementCheck;
 import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/services/public_profile_service.dart';
@@ -59,6 +61,11 @@ class UserSettingsRepository {
           _locale.unitSystem == UnitSystem.imperial ? 'imperial' : 'metric',
         ),
         currencyCode: Value(_locale.defaultCurrencyCode),
+        // A brand-new row — grant the current default allowance
+        // explicitly, rather than leaving it null. Existing rows never
+        // pass through this path; they were backfilled to the old
+        // default by the v10 migration in app_database.dart.
+        freeTripLimit: const Value(AppConstants.defaultFreeTripLimit),
         createdAt: DateTime.now(),
       );
       final id = await _db.into(_db.userSettings).insert(defaults);
@@ -106,6 +113,39 @@ class UserSettingsRepository {
     await (_db.update(
       _db.userSettings,
     )..where((t) => t.id.equals(row.id))).write(patch);
+  }
+
+  /// Single source of truth for turning a [ProEntitlementCheck] result
+  /// (restore, boot-time refresh — anywhere RevenueCat gets asked "is
+  /// this user Pro" outside the sign-in flow) into the local `isPro`
+  /// cache correctly. Every non-sign-in call site used to re-implement
+  /// this same three-way switch inline; centralised here so the
+  /// fail-open behaviour can't drift between them.
+  ///
+  /// Sign-in specifically uses its own pure `proEntitlementPatch` in
+  /// `cloud_sign_in_flow.dart` instead of this method — deliberately,
+  /// so that flow's account-switching logic stays a directly unit-
+  /// tested pure function rather than needing a real Drift instance to
+  /// test. Same mapping, two call sites, for that one testability
+  /// reason.
+  ///
+  /// `active` grants Pro. `inactive` is a *confirmed* check that found
+  /// no active entitlement — safe to revoke a stale local `isPro =
+  /// true` (e.g. a subscription that expired or was cancelled since the
+  /// last check). `unknown` is a transient failure (network, RevenueCat
+  /// unreachable) and must never be treated as "no subscription" —
+  /// local `isPro` is left exactly as it was. Local `isPro` stays the
+  /// fast, offline-safe read every screen already uses; this only
+  /// governs when it's allowed to change.
+  Future<void> applyEntitlementCheck(ProEntitlementCheck check) async {
+    switch (check) {
+      case ProEntitlementCheck.active:
+        await patch(const UserSettingsCompanion(isPro: Value(true)));
+      case ProEntitlementCheck.inactive:
+        await patch(const UserSettingsCompanion(isPro: Value(false)));
+      case ProEntitlementCheck.unknown:
+        break;
+    }
   }
 
   /// Mirrors the public-profile text fields to Firestore. Best-effort:

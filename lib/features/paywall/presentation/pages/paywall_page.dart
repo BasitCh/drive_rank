@@ -12,6 +12,7 @@ import 'package:drive_rank/features/paywall/presentation/bloc/paywall_bloc.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PaywallPage extends StatelessWidget {
@@ -67,13 +68,29 @@ class _PaywallBody extends StatelessWidget {
             }
             final offering = state.offering;
             if (offering == null) {
-              return const Center(
+              // Never an empty, dead-end paywall — offerings failing to
+              // load is a real, expected failure mode (offering not
+              // marked current, products not Active in Play Console, a
+              // missing SDK key), not something to fail silently on.
+              return Center(
                 child: Padding(
-                  padding: EdgeInsets.all(AppSpacing.xxl),
-                  child: Text(
-                    AppStrings.paywallUnavailable,
-                    style: AppTextStyles.body,
-                    textAlign: TextAlign.center,
+                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        AppStrings.paywallUnavailable,
+                        style: AppTextStyles.body,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      OutlinedButton(
+                        onPressed: () => context.read<PaywallBloc>().add(
+                          const PaywallRetryRequested(),
+                        ),
+                        child: const Text(AppStrings.homeRetry),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -104,8 +121,22 @@ class _Loaded extends StatelessWidget {
   final List<(String, String)> features;
   final LocaleService locale;
 
+  /// Every package the offering actually returned, longest period
+  /// first — not a hardcoded annual+monthly pair, so a plan added on
+  /// the RevenueCat dashboard (e.g. weekly) shows up with no code
+  /// change here.
+  static List<PaywallPackage> _sortedByLength(List<PaywallPackage> packages) {
+    final sorted = [...packages]..sort(
+      (a, b) => (b.period.approxMonths ?? -1).compareTo(
+        a.period.approxMonths ?? -1,
+      ),
+    );
+    return sorted;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final sortedPackages = _sortedByLength(offering.packages);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -125,24 +156,19 @@ class _Loaded extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                _PlanRow(
-                  package: offering.annual,
-                  isSelected: state.selected == PaywallPeriod.annual,
-                  showBadge: true,
-                  onTap: () => context.read<PaywallBloc>().add(
-                    const PaywallPackageSelected(PaywallPeriod.annual),
+                for (final pkg in sortedPackages) ...[
+                  _PlanRow(
+                    package: pkg,
+                    isSelected: state.selected == pkg.period,
+                    showBadge: pkg == sortedPackages.first,
+                    monthlyBaseline: offering.monthly,
+                    onTap: () => context.read<PaywallBloc>().add(
+                      PaywallPackageSelected(pkg.period),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                _PlanRow(
-                  package: offering.monthly,
-                  isSelected: state.selected == PaywallPeriod.monthly,
-                  showBadge: false,
-                  onTap: () => context.read<PaywallBloc>().add(
-                    const PaywallPackageSelected(PaywallPeriod.monthly),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: 8),
+                ],
+                const SizedBox(height: AppSpacing.sm),
                 _ContinueButton(
                   isLoading: state.status == PaywallStatus.purchasing,
                   onTap: () => context.read<PaywallBloc>().add(
@@ -185,7 +211,7 @@ class _TripPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final speed = snapshot?.bestTopSpeedKmh ?? 0;
     final used = snapshot?.freeTripsUsed ?? 0;
-    final limit = snapshot?.freeTripLimit ?? AppConstants.freeTripLimit;
+    final limit = snapshot?.freeTripLimit ?? AppConstants.defaultFreeTripLimit;
     // The paywall is only reachable after `limit` trips, so a real best
     // speed always exists here — unless local trip history was wiped by
     // a reinstall (the free-trial counter survives it; trip records
@@ -385,12 +411,59 @@ class _PlanRow extends StatelessWidget {
     required this.isSelected,
     required this.showBadge,
     required this.onTap,
+    this.monthlyBaseline,
   });
 
   final PaywallPackage package;
   final bool isSelected;
   final bool showBadge;
   final VoidCallback onTap;
+
+  /// The offering's monthly package, if it has one — used only to
+  /// compute the effective-monthly/savings-% comparison below for
+  /// longer-period plans. Never displayed itself here.
+  final PaywallPackage? monthlyBaseline;
+
+  static String _labelFor(PaywallPeriod period) => switch (period) {
+    PaywallPeriod.annual => AppStrings.paywallPlanAnnual,
+    PaywallPeriod.sixMonth => AppStrings.paywallPlanSixMonth,
+    PaywallPeriod.threeMonth => AppStrings.paywallPlanThreeMonth,
+    PaywallPeriod.twoMonth => AppStrings.paywallPlanTwoMonth,
+    PaywallPeriod.monthly => AppStrings.paywallPlanMonthly,
+    PaywallPeriod.weekly => AppStrings.paywallPlanWeekly,
+    PaywallPeriod.lifetime => AppStrings.paywallPlanLifetime,
+    PaywallPeriod.other => AppStrings.paywallPlanOther,
+  };
+
+  /// Effective-monthly-cost + savings-% line, computed from the real
+  /// store prices at runtime (`priceMicros`, itself derived from
+  /// `storeProduct.price`) — never a hardcoded discount figure. The
+  /// derived monthly figure is formatted with `NumberFormat.currency`
+  /// using the package's own currency code, not by string-manipulating
+  /// `priceString` — hand-building "$1.25/mo" breaks for locales where
+  /// the symbol trails the number or uses different separators.
+  String? _effectiveMonthlyLine() {
+    final months = package.period.approxMonths;
+    final baseline = monthlyBaseline;
+    if (months == null || months <= 1 || baseline == null) return null;
+    final baselineMonths = baseline.period.approxMonths;
+    if (baselineMonths == null || baselineMonths <= 0) return null;
+
+    final effectiveMonthlyMicros = package.priceMicros / months;
+    final baselineMonthlyMicros = baseline.priceMicros / baselineMonths;
+    if (baselineMonthlyMicros <= 0) return null;
+
+    final formatted = NumberFormat.currency(
+      name: package.currencyCode,
+    ).format(effectiveMonthlyMicros / 1000000);
+    final savingsPercent =
+        (1 - effectiveMonthlyMicros / baselineMonthlyMicros) * 100;
+    if (savingsPercent <= 0) {
+      return '$formatted${AppStrings.paywallEffectiveMonthlySuffix}';
+    }
+    return '$formatted${AppStrings.paywallEffectiveMonthlySuffix} '
+        '· Save ${savingsPercent.round()}%';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -399,9 +472,9 @@ class _PlanRow extends StatelessWidget {
     // no fake discounts). Real intro-offer prices from RevenueCat surface
     // through `introPriceString` on the package, never as a was-now diff.
     final perWeek = package.perWeekPriceString;
-    final periodLabel = package.period == PaywallPeriod.annual
-        ? AppStrings.paywallPlanAnnual
-        : AppStrings.paywallPlanMonthly;
+    final effectiveMonthly = _effectiveMonthlyLine();
+    final secondLine = effectiveMonthly ?? perWeek;
+    final periodLabel = _labelFor(package.period);
     return Material(
       color: isSelected
           ? AppColors.teal.withValues(alpha: 0.05)
@@ -442,10 +515,10 @@ class _PlanRow extends StatelessWidget {
                         ],
                       ],
                     ),
-                    if (perWeek != null) ...[
+                    if (secondLine != null) ...[
                       const SizedBox(height: 2),
                       Text(
-                        perWeek,
+                        secondLine,
                         style: const TextStyle(
                           fontFamily: 'Outfit',
                           fontSize: 11,

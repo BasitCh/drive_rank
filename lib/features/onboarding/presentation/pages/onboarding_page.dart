@@ -10,12 +10,15 @@ import 'package:drive_rank/features/onboarding/presentation/pages/cloud_signin_p
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_car_photo_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_car_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_community_step.dart';
+import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_country_proof_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_country_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_location_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_map_theme_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_reviews_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_safety_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_splash_step.dart';
+import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_territory_step.dart';
+import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_unit_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/pages/onboarding_username_step.dart';
 import 'package:drive_rank/features/onboarding/presentation/widgets/progress_chrome.dart';
 import 'package:flutter/material.dart';
@@ -115,10 +118,13 @@ class _OnboardingPageBody extends StatelessWidget {
 
   Widget _stepWidget(OnboardingStep step) => switch (step) {
     OnboardingStep.countryAndVehicle => const OnboardingCountryStep(),
+    OnboardingStep.countrySocialProof => const OnboardingCountryProofStep(),
+    OnboardingStep.unit => const OnboardingUnitStep(),
     OnboardingStep.car => const OnboardingCarStep(),
     OnboardingStep.username => const OnboardingUsernameStep(),
     OnboardingStep.carPhoto => const OnboardingCarPhotoStep(),
     OnboardingStep.community => const OnboardingCommunityStep(),
+    OnboardingStep.territoryTeaser => const OnboardingTerritoryStep(),
     OnboardingStep.mapTheme => const OnboardingMapThemeStep(),
     OnboardingStep.reviews => const OnboardingReviewsStep(),
     OnboardingStep.safety => const OnboardingSafetyStep(),

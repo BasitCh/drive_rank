@@ -171,9 +171,16 @@ class OnboardingCarPhotoStep extends StatelessWidget {
                                   1, // <-- Forces the child to be a perfect square before clipping
                               child: CarSilhouette(
                                 category: category,
+                                makeId: state.carMake?.id,
                                 photoPath: state.carPhotoPath,
-                                fit: BoxFit
-                                    .contain, // <-- Now this will crop without stretching
+                                // The category/make SVGs are 2:1
+                                // landscape — contain keeps them from
+                                // being cropped to a sliver. An actual
+                                // uploaded photo (arbitrary aspect
+                                // ratio) should fill-crop instead.
+                                fit: hasPhoto
+                                    ? BoxFit.cover
+                                    : BoxFit.contain,
                               ),
                             ),
                           ),

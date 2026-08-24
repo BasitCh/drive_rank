@@ -46,6 +46,24 @@ class AppStrings {
   static const String vehicleCar = 'Car';
   static const String vehicleMotorbike = 'Motorbike';
 
+  // Onboarding — country social proof.
+  static const String onboardCountryProofTitle = 'You are in good company';
+  static const String onboardCountryProofSuffix =
+      'used DriveRank yesterday';
+
+  // Onboarding — territory teaser.
+  static const String onboardTerritoryTitle = 'Fight for your territory';
+  static const String onboardTerritorySub =
+      'Every street you drive becomes yours. Out-drive your rivals to '
+      'claim the area and become King of the Area.';
+  static const String onboardTerritoryKingLabel = 'KING OF THE AREA';
+
+  // Onboarding — unit selection.
+  static const String onboardUnitTitle = 'Choose your unit';
+  static const String onboardUnitSub =
+      'Select your preferred speed unit for the speedometer and trip '
+      'tracking.';
+
   // Onboarding — car picker.
   static const String onboardCarTitle = 'Choose your main ride';
   static const String onboardCarSub = 'Select the car you drive most';
@@ -204,9 +222,16 @@ class AppStrings {
   // Free-trip counter — formatted with sprintf-style placeholders.
   static String homeFreeTripsRemaining(int remaining, int total) {
     if (remaining <= 0) return 'No free trips remaining';
+    if (total == 1) return '1 free trip';
     if (remaining == 1) return '1 of $total free trips left';
     return '$remaining of $total free trips left';
   }
+
+  // Shown on the idle surface once the free allowance is spent — an
+  // invitation, not a dead-end "0 remaining" readout. The user reaches
+  // the paywall by tapping this, not by being pushed into it.
+  static const String homeFreeTripUsedTitle = "You've used your free trip";
+  static const String homeSeePlans = 'See plans';
 
   // End Trip confirmation dialog.
   static const String endTripConfirmTitle = 'End this trip?';
@@ -387,9 +412,16 @@ class AppStrings {
   static const String paywallTripCountSuffix = 'of';
   static const String paywallTripLimitReached = 'Free limit reached';
   static const String paywallPlanAnnual = 'Annual';
+  static const String paywallPlanSixMonth = '6 Months';
+  static const String paywallPlanThreeMonth = '3 Months';
+  static const String paywallPlanTwoMonth = '2 Months';
   static const String paywallPlanMonthly = 'Monthly';
+  static const String paywallPlanWeekly = 'Weekly';
+  static const String paywallPlanLifetime = 'Lifetime';
+  static const String paywallPlanOther = 'Plan';
   static const String paywallBadgeBestValue = 'BEST VALUE';
   static const String paywallPerWeekSuffix = '/week';
+  static const String paywallEffectiveMonthlySuffix = '/mo';
   static const String paywallContinue = 'Continue →';
   static const String paywallFooter =
       'No spin wheels. No fake discounts. Cancel anytime.';

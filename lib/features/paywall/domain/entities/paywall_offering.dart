@@ -1,7 +1,33 @@
 import 'package:flutter/foundation.dart';
 
-/// Subscription period of a paywall package.
-enum PaywallPeriod { monthly, annual }
+/// Subscription period of a paywall package — covers every RevenueCat
+/// `PackageType` that could realistically appear in the `default`
+/// offering, so a new plan added on the dashboard (e.g. weekly) renders
+/// correctly without a code change here.
+enum PaywallPeriod {
+  annual,
+  sixMonth,
+  threeMonth,
+  twoMonth,
+  monthly,
+  weekly,
+  lifetime,
+  other;
+
+  /// Approximate length in months — used only to compute the
+  /// "effective monthly cost" comparison, never displayed directly.
+  /// Null for [lifetime]/[other], which have no meaningful monthly
+  /// equivalent.
+  double? get approxMonths => switch (this) {
+    annual => 12,
+    sixMonth => 6,
+    threeMonth => 3,
+    twoMonth => 2,
+    monthly => 1,
+    weekly => 12 / 52, // ≈0.23 — matches a 52-week year, not 4×.
+    lifetime || other => null,
+  };
+}
 
 /// One purchasable subscription package displayed on the paywall.
 ///
@@ -27,7 +53,9 @@ class PaywallPackage {
   final String priceString;
 
   /// The price in micros of the currency's smallest unit (e.g. 2599000000
-  /// for ₨2,599.00). Comparison-only — never displayed.
+  /// for ₨2,599.00). Comparison/math only — never displayed directly;
+  /// the *effective monthly cost* derived from it for display is
+  /// formatted via `NumberFormat.currency`, not string-built.
   final int priceMicros;
 
   final String currencyCode;
@@ -47,13 +75,23 @@ class PaywallPackage {
 
 @immutable
 class PaywallOffering {
-  const PaywallOffering({
-    required this.identifier,
-    required this.annual,
-    required this.monthly,
-  });
+  const PaywallOffering({required this.identifier, required this.packages});
 
   final String identifier;
-  final PaywallPackage annual;
-  final PaywallPackage monthly;
+
+  /// Every purchasable package in this offering — rendered dynamically,
+  /// not assumed to be exactly annual+monthly. Order is whatever the
+  /// store/service returned (RevenueCat lists a dashboard's packages in
+  /// the order configured there).
+  final List<PaywallPackage> packages;
+
+  PaywallPackage? get annual => _firstOfPeriod(PaywallPeriod.annual);
+  PaywallPackage? get monthly => _firstOfPeriod(PaywallPeriod.monthly);
+
+  PaywallPackage? _firstOfPeriod(PaywallPeriod period) {
+    for (final p in packages) {
+      if (p.period == period) return p;
+    }
+    return null;
+  }
 }

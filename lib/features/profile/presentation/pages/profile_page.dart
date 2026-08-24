@@ -288,10 +288,22 @@ class _Header extends StatelessWidget {
             child: ClipOval(
               child: AspectRatio(
                 aspectRatio: 1,
-                child: CarSilhouette(
-                  category: _category,
-                  photoPath: settings.carPhotoPath,
-                  fit: BoxFit.cover,
+                child: Builder(
+                  builder: (context) {
+                    // The category SVGs are 2:1 landscape — BoxFit.cover
+                    // inside this square avatar crops most of the width
+                    // away, leaving just a sliver of the roofline. Only
+                    // an actual uploaded photo (arbitrary aspect ratio)
+                    // should fill-crop; the SVG fallback needs contain.
+                    final hasPhoto =
+                        settings.carPhotoPath != null &&
+                        settings.carPhotoPath!.isNotEmpty;
+                    return CarSilhouette(
+                      category: _category,
+                      photoPath: settings.carPhotoPath,
+                      fit: hasPhoto ? BoxFit.cover : BoxFit.contain,
+                    );
+                  },
                 ),
               ),
             ),

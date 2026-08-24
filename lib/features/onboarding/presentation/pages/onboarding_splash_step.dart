@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
@@ -25,9 +27,19 @@ class OnboardingSplashStep extends StatefulWidget {
 }
 
 class _OnboardingSplashStepState extends State<OnboardingSplashStep>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _ringController;
   late final Animation<double> _ringValue;
+
+  // Once the initial 0→74 ramp settles, a smooth "count-up" reads as a
+  // loading bar rather than something alive. This keeps the dial gently
+  // wobbling around its settled position afterward — small back-to-back
+  // journeys between nearby random offsets, the same trick a real
+  // telemetry readout does (see A1 in the onboarding animation notes).
+  late final AnimationController _wobbleController;
+  double _wobbleFrom = 0;
+  double _wobbleTo = 0;
+  final _rand = math.Random();
 
   int _slide = 0;
 
@@ -57,12 +69,34 @@ class _OnboardingSplashStepState extends State<OnboardingSplashStep>
       parent: _ringController,
       curve: Curves.easeOutCubic,
     );
-    _ringController.forward();
+    _wobbleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+    _ringController.forward().whenComplete(_scheduleNextWobble);
+  }
+
+  void _scheduleNextWobble() {
+    if (!mounted) return;
+    _wobbleFrom = _wobbleTo;
+    // ±4% of the dial's full scale — on a settled value of 74 that's
+    // roughly a 70-78 band, close to the "88, 86, 88, 89, 87…" swing a
+    // real live readout has.
+    _wobbleTo = (_rand.nextDouble() * 0.08) - 0.04;
+    _wobbleController
+      ..reset()
+      ..forward().whenComplete(_scheduleNextWobble);
+  }
+
+  double get _wobbleValue {
+    final t = Curves.easeInOut.transform(_wobbleController.value);
+    return _wobbleFrom + (_wobbleTo - _wobbleFrom) * t;
   }
 
   @override
   void dispose() {
     _ringController.dispose();
+    _wobbleController.dispose();
     super.dispose();
   }
 
@@ -105,24 +139,31 @@ class _OnboardingSplashStepState extends State<OnboardingSplashStep>
               ),
               const Spacer(),
               AnimatedBuilder(
-                animation: _ringValue,
-                builder: (_, __) => SplashRing(
-                  value: _ringValue.value,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        (74 * _ringValue.value).round().toString(),
-                        style: AppTextStyles.splashNumber,
-                      ),
-                      const SizedBox(height: 0),
-                      Text(
-                        widget.locale.speedUnitLabel,
-                        style: AppTextStyles.speedUnit.copyWith(fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
+                animation: Listenable.merge([_ringValue, _wobbleController]),
+                builder: (_, __) {
+                  final live = _ringController.isCompleted
+                      ? (_ringValue.value + _wobbleValue).clamp(0.0, 1.15)
+                      : _ringValue.value;
+                  return SplashRing(
+                    value: live,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          (74 * live).round().toString(),
+                          style: AppTextStyles.splashNumber,
+                        ),
+                        const SizedBox(height: 0),
+                        Text(
+                          widget.locale.speedUnitLabel,
+                          style: AppTextStyles.speedUnit.copyWith(
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
               const Spacer(),
               Column(

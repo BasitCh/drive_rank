@@ -1,7 +1,7 @@
 name: drive_rank
 description: "DriveRank — Track your trips. Flex your stats."
 publish_to: "none"
-version: 1.1.13+24
+version: 1.2.0+25
 
 environment:
   sdk: ^3.11.5
@@ -65,6 +65,7 @@ dependencies:
   intl: ^0.20.2
   flutter_dotenv: ^5.2.1
   cached_network_image: ^3.3.0
+  flutter_svg: ^2.0.10+1
   flutter_animate: ^4.5.0
   uuid: ^4.4.0
   audioplayers: ^6.1.0
@@ -115,6 +116,8 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/cars/
+    - assets/images/makes/
     - assets/data/
     - assets/sound/
 

@@ -331,25 +331,33 @@ class _Body extends StatelessWidget {
   /// accounts). Surfaces a snackbar with the result either way.
   Future<void> _restorePurchases(BuildContext context) async {
     final paywall = getIt<PaywallService>();
-    var restored = false;
+    ProEntitlementCheck result;
     try {
-      restored = await paywall.restorePurchases();
+      result = await paywall.restorePurchases();
     } catch (_) {
-      restored = false;
+      result = ProEntitlementCheck.unknown;
     }
-    // Side-effect: when the real RC service returns true, the bloc /
-    // bootstrap layer flips the local isPro flag. Here we just tell
-    // the user what happened.
+    // Fail-open/fail-closed logic lives in one place —
+    // UserSettingsRepository.applyEntitlementCheck — not re-implemented
+    // here. The settings page's own StreamBuilder over
+    // UserSettingsRepository.watch() picks up the patched isPro on its
+    // own — no separate "refresh" step needed.
+    await repo.applyEntitlementCheck(result);
+    String message;
+    switch (result) {
+      case ProEntitlementCheck.active:
+        message = 'Pro restored — thanks for being a subscriber.';
+      case ProEntitlementCheck.inactive:
+        message = "We couldn't find an active subscription on this account.";
+      case ProEntitlementCheck.unknown:
+        message =
+            "Couldn't check your subscription — check your connection "
+            'and try again.';
+    }
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          restored
-              ? 'Pro restored — thanks for being a subscriber.'
-              : "We couldn't find an active subscription on this account.",
-        ),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Opens [url] in the platform's external browser (or store app, for

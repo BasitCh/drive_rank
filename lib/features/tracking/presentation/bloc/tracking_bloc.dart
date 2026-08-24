@@ -577,8 +577,19 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       }
 
       final after = await _settings.read();
-      final paywallDue =
-          !after.isPro && after.freeTripsUsed >= AppConstants.freeTripLimit;
+      final tripLimit = after.freeTripLimit ?? AppConstants.defaultFreeTripLimit;
+      // Kept on state (not just used locally) purely so the UI can
+      // decide what copy to show on the idle surface afterward — it no
+      // longer triggers an automatic navigation to the paywall here.
+      // The paywall shows only when the user actively attempts to
+      // start a next trip (see TrackingPage._onStart/isExhausted) —
+      // showing it unprompted the instant someone closes their first
+      // trip's summary is the wrong moment, both emotionally and
+      // strategically for conversion.
+      final paywallDue = !after.isPro && after.freeTripsUsed >= tripLimit;
+      if (paywallDue) {
+        unawaited(_telemetry.track(TelemetryEvents.freeTripUsed));
+      }
 
       _startedAt = null;
       // Trip durably saved to Drift — wipe the crash-recovery snapshot

@@ -40,6 +40,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     on<OnboardingStarted>(_onStarted);
     on<OnboardingStepNext>(_onNext);
     on<OnboardingStepBack>(_onBack);
+    on<OnboardingUnitSelected>(_onUnit);
     on<OnboardingCountrySelected>(_onCountry);
     on<OnboardingVehicleTypeSelected>(_onVehicle);
     on<OnboardingCarMakeSelected>(_onMake);
@@ -181,6 +182,24 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     final currentIdx = order.indexOf(state.step);
     if (currentIdx <= 0) return;
     emit(state.copyWith(step: order[currentIdx - 1]));
+  }
+
+  /// Persists an explicit unit-system choice and swaps the registered
+  /// `LocaleService` so this session's UI (including the rest of
+  /// onboarding) picks it up immediately — same pattern `_onCountry`
+  /// uses for its auto-derived default. This step runs right after
+  /// country selection, so it's the user's chance to confirm or
+  /// override whatever `_onCountry` guessed.
+  Future<void> _onUnit(
+    OnboardingUnitSelected event,
+    Emitter<OnboardingState> emit,
+  ) async {
+    await _settings.setUnitSystem(event.unitSystem);
+    final swapped = getIt<LocaleService>().withOverride(event.unitSystem);
+    if (getIt.isRegistered<LocaleService>()) {
+      await getIt.unregister<LocaleService>();
+    }
+    getIt.registerLazySingleton<LocaleService>(() => swapped);
   }
 
   Future<void> _onCountry(

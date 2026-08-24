@@ -1,3 +1,4 @@
+import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/permission_service.dart';
 import 'package:drive_rank/features/onboarding/domain/entities/car_make.dart';
 import 'package:drive_rank/shared/models/country.dart';
@@ -20,6 +21,11 @@ class OnboardingStepNext extends OnboardingEvent {
 
 class OnboardingStepBack extends OnboardingEvent {
   const OnboardingStepBack();
+}
+
+class OnboardingUnitSelected extends OnboardingEvent {
+  const OnboardingUnitSelected(this.unitSystem);
+  final UnitSystem unitSystem;
 }
 
 class OnboardingCountrySelected extends OnboardingEvent {

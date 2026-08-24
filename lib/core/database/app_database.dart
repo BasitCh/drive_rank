@@ -27,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -146,6 +146,24 @@ class AppDatabase extends _$AppDatabase {
         // primary key so two devices restoring/pushing under the same
         // account can't collide on the same path.
         await customStatement('ALTER TABLE trips ADD COLUMN remote_id TEXT');
+      }
+      if (from < 10) {
+        // v10 — free_trip_limit: the free-trip allowance persisted per
+        // user, rather than read from a global constant, so lowering
+        // the default for new users (3 → 1) can't retroactively cut an
+        // existing install's already-granted allowance. Every row that
+        // already exists at this migration is, by definition, an
+        // existing install — backfill it to the OLD default (3) so it
+        // keeps exactly the allowance it already had. New rows created
+        // after this point get the new default (1) explicitly at
+        // insert time (see UserSettingsRepository.ensureExists).
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN free_trip_limit INTEGER',
+        );
+        await customStatement(
+          'UPDATE user_settings SET free_trip_limit = 3 '
+          'WHERE free_trip_limit IS NULL',
+        );
       }
     },
     beforeOpen: (details) async {
