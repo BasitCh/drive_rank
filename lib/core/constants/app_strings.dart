@@ -368,6 +368,7 @@ class AppStrings {
   static const String cloudSignInSyncing = 'Restoring your account…';
   static const String cloudSignInWelcomeBack = 'Welcome back';
   static const String cloudSignInAllSet = "You're all set";
+  static const String cloudSignInFailed = "Couldn't sign in — please try again";
   static const String syncStatusSyncing = 'Syncing';
   static const String syncStatusSynced = 'Everything is synced';
   static const String syncStatusError = 'Sync paused — tap to retry';

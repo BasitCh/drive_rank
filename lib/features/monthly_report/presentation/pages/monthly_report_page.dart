@@ -136,8 +136,8 @@ class _Header extends StatelessWidget {
               onTap: () =>
                   context.canPop() ? context.pop() : context.go('/profile'),
               child: const SizedBox(
-                width: 30,
-                height: 30,
+                width: 44,
+                height: 44,
                 child: Icon(
                   Icons.chevron_left_rounded,
                   color: AppColors.textPrimary,

@@ -445,18 +445,40 @@ Future<void> _maybeInitRevenueCat() async {
   // last launch), `unknown` is a transient failure (network, RevenueCat
   // down) and must leave local `isPro` exactly as it was — never
   // downgrade a locally-pro user just because the remote check failed.
-  try {
-    final restoreResult = await service.restorePurchases();
-    // Fail-open/fail-closed logic lives in one place —
-    // UserSettingsRepository.applyEntitlementCheck — not re-implemented
-    // here.
-    await getIt<UserSettingsRepository>().applyEntitlementCheck(
-      restoreResult,
-    );
-    if (kDebugMode) {
-      debugPrint('[bootstrap] RC restorePurchases → $restoreResult');
+  //
+  // `unknown` gets a couple of short retries: this whole call runs
+  // unawaited in the background right after cold start, when a real
+  // device's radio/WiFi often isn't up yet — a single attempt turns
+  // that transient hiccup into a permanent "you have to manually
+  // restore from Settings" until the user notices. `active`/`inactive`
+  // are confirmed results and are applied — and reported — immediately,
+  // no retry needed.
+  var restoreResult = ProEntitlementCheck.unknown;
+  const maxAttempts = 3;
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      restoreResult = await service.restorePurchases();
+    } catch (e) {
+      if (kDebugMode) debugPrint('[bootstrap] RC restore failed: $e');
     }
-  } catch (e) {
-    if (kDebugMode) debugPrint('[bootstrap] RC restore failed: $e');
+    if (restoreResult != ProEntitlementCheck.unknown ||
+        attempt == maxAttempts) {
+      break;
+    }
+    await Future<void>.delayed(Duration(seconds: 2 * attempt));
   }
+
+  // Fail-open/fail-closed logic lives in one place —
+  // UserSettingsRepository.applyEntitlementCheck — not re-implemented
+  // here.
+  await getIt<UserSettingsRepository>().applyEntitlementCheck(restoreResult);
+  if (kDebugMode) {
+    debugPrint('[bootstrap] RC restorePurchases → $restoreResult');
+  }
+  unawaited(
+    _safeTelemetry()?.track(
+      TelemetryEvents.autoRestoreCompleted,
+      properties: {'result': restoreResult.name},
+    ),
+  );
 }

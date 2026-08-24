@@ -669,7 +669,7 @@ class _CircleButton extends StatelessWidget {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: SizedBox(width: 30, height: 30, child: Center(child: child)),
+        child: SizedBox(width: 44, height: 44, child: Center(child: child)),
       ),
     );
   }

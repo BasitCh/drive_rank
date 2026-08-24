@@ -354,8 +354,8 @@ class _BackButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: const SizedBox(
-          width: 30,
-          height: 30,
+          width: 44,
+          height: 44,
           child: Center(
             child: Icon(
               Icons.chevron_left_rounded,

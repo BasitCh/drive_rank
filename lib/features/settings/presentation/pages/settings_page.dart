@@ -711,7 +711,7 @@ class _CloudAccountRowState extends State<_CloudAccountRow> {
                 '${result.tripsRestored} trips restored'
           : AppStrings.cloudSignInAllSet,
       CloudSignInOutcome.cancelled => null,
-      CloudSignInOutcome.failed => null,
+      CloudSignInOutcome.failed => AppStrings.cloudSignInFailed,
     };
     if (message != null) {
       ScaffoldMessenger.of(

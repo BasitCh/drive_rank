@@ -265,6 +265,15 @@ class TelemetryEvents {
   /// — this is offerings failing to *load* in the first place.
   static const String offeringsLoadFailed = 'offerings_load_failed';
 
+  /// Fired with the outcome (`active`/`inactive`/`unknown`, plus
+  /// `attempt` and — on the final attempt — `gave_up_after_retries`)
+  /// of the silent, unawaited auto-restore `bootstrap.dart` runs on
+  /// every cold start. This is the only visibility into that
+  /// background path in production; without it, a stranded
+  /// `unknown` result (cold-boot network hiccup) is invisible except
+  /// via a `debugPrint` that never reaches a release build.
+  static const String autoRestoreCompleted = 'auto_restore_completed';
+
   static const String mapThemeChanged = 'map_theme_changed';
   static const String unitsChanged = 'units_changed';
   static const String fuelConfigured = 'fuel_configured';
