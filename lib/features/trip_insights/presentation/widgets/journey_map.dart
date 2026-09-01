@@ -5,11 +5,13 @@ import 'package:drive_rank/features/trip_insights/domain/entities/insights_bundl
 import 'package:drive_rank/features/trip_insights/domain/entities/replay_point.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/speed_bucket.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
+import 'package:drive_rank/shared/services/map_basemap.dart';
+import 'package:drive_rank/shared/services/map_tile_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-/// Dark-themed map with the speed-coloured polyline + explicit START /
+/// Real street-map basemap with the speed-coloured polyline + explicit START /
 /// END markers, plus an animated route replay: play/pause, a
 /// draggable scrub bar, a 1x/2x/3x speed multiplier, live speed /
 /// distance / elapsed-time counters, a pulsing radar marker at the
@@ -17,8 +19,10 @@ import 'package:latlong2/latlong.dart';
 /// vehicle reaches it, and a re-centre button once the user pans away.
 /// The camera itself follows the replay marker start-to-end while
 /// playing — panning is automatic, not something the user has to do
-/// by hand — and backs off the moment the user drags manually; the
-/// re-centre button hands control back to auto-follow. The moving
+/// by hand — and only backs off once the user actually drags the map a
+/// real distance (a stray tap alone doesn't count — see
+/// `_panAwayThresholdMeters`); the re-centre button hands control back
+/// to auto-follow. The moving
 /// marker renders the user's selected vehicle glyph (car or
 /// motorbike) rather than a plain dot. Fills the Journey card's
 /// vertical real estate per spec (~70 % of the card).
@@ -27,13 +31,16 @@ import 'package:latlong2/latlong.dart';
 /// (`InsightsBundle.replayEligible`) — a couple of jerky hops isn't a
 /// route story, so the controls just don't render.
 ///
-/// Basemap: CartoDB Dark Matter tiles — pre-rendered dark style with
-/// legible white labels. Earlier versions filtered OSM Carto-light at
-/// runtime with a `ColorFilter` matrix, which mangled label contrast
-/// (the user couldn't read country names) and cost a GPU pass per
-/// tile per frame. Dark tiles render natively, no filter required.
-/// Attribution rendered bottom-right via flutter_map's
-/// `RichAttributionWidget`.
+/// Basemap: resolved by `MapBasemap` — CARTO's "Dark Matter" tiles
+/// (matches the app's black theme) when a `CARTO_API_KEY` is supplied
+/// at build time, falling back to Esri's key-less "World Street Map"
+/// otherwise. See `MapBasemap` for why: raw `tile.openstreetmap.org`
+/// actively rejects app traffic under OSM's usage policy, and CARTO's
+/// basemap now requires a (free, 5M-tiles/month) key — free/anonymous
+/// requests come back watermarked "API KEY REQUIRED". Tiles are routed
+/// through [OfflineCachedTileProvider] so a route already viewed once
+/// with a connection stays viewable offline afterwards. Attribution
+/// rendered bottom-right via flutter_map's `RichAttributionWidget`.
 class JourneyMap extends StatefulWidget {
   const JourneyMap({
     required this.bundle,
@@ -71,11 +78,37 @@ class _JourneyMapState extends State<JourneyMap>
   /// independent of playback state.
   late final AnimationController _pulseController;
   final MapController _mapController = MapController();
+  final MapBasemap _basemap = MapBasemap.resolve();
   late List<LatLng> _routePoints;
   late int _topSpeedIndex;
   int _speedMultiplier = 1;
   bool _hasPannedAway = false;
   LatLngBounds? _bounds;
+
+  /// Where auto-follow last placed the camera — the baseline a gesture's
+  /// net displacement is measured against in `onPositionChanged` so a
+  /// stray touch (a tap on the map still nudges the camera by a
+  /// sub-metre amount as part of how the underlying gesture recognizer
+  /// resolves a scale/drag gesture) doesn't get mistaken for the user
+  /// deliberately panning away. Only a real drag, which moves the
+  /// centre well beyond finger jitter, disengages auto-follow.
+  LatLng? _autoFollowCenter;
+
+  /// Below this, a gesture's net displacement from where it began is
+  /// touchscreen jitter rather than an intentional pan.
+  static const double _panAwayThresholdMeters = 20;
+
+  /// Last time a user gesture (not `_followCamera`'s own programmatic
+  /// moves) touched the map, and where that gesture's displacement is
+  /// measured from. While a drag/pinch is actively in progress,
+  /// `onPositionChanged` fires repeatedly — `_followCamera` must not
+  /// fight the user's finger by snapping the camera back mid-gesture,
+  /// so it backs off entirely for as long as gesture events keep
+  /// arriving, plus a short `_gestureCooldown` grace period after the
+  /// last one so a just-released drag doesn't immediately snap back.
+  DateTime? _lastGestureAt;
+  LatLng? _gestureStartCenter;
+  static const Duration _gestureCooldown = Duration(milliseconds: 500);
 
   /// The live stats row (Speed / Distance / Time) only refreshes this
   /// often, regardless of frame rate — the replay covers a whole trip
@@ -115,6 +148,8 @@ class _JourneyMapState extends State<JourneyMap>
       _topSpeedIndex = _topSpeedIndexOf(widget.bundle);
       _replayController.reset();
       _hasPannedAway = false;
+      _lastGestureAt = null;
+      _gestureStartCenter = null;
       _displayedStatsIndex = null;
       _lastStatsRefresh = null;
     }
@@ -211,6 +246,8 @@ class _JourneyMapState extends State<JourneyMap>
     _mapController.fitCamera(
       CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(28)),
     );
+    _lastGestureAt = null;
+    _gestureStartCenter = null;
     setState(() => _hasPannedAway = false);
   }
 
@@ -219,10 +256,19 @@ class _JourneyMapState extends State<JourneyMap>
   /// user having to manually drag to keep up. Fires on every
   /// `_replayController` tick (not from `build`, so this stays a plain
   /// imperative camera move rather than a widget rebuild side effect).
-  /// Backs off the moment the user pans by hand — `_recentre` is what
-  /// hands control back to auto-follow.
+  /// Backs off once the user actually drags the map — `_recentre` is
+  /// what hands control back to auto-follow. Also backs off for
+  /// `_gestureCooldown` after any gesture, active drag included — this
+  /// is what stops it fighting the user's finger by snapping back mid-
+  /// drag, before the drag has gone far enough to count as "panned
+  /// away".
   void _followCamera() {
     if (!_canReplay || _hasPannedAway) return;
+    final lastGesture = _lastGestureAt;
+    if (lastGesture != null &&
+        DateTime.now().difference(lastGesture) < _gestureCooldown) {
+      return;
+    }
     final progress = _replayController.value;
     if (progress <= 0 || progress >= 1) return;
     if (_routePoints.length < 2) return;
@@ -231,7 +277,9 @@ class _JourneyMapState extends State<JourneyMap>
       _routePoints.length - 1,
     );
     try {
-      _mapController.move(_routePoints[idx], _mapController.camera.zoom);
+      final target = _routePoints[idx];
+      _mapController.move(target, _mapController.camera.zoom);
+      _autoFollowCenter = target;
     } catch (_) {
       // Controller isn't attached to a laid-out map yet (e.g. the very
       // first tick before the first frame) — next tick catches up.
@@ -252,14 +300,14 @@ class _JourneyMapState extends State<JourneyMap>
     final start = _firstPoint(bundle);
     final end = _lastPoint(bundle);
     final canReplay = _canReplay;
-    // Dark backdrop behind the map. FlutterMap paints on top of whatever
-    // its parent provides — before OSM tiles land on a slow connection
-    // the map area was flashing bright white against our dark card
-    // (~1 s on cold cache). Painting the underlying region dark first
-    // means the same window shows a subtle "loading" surface in the
-    // brand palette instead of a jarring white square.
+    // Backdrop behind the map. FlutterMap paints on top of whatever its
+    // parent provides — before tiles land on a slow connection the map
+    // area would otherwise flash whatever the surrounding card's colour
+    // is against the basemap's actual tone once tiles arrive. Matching
+    // the active basemap's own background here keeps that window from
+    // reading as a colour flash.
     return ColoredBox(
-      color: _mapBackdrop,
+      color: _basemap.backdropColor,
       child: Stack(
         children: [
           AnimatedBuilder(
@@ -282,7 +330,27 @@ class _JourneyMapState extends State<JourneyMap>
                           padding: const EdgeInsets.all(28),
                         ),
                   onPositionChanged: (position, hasGesture) {
-                    if (hasGesture && !_hasPannedAway) {
+                    if (!hasGesture) return;
+                    final now = DateTime.now();
+                    final lastGesture = _lastGestureAt;
+                    final isNewGestureSession =
+                        lastGesture == null ||
+                        now.difference(lastGesture) >= _gestureCooldown;
+                    if (isNewGestureSession) {
+                      _gestureStartCenter =
+                          _autoFollowCenter ?? position.center;
+                    }
+                    _lastGestureAt = now;
+                    if (_hasPannedAway) return;
+                    final start = _gestureStartCenter;
+                    final movedMeters = start == null
+                        ? double.infinity
+                        : const Distance().as(
+                            LengthUnit.Meter,
+                            start,
+                            position.center,
+                          );
+                    if (movedMeters > _panAwayThresholdMeters) {
                       setState(() => _hasPannedAway = true);
                     }
                   },
@@ -295,18 +363,10 @@ class _JourneyMapState extends State<JourneyMap>
                 ),
                 children: [
                   TileLayer(
-                    // {r} expands to "@2x" on retina screens. CartoDB
-                    // ships 512 px @2x dark tiles that render city /
-                    // country labels crisp white against the dark base
-                    // — exactly the look the user pointed at on
-                    // TripRank. The non-retina path looked soft and
-                    // grey on high-DPI Android, which is what they
-                    // were seeing.
-                    urlTemplate:
-                        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                    subdomains: const ['a', 'b', 'c', 'd'],
-                    retinaMode: true,
+                    urlTemplate: _basemap.urlTemplate,
+                    additionalOptions: _basemap.additionalOptions,
                     userAgentPackageName: 'com.bytse.drive_rank',
+                    tileProvider: OfflineCachedTileProvider(),
                     // Keep one extra ring of tiles prefetched around the
                     // viewport so panning / zooming during framing
                     // reveals already-loaded labels instead of grey
@@ -426,10 +486,7 @@ class _JourneyMapState extends State<JourneyMap>
                     showFlutterMapAttribution: false,
                     alignment: AttributionAlignment.bottomRight,
                     popupBorderRadius: BorderRadius.circular(8),
-                    attributions: const [
-                      TextSourceAttribution('OpenStreetMap'),
-                      TextSourceAttribution('CARTO'),
-                    ],
+                    attributions: _basemap.attributions,
                   ),
                 ],
               );
@@ -479,11 +536,6 @@ class _JourneyMapState extends State<JourneyMap>
       ),
     );
   }
-
-  /// Matches AppColors.bg2 (#0D0D12) — a shade darker than the section
-  /// card so the "loading" surface reads as its own region under the
-  /// tiles rather than blending with the card background.
-  static const Color _mapBackdrop = Color(0xFF0D0D12);
 
   LatLngBounds? _boundsForSegments(InsightsBundle bundle) {
     if (bundle.segments.isEmpty) return null;

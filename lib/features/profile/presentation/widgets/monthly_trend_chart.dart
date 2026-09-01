@@ -47,8 +47,20 @@ class _MonthlyTrendChartState extends State<MonthlyTrendChart> {
 
   @override
   Widget build(BuildContext context) {
-    final stats = widget.stats;
-    if (stats.isEmpty) return const SizedBox.shrink();
+    final rawStats = widget.stats;
+    if (rawStats.isEmpty) return const SizedBox.shrink();
+
+    // `monthlyDistanceTrend` omits months with no trips entirely, so a
+    // brand-new account with a single trip ever gets exactly one data
+    // point. A line chart can't draw a line through one point — it was
+    // rendering as an isolated dot with no line or fill underneath it,
+    // which read as broken rather than "your trend so far". Prepending
+    // a synthetic zero-distance point for the prior month gives it an
+    // actual line to draw, matching how this chart looks once a second
+    // real month of data exists.
+    final stats = rawStats.length == 1
+        ? [_priorMonthZero(rawStats.first), rawStats.first]
+        : rawStats;
 
     final maxKm = stats
         .map((s) => s.distanceKm)
@@ -141,6 +153,15 @@ class _MonthlyTrendChartState extends State<MonthlyTrendChart> {
           ],
         ),
       ),
+    );
+  }
+
+  MonthlyDistanceStat _priorMonthZero(MonthlyDistanceStat only) {
+    final prior = DateTime(only.year, only.month - 1);
+    return MonthlyDistanceStat(
+      year: prior.year,
+      month: prior.month,
+      distanceKm: 0,
     );
   }
 }

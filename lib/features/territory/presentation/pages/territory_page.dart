@@ -6,6 +6,8 @@ import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/hex_grid_service.dart';
 import 'package:drive_rank/shared/models/territory_stats.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/services/map_basemap.dart';
+import 'package:drive_rank/shared/services/map_tile_cache.dart';
 import 'package:drive_rank/shared/services/territory_stats_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -14,12 +16,12 @@ import 'package:latlong2/latlong.dart';
 
 /// Full-screen "everything you've conquered" map — every hex cell (see
 /// `HexGridService`) the user has ever driven through, across every
-/// trip, filled in on top of the dark map tiles.
+/// trip, filled in on top of a real map (see `MapBasemap`).
 ///
-/// Structurally modeled on `JourneyMap` (same dark CartoDB tile setup,
-/// same backdrop colour, same attribution) but renders a `PolygonLayer`
-/// of visited cells instead of a route `Polyline`, camera-fit once to
-/// the visited area rather than animated replay.
+/// Structurally modeled on `JourneyMap` (same basemap resolution, same
+/// attribution style, same offline tile caching) but renders a
+/// `PolygonLayer` of visited cells instead of a route `Polyline`,
+/// camera-fit once to the visited area rather than animated replay.
 class TerritoryPage extends StatefulWidget {
   const TerritoryPage({super.key});
 
@@ -131,7 +133,7 @@ class _EmptyTerritoryState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: _Map._mapBackdrop,
+      color: _Map._basemap.backdropColor,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -180,9 +182,7 @@ class _Map extends StatelessWidget {
   final TerritoryStats stats;
   final MapController mapController;
 
-  /// Matches `AppColors.bg2` — a shade darker than the surrounding page
-  /// so the "loading" surface reads as its own region under the tiles.
-  static const Color _mapBackdrop = Color(0xFF0D0D12);
+  static final MapBasemap _basemap = MapBasemap.resolve();
 
   /// The reference app fills conquered cells in a warm terracotta —
   /// distinct from this app's teal brand accent (used for the small
@@ -206,7 +206,7 @@ class _Map extends StatelessWidget {
         : LatLngBounds.fromPoints([for (final p in polygons) ...p.points]);
 
     return ColoredBox(
-      color: _mapBackdrop,
+      color: _basemap.backdropColor,
       child: FlutterMap(
         mapController: mapController,
         options: MapOptions(
@@ -226,11 +226,10 @@ class _Map extends StatelessWidget {
         ),
         children: [
           TileLayer(
-            urlTemplate:
-                'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-            subdomains: const ['a', 'b', 'c', 'd'],
-            retinaMode: true,
+            urlTemplate: _basemap.urlTemplate,
+            additionalOptions: _basemap.additionalOptions,
             userAgentPackageName: 'com.bytse.drive_rank',
+            tileProvider: OfflineCachedTileProvider(),
             keepBuffer: 2,
             maxZoom: 19,
           ),
@@ -239,10 +238,7 @@ class _Map extends StatelessWidget {
             showFlutterMapAttribution: false,
             alignment: AttributionAlignment.bottomRight,
             popupBorderRadius: BorderRadius.circular(8),
-            attributions: const [
-              TextSourceAttribution('OpenStreetMap'),
-              TextSourceAttribution('CARTO'),
-            ],
+            attributions: _basemap.attributions,
           ),
         ],
       ),
