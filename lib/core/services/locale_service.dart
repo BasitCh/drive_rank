@@ -92,6 +92,17 @@ class LocaleService {
     return '${value.toStringAsFixed(fractionDigits)} $distanceUnitLabel';
   }
 
+  /// Format a distance *number only* — the distance counterpart to
+  /// [formatSpeedValue], for layouts that place the unit label
+  /// separately (e.g. a leaderboard row's right-aligned value with its
+  /// unit beneath).
+  String formatDistanceValue(double km, {int fractionDigits = 0}) {
+    final value = unitSystem == UnitSystem.imperial
+        ? km * AppConstants.kmToMiles
+        : km;
+    return value.toStringAsFixed(fractionDigits);
+  }
+
   /// Format an elevation for display. Input is always metres (canonical
   /// storage).
   String formatElevation(double metres, {int fractionDigits = 0}) {

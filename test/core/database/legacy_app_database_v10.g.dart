@@ -2474,12 +2474,13 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
   }
 }
 
-class $UserSettingsTable extends UserSettings
-    with TableInfo<$UserSettingsTable, UserSettingsRow> {
+class $LegacyUserSettingsPreV13Table extends LegacyUserSettingsPreV13
+    with
+        TableInfo<$LegacyUserSettingsPreV13Table, LegacyUserSettingsPreV13Row> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $UserSettingsTable(this.attachedDatabase, [this._alias]);
+  $LegacyUserSettingsPreV13Table(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -2823,7 +2824,7 @@ class $UserSettingsTable extends UserSettings
   static const String $name = 'user_settings';
   @override
   VerificationContext validateIntegrity(
-    Insertable<UserSettingsRow> instance, {
+    Insertable<LegacyUserSettingsPreV13Row> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -3033,9 +3034,12 @@ class $UserSettingsTable extends UserSettings
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  UserSettingsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  LegacyUserSettingsPreV13Row map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return UserSettingsRow(
+    return LegacyUserSettingsPreV13Row(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -3144,12 +3148,13 @@ class $UserSettingsTable extends UserSettings
   }
 
   @override
-  $UserSettingsTable createAlias(String alias) {
-    return $UserSettingsTable(attachedDatabase, alias);
+  $LegacyUserSettingsPreV13Table createAlias(String alias) {
+    return $LegacyUserSettingsPreV13Table(attachedDatabase, alias);
   }
 }
 
-class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
+class LegacyUserSettingsPreV13Row extends DataClass
+    implements Insertable<LegacyUserSettingsPreV13Row> {
   final int id;
   final String uid;
   final String username;
@@ -3166,47 +3171,17 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   final double? fuelPricePerUnit;
   final String? currencyCode;
   final String selectedMapTheme;
-
-  /// Trips shorter than this (metres) are discarded on End, not saved.
-  /// Default 500 m filters out accidental Start→End taps without
-  /// eating a real short drive.
   final double minTripLengthMeters;
   final int freeTripsUsed;
-
-  /// The free-trip allowance actually granted to THIS user, persisted at
-  /// creation time rather than read from a global constant — so a later
-  /// change to the default (3 → 1) can't retroactively cut an existing
-  /// user's already-granted allowance. Null on rows created before this
-  /// column existed; the migration backfills those to the old default
-  /// (3) so nobody already using the app loses trips they were promised.
-  /// New rows get the new default (1) explicitly at insert time.
   final int? freeTripLimit;
   final bool isPro;
   final bool onboardingComplete;
-
-  /// Set to true once we've shown the user the OEM battery-killer
-  /// bottom sheet (Xiaomi / Oppo / Huawei / Vivo / etc). Persisted so
-  /// the prompt fires at most once per install — repeatedly nagging a
-  /// user who already saw it is worse UX than letting them figure out
-  /// they need to whitelist DriveRank.
   final bool oemAdviceShown;
-
-  /// Set once the user has been shown the in-app Prominent Disclosure
-  /// for background location and either accepted or skipped it. Drives
-  /// the gate in TrackingBloc that blocks Start until the disclosure
-  /// has been surfaced at least once — Google Play policy compliance.
   final bool bgLocationDisclosureAcked;
-
-  /// The user's current "beat this" targets, recomputed by
-  /// `TrackingBloc` after every trip (see `GoalCalculator`). Null until
-  /// the first trip completes. Only two fields, not a table, because
-  /// there is exactly one active goal per metric at a time — no
-  /// history of past goals is needed, `Trips` already has the record
-  /// of what was actually driven.
   final double? speedGoalKmh;
   final double? distanceGoalKm;
   final DateTime createdAt;
-  const UserSettingsRow({
+  const LegacyUserSettingsPreV13Row({
     required this.id,
     required this.uid,
     required this.username,
@@ -3290,8 +3265,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     return map;
   }
 
-  UserSettingsCompanion toCompanion(bool nullToAbsent) {
-    return UserSettingsCompanion(
+  LegacyUserSettingsPreV13Companion toCompanion(bool nullToAbsent) {
+    return LegacyUserSettingsPreV13Companion(
       id: Value(id),
       uid: Value(uid),
       username: Value(username),
@@ -3343,12 +3318,12 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     );
   }
 
-  factory UserSettingsRow.fromJson(
+  factory LegacyUserSettingsPreV13Row.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return UserSettingsRow(
+    return LegacyUserSettingsPreV13Row(
       id: serializer.fromJson<int>(json['id']),
       uid: serializer.fromJson<String>(json['uid']),
       username: serializer.fromJson<String>(json['username']),
@@ -3416,7 +3391,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     };
   }
 
-  UserSettingsRow copyWith({
+  LegacyUserSettingsPreV13Row copyWith({
     int? id,
     String? uid,
     String? username,
@@ -3443,7 +3418,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     Value<double?> speedGoalKmh = const Value.absent(),
     Value<double?> distanceGoalKm = const Value.absent(),
     DateTime? createdAt,
-  }) => UserSettingsRow(
+  }) => LegacyUserSettingsPreV13Row(
     id: id ?? this.id,
     uid: uid ?? this.uid,
     username: username ?? this.username,
@@ -3480,8 +3455,10 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
         : this.distanceGoalKm,
     createdAt: createdAt ?? this.createdAt,
   );
-  UserSettingsRow copyWithCompanion(UserSettingsCompanion data) {
-    return UserSettingsRow(
+  LegacyUserSettingsPreV13Row copyWithCompanion(
+    LegacyUserSettingsPreV13Companion data,
+  ) {
+    return LegacyUserSettingsPreV13Row(
       id: data.id.present ? data.id.value : this.id,
       uid: data.uid.present ? data.uid.value : this.uid,
       username: data.username.present ? data.username.value : this.username,
@@ -3543,7 +3520,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
 
   @override
   String toString() {
-    return (StringBuffer('UserSettingsRow(')
+    return (StringBuffer('LegacyUserSettingsPreV13Row(')
           ..write('id: $id, ')
           ..write('uid: $uid, ')
           ..write('username: $username, ')
@@ -3606,7 +3583,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is UserSettingsRow &&
+      (other is LegacyUserSettingsPreV13Row &&
           other.id == this.id &&
           other.uid == this.uid &&
           other.username == this.username &&
@@ -3635,7 +3612,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           other.createdAt == this.createdAt);
 }
 
-class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
+class LegacyUserSettingsPreV13Companion
+    extends UpdateCompanion<LegacyUserSettingsPreV13Row> {
   final Value<int> id;
   final Value<String> uid;
   final Value<String> username;
@@ -3662,7 +3640,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
   final Value<double?> speedGoalKmh;
   final Value<double?> distanceGoalKm;
   final Value<DateTime> createdAt;
-  const UserSettingsCompanion({
+  const LegacyUserSettingsPreV13Companion({
     this.id = const Value.absent(),
     this.uid = const Value.absent(),
     this.username = const Value.absent(),
@@ -3690,7 +3668,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.distanceGoalKm = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
-  UserSettingsCompanion.insert({
+  LegacyUserSettingsPreV13Companion.insert({
     this.id = const Value.absent(),
     required String uid,
     this.username = const Value.absent(),
@@ -3719,7 +3697,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     required DateTime createdAt,
   }) : uid = Value(uid),
        createdAt = Value(createdAt);
-  static Insertable<UserSettingsRow> custom({
+  static Insertable<LegacyUserSettingsPreV13Row> custom({
     Expression<int>? id,
     Expression<String>? uid,
     Expression<String>? username,
@@ -3779,7 +3757,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     });
   }
 
-  UserSettingsCompanion copyWith({
+  LegacyUserSettingsPreV13Companion copyWith({
     Value<int>? id,
     Value<String>? uid,
     Value<String>? username,
@@ -3807,7 +3785,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Value<double?>? distanceGoalKm,
     Value<DateTime>? createdAt,
   }) {
-    return UserSettingsCompanion(
+    return LegacyUserSettingsPreV13Companion(
       id: id ?? this.id,
       uid: uid ?? this.uid,
       username: username ?? this.username,
@@ -3928,7 +3906,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
 
   @override
   String toString() {
-    return (StringBuffer('UserSettingsCompanion(')
+    return (StringBuffer('LegacyUserSettingsPreV13Companion(')
           ..write('id: $id, ')
           ..write('uid: $uid, ')
           ..write('username: $username, ')
@@ -5263,7 +5241,8 @@ abstract class _$LegacyAppDatabaseV10 extends GeneratedDatabase {
       $LegacyAppDatabaseV10Manager(this);
   late final $TripsTable trips = $TripsTable(this);
   late final $WaypointsTable waypoints = $WaypointsTable(this);
-  late final $UserSettingsTable userSettings = $UserSettingsTable(this);
+  late final $LegacyUserSettingsPreV13Table legacyUserSettingsPreV13 =
+      $LegacyUserSettingsPreV13Table(this);
   late final $LiveTripsTable liveTrips = $LiveTripsTable(this);
   late final $LegacyLiveWaypointsPreV12Table legacyLiveWaypointsPreV12 =
       $LegacyLiveWaypointsPreV12Table(this);
@@ -5274,7 +5253,7 @@ abstract class _$LegacyAppDatabaseV10 extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     trips,
     waypoints,
-    userSettings,
+    legacyUserSettingsPreV13,
     liveTrips,
     legacyLiveWaypointsPreV12,
   ];
@@ -6550,8 +6529,8 @@ typedef $$WaypointsTableProcessedTableManager =
       WaypointRow,
       PrefetchHooks Function({bool tripId})
     >;
-typedef $$UserSettingsTableCreateCompanionBuilder =
-    UserSettingsCompanion Function({
+typedef $$LegacyUserSettingsPreV13TableCreateCompanionBuilder =
+    LegacyUserSettingsPreV13Companion Function({
       Value<int> id,
       required String uid,
       Value<String> username,
@@ -6579,8 +6558,8 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<double?> distanceGoalKm,
       required DateTime createdAt,
     });
-typedef $$UserSettingsTableUpdateCompanionBuilder =
-    UserSettingsCompanion Function({
+typedef $$LegacyUserSettingsPreV13TableUpdateCompanionBuilder =
+    LegacyUserSettingsPreV13Companion Function({
       Value<int> id,
       Value<String> uid,
       Value<String> username,
@@ -6609,9 +6588,9 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
     });
 
-class $$UserSettingsTableFilterComposer
-    extends Composer<_$LegacyAppDatabaseV10, $UserSettingsTable> {
-  $$UserSettingsTableFilterComposer({
+class $$LegacyUserSettingsPreV13TableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV10, $LegacyUserSettingsPreV13Table> {
+  $$LegacyUserSettingsPreV13TableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -6749,9 +6728,9 @@ class $$UserSettingsTableFilterComposer
   );
 }
 
-class $$UserSettingsTableOrderingComposer
-    extends Composer<_$LegacyAppDatabaseV10, $UserSettingsTable> {
-  $$UserSettingsTableOrderingComposer({
+class $$LegacyUserSettingsPreV13TableOrderingComposer
+    extends Composer<_$LegacyAppDatabaseV10, $LegacyUserSettingsPreV13Table> {
+  $$LegacyUserSettingsPreV13TableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -6889,9 +6868,9 @@ class $$UserSettingsTableOrderingComposer
   );
 }
 
-class $$UserSettingsTableAnnotationComposer
-    extends Composer<_$LegacyAppDatabaseV10, $UserSettingsTable> {
-  $$UserSettingsTableAnnotationComposer({
+class $$LegacyUserSettingsPreV13TableAnnotationComposer
+    extends Composer<_$LegacyAppDatabaseV10, $LegacyUserSettingsPreV13Table> {
+  $$LegacyUserSettingsPreV13TableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -7007,41 +6986,50 @@ class $$UserSettingsTableAnnotationComposer
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
 
-class $$UserSettingsTableTableManager
+class $$LegacyUserSettingsPreV13TableTableManager
     extends
         RootTableManager<
           _$LegacyAppDatabaseV10,
-          $UserSettingsTable,
-          UserSettingsRow,
-          $$UserSettingsTableFilterComposer,
-          $$UserSettingsTableOrderingComposer,
-          $$UserSettingsTableAnnotationComposer,
-          $$UserSettingsTableCreateCompanionBuilder,
-          $$UserSettingsTableUpdateCompanionBuilder,
+          $LegacyUserSettingsPreV13Table,
+          LegacyUserSettingsPreV13Row,
+          $$LegacyUserSettingsPreV13TableFilterComposer,
+          $$LegacyUserSettingsPreV13TableOrderingComposer,
+          $$LegacyUserSettingsPreV13TableAnnotationComposer,
+          $$LegacyUserSettingsPreV13TableCreateCompanionBuilder,
+          $$LegacyUserSettingsPreV13TableUpdateCompanionBuilder,
           (
-            UserSettingsRow,
+            LegacyUserSettingsPreV13Row,
             BaseReferences<
               _$LegacyAppDatabaseV10,
-              $UserSettingsTable,
-              UserSettingsRow
+              $LegacyUserSettingsPreV13Table,
+              LegacyUserSettingsPreV13Row
             >,
           ),
-          UserSettingsRow,
+          LegacyUserSettingsPreV13Row,
           PrefetchHooks Function()
         > {
-  $$UserSettingsTableTableManager(
+  $$LegacyUserSettingsPreV13TableTableManager(
     _$LegacyAppDatabaseV10 db,
-    $UserSettingsTable table,
+    $LegacyUserSettingsPreV13Table table,
   ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$UserSettingsTableFilterComposer($db: db, $table: table),
+              $$LegacyUserSettingsPreV13TableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
           createOrderingComposer: () =>
-              $$UserSettingsTableOrderingComposer($db: db, $table: table),
+              $$LegacyUserSettingsPreV13TableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
           createComputedFieldComposer: () =>
-              $$UserSettingsTableAnnotationComposer($db: db, $table: table),
+              $$LegacyUserSettingsPreV13TableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -7070,7 +7058,7 @@ class $$UserSettingsTableTableManager
                 Value<double?> speedGoalKmh = const Value.absent(),
                 Value<double?> distanceGoalKm = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
-              }) => UserSettingsCompanion(
+              }) => LegacyUserSettingsPreV13Companion(
                 id: id,
                 uid: uid,
                 username: username,
@@ -7126,7 +7114,7 @@ class $$UserSettingsTableTableManager
                 Value<double?> speedGoalKmh = const Value.absent(),
                 Value<double?> distanceGoalKm = const Value.absent(),
                 required DateTime createdAt,
-              }) => UserSettingsCompanion.insert(
+              }) => LegacyUserSettingsPreV13Companion.insert(
                 id: id,
                 uid: uid,
                 username: username,
@@ -7162,25 +7150,25 @@ class $$UserSettingsTableTableManager
       );
 }
 
-typedef $$UserSettingsTableProcessedTableManager =
+typedef $$LegacyUserSettingsPreV13TableProcessedTableManager =
     ProcessedTableManager<
       _$LegacyAppDatabaseV10,
-      $UserSettingsTable,
-      UserSettingsRow,
-      $$UserSettingsTableFilterComposer,
-      $$UserSettingsTableOrderingComposer,
-      $$UserSettingsTableAnnotationComposer,
-      $$UserSettingsTableCreateCompanionBuilder,
-      $$UserSettingsTableUpdateCompanionBuilder,
+      $LegacyUserSettingsPreV13Table,
+      LegacyUserSettingsPreV13Row,
+      $$LegacyUserSettingsPreV13TableFilterComposer,
+      $$LegacyUserSettingsPreV13TableOrderingComposer,
+      $$LegacyUserSettingsPreV13TableAnnotationComposer,
+      $$LegacyUserSettingsPreV13TableCreateCompanionBuilder,
+      $$LegacyUserSettingsPreV13TableUpdateCompanionBuilder,
       (
-        UserSettingsRow,
+        LegacyUserSettingsPreV13Row,
         BaseReferences<
           _$LegacyAppDatabaseV10,
-          $UserSettingsTable,
-          UserSettingsRow
+          $LegacyUserSettingsPreV13Table,
+          LegacyUserSettingsPreV13Row
         >,
       ),
-      UserSettingsRow,
+      LegacyUserSettingsPreV13Row,
       PrefetchHooks Function()
     >;
 typedef $$LiveTripsTableCreateCompanionBuilder =
@@ -7829,8 +7817,11 @@ class $LegacyAppDatabaseV10Manager {
       $$TripsTableTableManager(_db, _db.trips);
   $$WaypointsTableTableManager get waypoints =>
       $$WaypointsTableTableManager(_db, _db.waypoints);
-  $$UserSettingsTableTableManager get userSettings =>
-      $$UserSettingsTableTableManager(_db, _db.userSettings);
+  $$LegacyUserSettingsPreV13TableTableManager get legacyUserSettingsPreV13 =>
+      $$LegacyUserSettingsPreV13TableTableManager(
+        _db,
+        _db.legacyUserSettingsPreV13,
+      );
   $$LiveTripsTableTableManager get liveTrips =>
       $$LiveTripsTableTableManager(_db, _db.liveTrips);
   $$LegacyLiveWaypointsPreV12TableTableManager get legacyLiveWaypointsPreV12 =>

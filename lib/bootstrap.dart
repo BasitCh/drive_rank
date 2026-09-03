@@ -32,11 +32,14 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 /// best-effort, *offline-first* init of the production SDKs we still
 /// use after the MVP scope reduction.
 ///
-/// MVP scope: Drive Rank is offline-first. Local Drift is the source
-/// of truth for every trip; there is no cloud sync, no leaderboard,
-/// no friends, and no public profile yet. The only Firebase surfaces
-/// still wired up are Auth (anonymous) for stable per-install identity
-/// and Crashlytics/Analytics for telemetry. RevenueCat handles
+/// Drive Rank is offline-first. Local Drift is the source of truth for
+/// every trip, and the competition engine computes rankings from it
+/// locally — nothing publishes another user's values yet, so the
+/// rankings board is the viewer plus fixed benchmarks. Friends and
+/// remote leaderboards are still to come. The Firebase surfaces wired
+/// up here are Auth (anonymous) for stable per-install identity,
+/// Firestore for trip sync and the public profile mirror, and
+/// Crashlytics/Analytics for telemetry. RevenueCat handles
 /// purchases. OneSignal handles push. Each remote init is best-effort
 /// — a missing config leaves the preview/no-op impl in place and the
 /// app still works.

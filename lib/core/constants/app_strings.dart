@@ -328,6 +328,82 @@ class AppStrings {
       'Invite friends to see how you stack up against them on every drive.';
   static const String leaderboardFriendsCta = 'Invite Friends';
 
+  // Rankings — metric selector.
+  static const String rankingsMetricDistance = 'Distance';
+  static const String rankingsMetricLongestTrip = 'Longest Trip';
+  static const String rankingsMetricConsistency = 'Consistency';
+
+  // Rankings — period selector.
+  static const String rankingsPeriodWeek = 'This Week';
+  static const String rankingsPeriodMonth = 'This Month';
+  static const String rankingsPeriodAllTime = 'All Time';
+
+  /// Unit shown beside a consistency value. Distance metrics use
+  /// `LocaleService` so they honour the user's unit system; days don't
+  /// convert.
+  static const String rankingsUnitDays = 'DAYS';
+  static const String rankingsUnitDay = 'DAY';
+
+  // Rankings — your position.
+  static const String rankingsYourRank = 'YOUR RANK';
+
+  /// Name shown on the viewer's own row before they've set a username.
+  static const String rankingsYouFallback = 'You';
+  static const String rankingsUnranked = 'UNRANKED';
+  static const String rankingsRankPrefix = '#';
+
+  /// "12 km behind #17" — the gap to the position directly above.
+  static String rankingsBehindNext(String gap, int rank) =>
+      '$gap behind #$rank';
+
+  /// Shown to whoever is top of the board: names who is closest behind
+  /// them, so being first still has something to play for.
+  static String rankingsDefending(String name, String gap) =>
+      '$name is $gap behind you';
+
+  static const String rankingsLeadingAlone = "You're setting the pace";
+
+  /// The label on a benchmark row. Deliberately shouty and unmissable —
+  /// a benchmark must never be mistakable for a person.
+  static const String leaderboardBenchmark = 'BENCHMARK';
+
+  static const String rankingsBenchmarkFooter =
+      'Benchmarks are fixed targets, not other drivers.';
+
+  // Rankings — sparse states. Two variants, because the same note has
+  // to be true both for a driver with no ranked trips yet and for one
+  // who has plenty but is still the only real competitor here. Telling
+  // the second "complete trips to establish your ranking" would be
+  // plainly wrong — they already did.
+  static const String rankingsSparseTitle = "You're one of the first";
+  static const String rankingsSparseBody =
+      'Complete trips to establish your ranking. The benchmarks below are '
+      'fixed targets to measure yourself against.';
+  static const String rankingsSparseRankedTitle = 'Only you so far';
+  static const String rankingsSparseRankedBody =
+      "You're the only driver ranked here yet. The benchmarks below are "
+      'fixed targets to measure yourself against, not other people.';
+  static const String rankingsNoTripsTitle = 'No ranked drives yet';
+  static const String rankingsNoTripsBody =
+      'Finish a drive and your position appears here. Short or '
+      'low-quality GPS trips still show in History — they just '
+      "don't count toward rankings.";
+
+  // Rankings — disabled (kill switch).
+  static const String rankingsDisabledTitle = 'Rankings are unavailable';
+  static const String rankingsDisabledBody =
+      'Global rankings are switched off right now. Your trips, targets '
+      'and trophies are unaffected.';
+
+  // Benchmark identities. Descriptive on purpose — never plausible
+  // personal names, so a benchmark can't read as a real rival.
+  static const String benchmarkRoadWarrior = 'Road Warrior';
+  static const String benchmarkHighwayHunter = 'Highway Hunter';
+  static const String benchmarkRoadExplorer = 'Road Explorer';
+  static const String benchmarkDailyDriver = 'Daily Driver';
+  static const String benchmarkRoadRegular = 'Road Regular';
+  static const String benchmarkWeekendCruiser = 'Weekend Cruiser';
+
   // Friends feature (Add Friend bottom sheet + profile section).
   static const String friendsAddTitle = 'Add Friend';
   static const String friendsSearchHint = 'Search by username';
@@ -344,9 +420,6 @@ class AppStrings {
   static const String friendsDecline = 'Decline';
   static const String friendsRequestPrefix = '@';
   static const String friendsRequestSuffix = ' wants to be friends';
-  static const String leaderboardSubThisWeek = 'This week';
-  static const String leaderboardEmpty =
-      'No drives recorded here yet — be the first to set a time.';
 
   // Profile.
   static const String profileTitle = 'Profile';

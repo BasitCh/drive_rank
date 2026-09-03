@@ -67,8 +67,12 @@ import 'package:drive_rank/features/social/domain/repositories/social_repository
     as _i247;
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart'
     as _i163;
+import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart'
+    as _i932;
 import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart'
     as _i804;
+import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart'
+    as _i840;
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart'
     as _i687;
 import 'package:drive_rank/features/trip_insights/data/insights_repository.dart'
@@ -292,6 +296,19 @@ _i174.GetIt $initGetIt(
     () => _i319.LocalSocialTripProcessor(
       gh<_i247.SocialRepository>(),
       gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.factory<_i932.GetGlobalLeaderboard>(
+    () => _i932.GetGlobalLeaderboard(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.factory<_i840.RankingsBloc>(
+    () => _i840.RankingsBloc(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i634.TripRepository>(),
+      gh<_i932.GetGlobalLeaderboard>(),
     ),
   );
   gh.factory<_i687.TrackingBloc>(

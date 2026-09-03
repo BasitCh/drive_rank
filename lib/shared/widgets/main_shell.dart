@@ -2,17 +2,25 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
+import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/widgets/connectivity_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// The persistent bottom-nav shell that wraps the four main tabs:
-/// Drive | History | Personal Bests | Profile.
+/// The persistent bottom-nav shell that wraps the main tabs:
+/// Drive | History | Rankings | Profile.
 ///
-/// MVP scope: the previous "Rankings" tab (global leaderboard +
-/// friends) is gone. Its slot is now Personal Bests — local-only
-/// rollups that don't depend on any cloud feature.
+/// Rankings is conditional — when the rankings kill switch is off the
+/// tab is dropped from the bar, and the router separately bounces any
+/// direct navigation to it. Both read the same flag from
+/// `UserSettingsRepository`, which owns that decision; this widget only
+/// renders its consequence.
+///
+/// Personal Bests has no tab. Its route stays registered in
+/// `app_router.dart` and is reachable by deep link; it lost the slot to
+/// Rankings.
 ///
 /// In-app update checks moved up to the splash page — `MainShell` is
 /// purely a layout widget again. A user that reaches the shell has
@@ -23,38 +31,58 @@ class MainShell extends StatelessWidget {
   final Widget child;
   final String location;
 
-  static const List<_Tab> _tabs = [
-    _Tab(
-      label: AppStrings.navDrive,
-      icon: Icons.speed_rounded,
-      path: RouteNames.home,
-    ),
-    _Tab(
-      label: AppStrings.navHistory,
-      icon: Icons.history_rounded,
-      path: RouteNames.history,
-    ),
-    // Personal Bests tab is hidden for now — this nav slot is earmarked
-    // for a future leaderboard feature. The route itself stays
-    // registered in `app_router.dart` (reachable via deep link), only
-    // the tab entry is removed here.
-    _Tab(
-      label: AppStrings.navProfile,
-      icon: Icons.person_rounded,
-      path: RouteNames.profile,
-    ),
+  static const _driveTab = _Tab(
+    label: AppStrings.navDrive,
+    icon: Icons.speed_rounded,
+    path: RouteNames.home,
+  );
+  static const _historyTab = _Tab(
+    label: AppStrings.navHistory,
+    icon: Icons.history_rounded,
+    path: RouteNames.history,
+  );
+  static const _rankingsTab = _Tab(
+    label: AppStrings.navRankings,
+    icon: Icons.leaderboard_rounded,
+    path: RouteNames.rankings,
+  );
+  static const _profileTab = _Tab(
+    label: AppStrings.navProfile,
+    icon: Icons.person_rounded,
+    path: RouteNames.profile,
+  );
+
+  static List<_Tab> _tabsFor({required bool rankingsEnabled}) => [
+    _driveTab,
+    _historyTab,
+    if (rankingsEnabled) _rankingsTab,
+    _profileTab,
   ];
 
-  int get _activeIndex {
-    for (var i = 0; i < _tabs.length; i++) {
-      if (location.startsWith(_tabs[i].path)) return i;
+  int _activeIndex(List<_Tab> tabs) {
+    for (var i = 0; i < tabs.length; i++) {
+      if (location.startsWith(tabs[i].path)) return i;
     }
     return 0;
   }
 
   @override
   Widget build(BuildContext context) {
-    final active = _activeIndex;
+    // Rebuilt whenever the settings row changes, so a flag flip takes
+    // the tab away (or gives it back) without a restart. Defaults to
+    // showing it while the first value is in flight — the tab appearing
+    // a frame late is better than it flickering in on every launch.
+    return StreamBuilder<bool>(
+      stream: getIt<UserSettingsRepository>().watchRankingsEnabled(),
+      initialData: true,
+      builder: (context, snapshot) =>
+          _buildShell(context, rankingsEnabled: snapshot.data ?? true),
+    );
+  }
+
+  Widget _buildShell(BuildContext context, {required bool rankingsEnabled}) {
+    final tabs = _tabsFor(rankingsEnabled: rankingsEnabled);
+    final active = _activeIndex(tabs);
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Column(
@@ -87,12 +115,12 @@ class MainShell extends StatelessWidget {
           ),
           child: Row(
             children: [
-              for (var i = 0; i < _tabs.length; i++)
+              for (var i = 0; i < tabs.length; i++)
                 Expanded(
                   child: _NavTab(
-                    tab: _tabs[i],
+                    tab: tabs[i],
                     isActive: i == active,
-                    onTap: () => context.go(_tabs[i].path),
+                    onTap: () => context.go(tabs[i].path),
                   ),
                 ),
             ],

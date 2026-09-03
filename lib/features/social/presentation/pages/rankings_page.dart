@@ -1,0 +1,340 @@
+import 'package:drive_rank/core/constants/app_colors.dart';
+import 'package:drive_rank/core/constants/app_spacing.dart';
+import 'package:drive_rank/core/constants/app_strings.dart';
+import 'package:drive_rank/core/constants/app_text_styles.dart';
+import 'package:drive_rank/core/di/injection.dart';
+import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge.dart';
+import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
+import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart';
+import 'package:drive_rank/features/social/presentation/widgets/leaderboard_row.dart';
+import 'package:drive_rank/features/social/presentation/widgets/my_rank_card.dart';
+import 'package:drive_rank/features/social/presentation/widgets/ranking_pills.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+/// The global rankings board.
+///
+/// Structured like `HistoryPage` — no AppBar, a fixed header and pinned
+/// selectors above a scrolling list — so it feels like a sibling of the
+/// other tab screens rather than a new kind of screen.
+///
+/// The friends board and its tab bar arrive with the friends feature;
+/// shipping a `Friends` tab now would mean shipping an invite button
+/// with nowhere to go.
+class RankingsPage extends StatelessWidget {
+  const RankingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<RankingsBloc>(
+      create: (_) => getIt<RankingsBloc>()..add(const RankingsStarted()),
+      child: const _RankingsBody(),
+    );
+  }
+}
+
+class _RankingsBody extends StatelessWidget {
+  const _RankingsBody();
+
+  static const _metrics = <(CompetitionMetric, String)>[
+    (CompetitionMetric.distance, AppStrings.rankingsMetricDistance),
+    (CompetitionMetric.longestTrip, AppStrings.rankingsMetricLongestTrip),
+    (CompetitionMetric.consistency, AppStrings.rankingsMetricConsistency),
+  ];
+
+  static const _periods = <(LeaderboardPeriod, String)>[
+    (LeaderboardPeriod.weekly, AppStrings.rankingsPeriodWeek),
+    (LeaderboardPeriod.monthly, AppStrings.rankingsPeriodMonth),
+    (LeaderboardPeriod.allTime, AppStrings.rankingsPeriodAllTime),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: SafeArea(
+        child: BlocBuilder<RankingsBloc, RankingsState>(
+          builder: (context, state) {
+            // The kill switch. The router also bounces a direct
+            // navigation here and the nav bar hides the tab; all three
+            // read the same settings flag, so this branch is the last
+            // line of defence rather than an independent rule.
+            if (!state.rankingsEnabled) {
+              return const _RankingsMessage(
+                icon: Icons.leaderboard_rounded,
+                title: AppStrings.rankingsDisabledTitle,
+                body: AppStrings.rankingsDisabledBody,
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _Header(),
+                RankingPills<CompetitionMetric>(
+                  items: _metrics,
+                  active: state.metric,
+                  onChanged: (m) =>
+                      context.read<RankingsBloc>().add(
+                        RankingsMetricChanged(m),
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                RankingPills<LeaderboardPeriod>(
+                  items: _periods,
+                  active: state.period,
+                  onChanged: (p) =>
+                      context.read<RankingsBloc>().add(
+                        RankingsPeriodChanged(p),
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                // Your standing is pinned above the list rather than
+                // being its first row: it's the answer the screen
+                // exists to give, and as a scrolling child it slid out
+                // of view as soon as the user looked down the board.
+                if (state.board?.me != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: _MyRank(state: state),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                Expanded(child: _Board(state: state)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// The pinned header: the viewer's own standing, plus the sparse-board
+/// explanation when they're the only real competitor.
+class _MyRank extends StatelessWidget {
+  const _MyRank({required this.state});
+
+  final RankingsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final board = state.board!;
+    final format = _MetricFormat.of(state.metric);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MyRankCard(
+          board: board,
+          formattedValue: format.value(board.me!.entry.value),
+          unitLabel: format.unit(board.me!.entry.value),
+          formatGap: format.gap,
+        ),
+        if (board.isSparse) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _SparseNote(hasRankedDrives: board.me!.entry.value > 0),
+        ],
+      ],
+    );
+  }
+}
+
+/// Formats one metric's numbers.
+///
+/// Consistency counts days, which don't convert between unit systems;
+/// the other two are distances and go through `LocaleService` so they
+/// honour km/mi. Built once per metric and shared by the rank card and
+/// the rows so the two can't format the same number differently.
+class _MetricFormat {
+  _MetricFormat._({required this.isDays}) : _locale = getIt<LocaleService>();
+
+  factory _MetricFormat.of(CompetitionMetric metric) =>
+      _MetricFormat._(isDays: metric == CompetitionMetric.consistency);
+
+  final bool isDays;
+  final LocaleService _locale;
+
+  String _daysUnit(num value) => value == 1
+      ? AppStrings.rankingsUnitDay
+      : AppStrings.rankingsUnitDays;
+
+  String value(double v) =>
+      isDays ? v.round().toString() : _locale.formatDistanceValue(v);
+
+  String unit(double v) =>
+      isDays ? _daysUnit(v) : _locale.distanceUnitLabel.toUpperCase();
+
+  String gap(double delta) {
+    final magnitude = delta.abs();
+    if (!isDays) {
+      // A decimal place only earns its keep on a small gap: "111 km
+      // behind" reads as a fact, "111.0 km behind" reads as a readout.
+      return _locale.formatDistance(
+        magnitude,
+        fractionDigits: magnitude >= 10 ? 0 : 1,
+      );
+    }
+    // Round a partial day up: "1 day behind" is truer than "0 days".
+    final days = magnitude.ceil();
+    return '$days ${_daysUnit(days).toLowerCase()}';
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(18, 10, 18, 12),
+      child: Text(
+        AppStrings.leaderboardTitle,
+        style: AppTextStyles.sectionTitle,
+      ),
+    );
+  }
+}
+
+class _Board extends StatelessWidget {
+  const _Board({required this.state});
+
+  final RankingsState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.teal),
+      );
+    }
+
+    final board = state.board;
+    if (board == null || board.positions.isEmpty) {
+      return const _RankingsMessage(
+        icon: Icons.leaderboard_rounded,
+        title: AppStrings.rankingsNoTripsTitle,
+        body: AppStrings.rankingsNoTripsBody,
+      );
+    }
+
+    final format = _MetricFormat.of(state.metric);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+      children: [
+        for (final position in board.positions) ...[
+          LeaderboardRow(
+            position: position,
+            formattedValue: format.value(position.entry.value),
+            unitLabel: format.unit(position.entry.value),
+          ),
+          const SizedBox(height: 5),
+        ],
+        if (board.benchmarksShown) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            AppStrings.rankingsBenchmarkFooter,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.microLabel.copyWith(fontSize: 10),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Shown while the viewer is the only real competitor. Deliberately not
+/// an empty state — the board below it is populated with benchmarks, so
+/// the message explains the situation rather than apologising for it.
+///
+/// The copy splits on whether they've actually ranked anything yet: the
+/// two situations look identical structurally but need opposite advice.
+class _SparseNote extends StatelessWidget {
+  const _SparseNote({required this.hasRankedDrives});
+
+  final bool hasRankedDrives;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.tealDim,
+        border: Border.all(color: AppColors.teal.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            hasRankedDrives
+                ? AppStrings.rankingsSparseRankedTitle
+                : AppStrings.rankingsSparseTitle,
+            style: AppTextStyles.title.copyWith(color: AppColors.teal),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hasRankedDrives
+                ? AppStrings.rankingsSparseRankedBody
+                : AppStrings.rankingsSparseBody,
+            style: AppTextStyles.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The full-screen message shape shared by the disabled and no-trips
+/// states — the 72×72 circle formula used by `OfflineState` and the
+/// territory empty state.
+class _RankingsMessage extends StatelessWidget {
+  const _RankingsMessage({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.card,
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: AppColors.teal, size: 34),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.headingLarge,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body.copyWith(
+                color: Colors.white.withValues(alpha: 0.55),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

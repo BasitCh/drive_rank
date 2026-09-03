@@ -45,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -225,6 +225,18 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE live_waypoints ADD COLUMN is_mocked '
           'INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 13) {
+        // v13 — rankings_enabled: the kill switch for the public
+        // rankings surfaces. Defaults on, and persisted rather than
+        // held in memory so the last known answer survives a cold
+        // offline launch and every consumer (router, nav bar, page)
+        // reads one reactive source. Existing rows default to enabled
+        // — nobody loses a feature by upgrading.
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN rankings_enabled '
+          'INTEGER NOT NULL DEFAULT 1',
         );
       }
     },

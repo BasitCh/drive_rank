@@ -56,6 +56,21 @@ class UserSettings extends Table {
   IntColumn get freeTripLimit => integer().nullable()();
 
   BoolColumn get isPro => boolean().withDefault(const Constant(false))();
+
+  /// Whether the public rankings surfaces are available to this user.
+  ///
+  /// Defaults on. Persisted rather than held in memory so the last known
+  /// answer survives a cold, offline launch, and so every consumer — the
+  /// router redirect, the nav bar, the rankings screen itself — reads one
+  /// reactive source instead of each deciding for itself. Read only via
+  /// `UserSettingsRepository.watchRankingsEnabled()` /
+  /// `isRankingsEnabled()`.
+  ///
+  /// Turning it off hides global rankings only; friends, challenges,
+  /// personal targets, trophies and trip statistics all keep working.
+  /// A later phase adds the remote channel that patches this column.
+  BoolColumn get rankingsEnabled =>
+      boolean().withDefault(const Constant(true))();
   BoolColumn get onboardingComplete =>
       boolean().withDefault(const Constant(false))();
 

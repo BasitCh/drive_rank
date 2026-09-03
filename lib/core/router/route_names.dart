@@ -10,6 +10,7 @@ class RouteNames {
   // Main shell tabs.
   static const String home = '/home';
   static const String history = '/history';
+  static const String rankings = '/rankings';
   static const String personalBests = '/personal-bests';
   static const String profile = '/profile';
 

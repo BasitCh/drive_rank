@@ -10,6 +10,7 @@ import 'package:drive_rank/features/paywall/presentation/pages/paywall_page.dart
 import 'package:drive_rank/features/personal_bests/presentation/pages/personal_bests_page.dart';
 import 'package:drive_rank/features/profile/presentation/pages/profile_page.dart';
 import 'package:drive_rank/features/settings/presentation/pages/settings_page.dart';
+import 'package:drive_rank/features/social/presentation/pages/rankings_page.dart';
 import 'package:drive_rank/features/territory/presentation/pages/territory_page.dart';
 import 'package:drive_rank/features/tracking/presentation/pages/tracking_page.dart';
 import 'package:drive_rank/features/trip_insights/presentation/pages/route_replay_page.dart';
@@ -113,6 +114,12 @@ class AppRouter {
                   const NoTransitionPage(child: HistoryPage()),
             ),
             GoRoute(
+              path: RouteNames.rankings,
+              name: 'rankings',
+              pageBuilder: (_, __) =>
+                  const NoTransitionPage(child: RankingsPage()),
+            ),
+            GoRoute(
               path: RouteNames.personalBests,
               name: 'personal_bests',
               pageBuilder: (_, __) =>
@@ -142,6 +149,15 @@ class AppRouter {
       return RouteNames.onboarding;
     }
     if (done && state.matchedLocation == RouteNames.onboarding) {
+      return RouteNames.home;
+    }
+    // Rankings kill switch. Hiding the nav tab isn't enough on its own —
+    // a deep link, a restored route, or a `context.go` from anywhere
+    // else would walk straight past that. The flag itself is owned by
+    // `UserSettingsRepository`; this only enforces the route half of the
+    // answer.
+    if (state.matchedLocation.startsWith(RouteNames.rankings) &&
+        !await settings.isRankingsEnabled()) {
       return RouteNames.home;
     }
     return null;

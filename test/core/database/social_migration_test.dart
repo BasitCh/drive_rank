@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 // types from the live database's, even though the DDL matches.
 import 'legacy_app_database_v10.dart' as v10;
 import 'legacy_app_database_v11.dart' as v11;
+import 'legacy_app_database_v12.dart' as v12;
 
 void main() {
   late Directory tempDir;
@@ -75,9 +76,9 @@ void main() {
             ),
           );
       await legacyDb
-          .into(legacyDb.userSettings)
+          .into(legacyDb.legacyUserSettingsPreV13)
           .insert(
-            v10.UserSettingsCompanion.insert(
+            v10.LegacyUserSettingsPreV13Companion.insert(
               uid: 'user-1',
               createdAt: DateTime(2026, 1, 1),
             ),
@@ -221,7 +222,63 @@ void main() {
     });
   });
 
-  group('fresh install at v12', () {
+  group('v12 -> v13 — the rankings kill switch', () {
+    test('adds rankings_enabled defaulting to on, so upgrading never '
+        'takes the feature away from an existing user', () async {
+      final legacyDb = v12.LegacyAppDatabaseV12(NativeDatabase(dbFile));
+      await legacyDb
+          .into(legacyDb.legacyUserSettingsPreV13)
+          .insert(
+            v12.LegacyUserSettingsPreV13Companion.insert(
+              uid: 'user-1',
+              createdAt: DateTime(2026, 1, 1),
+            ),
+          );
+      await legacyDb.close();
+
+      final db = openMigrated();
+      final settings = await db.select(db.userSettings).get();
+      expect(settings, hasLength(1));
+      expect(settings.single.uid, 'user-1');
+      expect(settings.single.rankingsEnabled, isTrue);
+    });
+
+    test('preserves the competition schema and its rows', () async {
+      final legacyDb = v12.LegacyAppDatabaseV12(NativeDatabase(dbFile));
+      final tripId = await legacyDb
+          .into(legacyDb.trips)
+          .insert(
+            v12.TripsCompanion.insert(
+              uid: 'user-1',
+              topSpeedKmh: 90,
+              avgSpeedKmh: 50,
+              distanceKm: 20,
+              durationSeconds: 900,
+              startedAt: DateTime(2026, 4, 1),
+            ),
+          );
+      await legacyDb
+          .into(legacyDb.tripEligibility)
+          .insert(
+            v12.TripEligibilityCompanion.insert(
+              tripId: Value(tripId),
+              eligible: true,
+              startedAtUtcOffsetMinutes: 300,
+              evaluatedAt: DateTime(2026, 4, 1),
+            ),
+          );
+      await legacyDb.close();
+
+      final db = openMigrated();
+      expect(await db.select(db.trips).get(), hasLength(1));
+      final eligibility = await db.select(db.tripEligibility).get();
+      expect(eligibility, hasLength(1));
+      expect(eligibility.single.tripId, tripId);
+      expect(eligibility.single.eligible, isTrue);
+    });
+  });
+
+  group('fresh install at v13', () {
     // Catches a table added to the migration but not to the
     // `@DriftDatabase` tables list — `createAll` would skip it and only
     // upgraded databases would have it.
@@ -285,17 +342,27 @@ void main() {
       );
     });
 
-    test('the v10 fixture still matches the live trips schema — if a '
-        'later migration alters trips, this fails loudly instead of the '
-        'fixture silently seeding a "v10" database with future columns',
-        () async {
+    // These guards exist because the fixtures import live table classes
+    // wherever a table has never been altered, which silently stops
+    // being faithful the moment one is. Both times a migration has
+    // touched an existing table (v12's live_waypoints, v13's
+    // user_settings) the fixtures broke — loudly the first time, and
+    // these assertions are what make the next one loud too. When a
+    // count changes here, freeze that table's old shape in
+    // legacy_tables.dart and repoint the older fixtures at it.
+    test('the fixtures still match the live trips schema', () async {
       final db = openMigrated();
-      final liveColumns = await db
-          .customSelect('PRAGMA table_info(trips)')
+      final columns = await db.customSelect('PRAGMA table_info(trips)').get();
+      expect(columns, hasLength(33));
+    });
+
+    test('the fixtures still match the live user_settings schema', () async {
+      final db = openMigrated();
+      final columns = await db
+          .customSelect('PRAGMA table_info(user_settings)')
           .get();
-      // Bump this deliberately, and freeze the old Trips definition in
-      // legacy_tables.dart, when a migration changes the table.
-      expect(liveColumns, hasLength(33));
+      // 26 at v12, plus rankings_enabled.
+      expect(columns, hasLength(27));
     });
   });
 }

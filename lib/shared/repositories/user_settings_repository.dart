@@ -33,10 +33,14 @@ class UserSettingsRepository {
   final LocaleService _locale;
   final FreeTripCounterService _freeTripCounter;
 
-  /// Default uid for the local install. Stays as-is until the user
-  /// goes through Firebase Auth, at which point the analytics layer
-  /// is told the new uid (the settings row's `uid` column doesn't
-  /// gate anything any more, so we don't bother migrating it).
+  /// Default uid for the local install, used until Firebase Auth
+  /// resolves — at which point [syncUid] migrates this row and every
+  /// trip tagged with it over to the real uid.
+  ///
+  /// Note the social feature deliberately refuses to write per-user rows
+  /// under this placeholder (see `kLocalPlaceholderUid` in the social
+  /// trip processor), which is why [syncUid] has no social tables to
+  /// migrate — see its doc comment.
   static const String _initialUid = 'local';
 
   /// Returns the existing row, creating one with locale-derived defaults
@@ -104,6 +108,38 @@ class UserSettingsRepository {
     )..limit(1)).getSingleOrNull();
     return row?.onboardingComplete ?? false;
   }
+
+  // ---- Rankings kill switch ----
+  //
+  // The single source of truth for whether the public rankings surfaces
+  // are available. Three places act on the answer — the router redirect,
+  // the nav bar's tab list, and the rankings screen — and each renders
+  // its own consequence (bounce, hide, disable). None of them reads the
+  // column directly or re-derives the rule, so they cannot drift apart.
+  //
+  // Absent row reads as enabled, matching the column default: a user who
+  // somehow has no settings row yet shouldn't silently lose a feature.
+
+  /// Reactive form, for the nav bar and the rankings bloc. Emits on
+  /// every settings change, so a remote flip (a later phase) takes
+  /// effect without a restart.
+  Stream<bool> watchRankingsEnabled() =>
+      watch().map((row) => row.rankingsEnabled);
+
+  /// One-shot form, for the router's redirect — which already reads this
+  /// row for the onboarding check on every navigation, so this adds no
+  /// extra query beyond the one it makes.
+  Future<bool> isRankingsEnabled() async {
+    final row = await (_db.select(
+      _db.userSettings,
+    )..limit(1)).getSingleOrNull();
+    return row?.rankingsEnabled ?? true;
+  }
+
+  /// Flips the kill switch. Written by the remote-config channel a later
+  /// phase adds; exposed now so the behaviour is testable end to end.
+  Future<void> setRankingsEnabled({required bool enabled}) =>
+      patch(UserSettingsCompanion(rankingsEnabled: Value(enabled)));
 
   /// Generic patcher — pass only the fields you want to change.
   /// Internally guarantees a row exists. Filters by primary key so it
@@ -190,6 +226,21 @@ class UserSettingsRepository {
   /// (anonymous) immediately beforehand — see [reassignUidOnly] for the
   /// other branch. Callers own that safety check; this method just does
   /// the migration once told it's safe.
+  ///
+  /// **Deliberately migrates only the settings row and `trips`.** The
+  /// social tables carry a uid too, but nothing ever writes them under
+  /// the pre-auth placeholder — the competition engine skips per-user
+  /// writes while the uid is `'local'` precisely so there is nothing
+  /// here to migrate. That is the cheaper half of the trade: trophy
+  /// remote ids are deterministic over uid and `challenge_progress.uid`
+  /// is part of its primary key, so repointing them would mean
+  /// recomputing ids and resolving key collisions, and getting it wrong
+  /// re-awards trophies. `trip_eligibility` needs nothing either — it is
+  /// keyed on the trip, not the user, for exactly this reason.
+  ///
+  /// The cost, worth knowing: on a build where Firebase never
+  /// initialises the uid stays `'local'` for good, so trophies and
+  /// target progress never accrue there.
   Future<void> syncUid(String authUid) async {
     if (authUid.isEmpty) return;
     final row = await read();

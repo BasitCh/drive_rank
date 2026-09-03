@@ -47,3 +47,52 @@ class LegacyTrophiesV11 extends Table {
   @override
   String get tableName => 'trophies';
 }
+
+/// `user_settings` as it stood through v12 — before v13 added
+/// `rankings_enabled`.
+@DataClassName('LegacyUserSettingsPreV13Row')
+class LegacyUserSettingsPreV13 extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  TextColumn get uid => text()();
+  TextColumn get username => text().withDefault(const Constant(''))();
+
+  TextColumn get carMake => text().withDefault(const Constant(''))();
+  TextColumn get carModel => text().withDefault(const Constant(''))();
+  IntColumn get carYear => integer().nullable()();
+  TextColumn get carColour => text().nullable()();
+  TextColumn get carPhotoPath => text().nullable()();
+  TextColumn get vehicleType => text().withDefault(const Constant('car'))();
+
+  TextColumn get country => text().nullable()();
+  TextColumn get unitSystem => text().withDefault(const Constant('metric'))();
+
+  TextColumn get fuelType => text().nullable()();
+  RealColumn get fuelConsumption => real().nullable()();
+  RealColumn get fuelPricePerUnit => real().nullable()();
+  TextColumn get currencyCode => text().nullable()();
+
+  TextColumn get selectedMapTheme =>
+      text().withDefault(const Constant('regular'))();
+  RealColumn get minTripLengthMeters =>
+      real().withDefault(const Constant(500))();
+
+  IntColumn get freeTripsUsed => integer().withDefault(const Constant(0))();
+  IntColumn get freeTripLimit => integer().nullable()();
+
+  BoolColumn get isPro => boolean().withDefault(const Constant(false))();
+  BoolColumn get onboardingComplete =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get oemAdviceShown =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get bgLocationDisclosureAcked =>
+      boolean().withDefault(const Constant(false))();
+
+  RealColumn get speedGoalKmh => real().nullable()();
+  RealColumn get distanceGoalKm => real().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  String get tableName => 'user_settings';
+}
