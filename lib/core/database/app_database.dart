@@ -2,8 +2,13 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:drive_rank/core/database/tables/challenge_progress_table.dart';
+import 'package:drive_rank/core/database/tables/challenges_table.dart';
+import 'package:drive_rank/core/database/tables/friend_requests_table.dart';
+import 'package:drive_rank/core/database/tables/friends_table.dart';
 import 'package:drive_rank/core/database/tables/live_trips_table.dart';
 import 'package:drive_rank/core/database/tables/trips_table.dart';
+import 'package:drive_rank/core/database/tables/trophies_table.dart';
 import 'package:drive_rank/core/database/tables/user_settings_table.dart';
 import 'package:drive_rank/core/database/tables/waypoints_table.dart';
 import 'package:injectable/injectable.dart';
@@ -17,7 +22,18 @@ part 'app_database.g.dart';
 /// Reads are always served from this DB (reactive streams) — Firestore is
 /// a write-only sync target. Keeps the app fully offline-capable.
 @DriftDatabase(
-  tables: [Trips, Waypoints, UserSettings, LiveTrips, LiveWaypoints],
+  tables: [
+    Trips,
+    Waypoints,
+    UserSettings,
+    LiveTrips,
+    LiveWaypoints,
+    Friends,
+    FriendRequests,
+    Challenges,
+    ChallengeProgress,
+    Trophies,
+  ],
 )
 @singleton
 class AppDatabase extends _$AppDatabase {
@@ -27,7 +43,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -164,6 +180,17 @@ class AppDatabase extends _$AppDatabase {
           'UPDATE user_settings SET free_trip_limit = 3 '
           'WHERE free_trip_limit IS NULL',
         );
+      }
+      if (from < 11) {
+        // v11 — adds the Social Competition feature's local tables:
+        // friends, friend requests, challenges (+ per-participant
+        // progress), and trophies. Phase 1 scaffolding only — no
+        // remote/Firestore sync yet.
+        await m.createTable(friends);
+        await m.createTable(friendRequests);
+        await m.createTable(challenges); // must precede challengeProgress
+        await m.createTable(challengeProgress);
+        await m.createTable(trophies);
       }
     },
     beforeOpen: (details) async {

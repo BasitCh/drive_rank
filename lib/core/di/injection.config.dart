@@ -57,6 +57,12 @@ import 'package:drive_rank/features/personal_bests/presentation/bloc/personal_be
     as _i314;
 import 'package:drive_rank/features/profile/presentation/bloc/profile_bloc.dart'
     as _i868;
+import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart'
+    as _i866;
+import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart'
+    as _i621;
+import 'package:drive_rank/features/social/domain/repositories/social_repository.dart'
+    as _i247;
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart'
     as _i687;
 import 'package:drive_rank/features/trip_insights/data/insights_repository.dart'
@@ -193,6 +199,9 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i766.ActiveTripStore>(
     () => _i766.ActiveTripStore(gh<_i425.AppDatabase>()),
   );
+  gh.lazySingleton<_i866.SocialLocalDataSource>(
+    () => _i866.SocialLocalDataSource(gh<_i425.AppDatabase>()),
+  );
   gh.lazySingleton<_i427.AccountDeletionService>(
     () => _i427.AccountDeletionService(
       gh<_i634.TripRepository>(),
@@ -259,6 +268,9 @@ _i174.GetIt $initGetIt(
       gh<_i337.InsightsRepository>(),
       gh<_i46.TelemetryService>(),
     ),
+  );
+  gh.lazySingleton<_i247.SocialRepository>(
+    () => _i621.SocialRepositoryImpl(gh<_i866.SocialLocalDataSource>()),
   );
   gh.factory<_i868.ProfileBloc>(
     () => _i868.ProfileBloc(
