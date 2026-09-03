@@ -1,18 +1,30 @@
 import 'package:drift/drift.dart';
-import 'package:drive_rank/core/database/tables/live_trips_table.dart';
+import 'package:drive_rank/core/database/tables/live_trips_table.dart'
+    show LiveTrips;
 import 'package:drive_rank/core/database/tables/trips_table.dart';
 import 'package:drive_rank/core/database/tables/user_settings_table.dart';
 import 'package:drive_rank/core/database/tables/waypoints_table.dart';
 
+import 'legacy_tables.dart';
+
 part 'legacy_app_database_v10.g.dart';
 
-/// A second, minimal `@DriftDatabase` over exactly the 5 tables that
-/// existed at schema v10 — reuses the SAME table classes `AppDatabase`
-/// uses today (they aren't touched by the v11 social migration), so the
-/// DDL this produces is guaranteed identical to what a real v10 install
-/// has. Exists only to seed a populated "pre-migration" database for
-/// `social_migration_test.dart`.
-@DriftDatabase(tables: [Trips, Waypoints, UserSettings, LiveTrips, LiveWaypoints])
+/// The five tables that existed at schema v10, for seeding a populated
+/// "pre-migration" database in the migration tests.
+///
+/// Tables no later migration has altered are imported live, so their
+/// DDL is guaranteed identical to a real v10 install. `live_waypoints`
+/// is the exception — v12 added a column to it, so this uses the frozen
+/// pre-v12 copy; see `legacy_tables.dart` for why that matters.
+@DriftDatabase(
+  tables: [
+    Trips,
+    Waypoints,
+    UserSettings,
+    LiveTrips,
+    LegacyLiveWaypointsPreV12,
+  ],
+)
 class LegacyAppDatabaseV10 extends _$LegacyAppDatabaseV10 {
   LegacyAppDatabaseV10(super.executor);
 

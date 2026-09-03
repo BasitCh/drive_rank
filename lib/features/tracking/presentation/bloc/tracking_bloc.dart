@@ -13,6 +13,7 @@ import 'package:drive_rank/core/services/retention_notification_copy.dart';
 import 'package:drive_rank/core/services/retention_notification_service.dart';
 import 'package:drive_rank/core/services/sensor_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
+import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_event.dart';
@@ -21,7 +22,9 @@ import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/services/record_goal_evaluator.dart';
 import 'package:drive_rank/shared/services/road_segment_service.dart';
+import 'package:drive_rank/shared/services/speed_sample_plausibility.dart';
 import 'package:drive_rank/shared/services/sync_manager.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -54,6 +57,7 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     this._notification,
     this._telemetry,
     this._retention,
+    this._social,
   ) : super(TrackingState.initial()) {
     on<TrackingStartRequested>(_onStartRequested);
     on<TrackingStopRequested>(_onStopRequested);
@@ -95,6 +99,16 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
   final LiveTripNotificationService _notification;
   final TelemetryService _telemetry;
   final RetentionNotificationService _retention;
+
+  /// The competition engine. Injected rather than looked up lazily via
+  /// `getIt` (the pattern `SyncManager` uses above): that indirection
+  /// exists because `SyncManager` is an eager singleton constructed
+  /// before bootstrap swaps in the real Firebase services, and a
+  /// constructor reference would have captured the pre-Firebase
+  /// defaults. Nothing the processor depends on gets swapped, and this
+  /// bloc is built per-page well after bootstrap, so a plain dependency
+  /// is both correct and honest about the requirement.
+  final SocialTripProcessor _social;
 
   StreamSubscription<TripPoint>? _pointSub;
   StreamSubscription<double>? _gforceSub;
@@ -555,10 +569,15 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       final priorBestSpeed = await _trips.getPersonalBest(uid: settings.uid);
       final priorLongest = await _trips.getLongestTrip(uid: settings.uid);
 
+      // Captured before the save because `_startedAt` is cleared below,
+      // and the social hook (also fire-and-forget) needs the trip's own
+      // start time to attribute it to a competition period.
+      final tripStartedAt = _startedAt!;
+
       final tripId = await _trips.saveTrip(
         uid: settings.uid,
         stats: state.stats,
-        startedAt: _startedAt!,
+        startedAt: tripStartedAt,
         endedAt: DateTime.now(),
         mapTheme: settings.selectedMapTheme,
         country: settings.country,
@@ -651,6 +670,25 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
           tripDistanceKm: state.stats.distanceKm,
         ),
       );
+      // Competition side of the trip — eligibility, challenge/target
+      // progress, trophies. Same fire-and-forget contract and the same
+      // capture-at-the-call-site rule as the block above: the trip is
+      // already durably saved, and nothing social may ever be something
+      // the save waits on. `settings.uid` is passed rather than
+      // resolved inside so the social rows are attributed to the same
+      // account the trip row was.
+      if (kSocialProcessingEnabled) {
+        unawaited(
+          _processSocialTrip(
+            tripId: tripId,
+            uid: settings.uid,
+            points: state.stats.points,
+            distanceKm: state.stats.distanceKm,
+            durationSeconds: state.stats.durationSeconds,
+            startedAt: tripStartedAt,
+          ),
+        );
+      }
       emit(
         state.copyWith(
           phase: TrackingPhase.idle,
@@ -664,6 +702,46 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
         state.copyWith(
           phase: TrackingPhase.error,
           errorMessage: 'Could not save trip: $e',
+        ),
+      );
+    }
+  }
+
+  /// Hands the just-saved trip to the competition engine.
+  ///
+  /// Every failure is swallowed and reported to telemetry rather than
+  /// rethrown: this runs `unawaited`, so a throw here would be an
+  /// unhandled async error that the stop handler's own `catch` never
+  /// sees — and since an unevaluated trip silently reads as
+  /// leaderboard-eligible, a systematic failure would otherwise be
+  /// invisible. The trip id goes into the report for that reason.
+  Future<void> _processSocialTrip({
+    required int tripId,
+    required String uid,
+    required List<TripPoint> points,
+    required double distanceKm,
+    required int durationSeconds,
+    required DateTime startedAt,
+  }) async {
+    try {
+      final saved = await _trips.getById(tripId);
+      await _social.processCompletedTrip(
+        tripId: tripId,
+        uid: uid,
+        points: points,
+        distanceKm: distanceKm,
+        durationSeconds: durationSeconds,
+        startedAt: startedAt,
+        tripRemoteId: saved?.remoteId,
+      );
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[TrackingBloc] social processing failed for $tripId: $e');
+      }
+      unawaited(
+        _telemetry.recordError(
+          StateError('Social trip processing failed for trip $tripId: $e'),
+          st,
         ),
       );
     }
@@ -1034,16 +1112,20 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     _lastSpeedSampleKmh = p.speedKmh;
     if (lastAt == null || lastSpeed == null) return const _AccelResult(0, 0);
 
-    final dtSeconds = p.timestamp.difference(lastAt).inMilliseconds / 1000.0;
-    if (dtSeconds <= 0 || dtSeconds > AppConstants.maxAccelSampleGapSeconds) {
-      return const _AccelResult(0, 0);
-    }
+    // Shared with the social feature's eligibility check so the two
+    // can't drift apart — see `speed_sample_plausibility.dart`.
+    final dtSeconds = usableSampleGapSeconds(
+      fromAt: lastAt,
+      toAt: p.timestamp,
+    );
+    if (dtSeconds == null) return const _AccelResult(0, 0);
 
-    final dvMetresPerSecond = (p.speedKmh - lastSpeed) / 3.6;
-    final aMps2 = dvMetresPerSecond / dtSeconds;
-    if (aMps2.abs() > AppConstants.maxPlausibleAccelMps2) {
-      return const _AccelResult(0, 0);
-    }
+    final aMps2 = accelerationMps2(
+      fromSpeedKmh: lastSpeed,
+      toSpeedKmh: p.speedKmh,
+      dtSeconds: dtSeconds,
+    );
+    if (isImplausibleAcceleration(aMps2)) return const _AccelResult(0, 0);
     return aMps2 > 0 ? _AccelResult(aMps2, 0) : _AccelResult(0, -aMps2);
   }
 

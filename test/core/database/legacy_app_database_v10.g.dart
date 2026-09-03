@@ -4786,12 +4786,16 @@ class LiveTripsCompanion extends UpdateCompanion<LiveTripRow> {
   }
 }
 
-class $LiveWaypointsTable extends LiveWaypoints
-    with TableInfo<$LiveWaypointsTable, LiveWaypointRow> {
+class $LegacyLiveWaypointsPreV12Table extends LegacyLiveWaypointsPreV12
+    with
+        TableInfo<
+          $LegacyLiveWaypointsPreV12Table,
+          LegacyLiveWaypointPreV12Row
+        > {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $LiveWaypointsTable(this.attachedDatabase, [this._alias]);
+  $LegacyLiveWaypointsPreV12Table(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -4884,7 +4888,7 @@ class $LiveWaypointsTable extends LiveWaypoints
   static const String $name = 'live_waypoints';
   @override
   VerificationContext validateIntegrity(
-    Insertable<LiveWaypointRow> instance, {
+    Insertable<LegacyLiveWaypointPreV12Row> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -4952,9 +4956,12 @@ class $LiveWaypointsTable extends LiveWaypoints
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  LiveWaypointRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  LegacyLiveWaypointPreV12Row map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return LiveWaypointRow(
+    return LegacyLiveWaypointPreV12Row(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -4987,12 +4994,13 @@ class $LiveWaypointsTable extends LiveWaypoints
   }
 
   @override
-  $LiveWaypointsTable createAlias(String alias) {
-    return $LiveWaypointsTable(attachedDatabase, alias);
+  $LegacyLiveWaypointsPreV12Table createAlias(String alias) {
+    return $LegacyLiveWaypointsPreV12Table(attachedDatabase, alias);
   }
 }
 
-class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
+class LegacyLiveWaypointPreV12Row extends DataClass
+    implements Insertable<LegacyLiveWaypointPreV12Row> {
   final int id;
   final int tripLocalId;
   final double lat;
@@ -5000,7 +5008,7 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
   final double speedKmh;
   final double accuracyMeters;
   final DateTime timestamp;
-  const LiveWaypointRow({
+  const LegacyLiveWaypointPreV12Row({
     required this.id,
     required this.tripLocalId,
     required this.lat,
@@ -5022,8 +5030,8 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     return map;
   }
 
-  LiveWaypointsCompanion toCompanion(bool nullToAbsent) {
-    return LiveWaypointsCompanion(
+  LegacyLiveWaypointsPreV12Companion toCompanion(bool nullToAbsent) {
+    return LegacyLiveWaypointsPreV12Companion(
       id: Value(id),
       tripLocalId: Value(tripLocalId),
       lat: Value(lat),
@@ -5034,12 +5042,12 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     );
   }
 
-  factory LiveWaypointRow.fromJson(
+  factory LegacyLiveWaypointPreV12Row.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return LiveWaypointRow(
+    return LegacyLiveWaypointPreV12Row(
       id: serializer.fromJson<int>(json['id']),
       tripLocalId: serializer.fromJson<int>(json['tripLocalId']),
       lat: serializer.fromJson<double>(json['lat']),
@@ -5063,7 +5071,7 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     };
   }
 
-  LiveWaypointRow copyWith({
+  LegacyLiveWaypointPreV12Row copyWith({
     int? id,
     int? tripLocalId,
     double? lat,
@@ -5071,7 +5079,7 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     double? speedKmh,
     double? accuracyMeters,
     DateTime? timestamp,
-  }) => LiveWaypointRow(
+  }) => LegacyLiveWaypointPreV12Row(
     id: id ?? this.id,
     tripLocalId: tripLocalId ?? this.tripLocalId,
     lat: lat ?? this.lat,
@@ -5080,8 +5088,10 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     accuracyMeters: accuracyMeters ?? this.accuracyMeters,
     timestamp: timestamp ?? this.timestamp,
   );
-  LiveWaypointRow copyWithCompanion(LiveWaypointsCompanion data) {
-    return LiveWaypointRow(
+  LegacyLiveWaypointPreV12Row copyWithCompanion(
+    LegacyLiveWaypointsPreV12Companion data,
+  ) {
+    return LegacyLiveWaypointPreV12Row(
       id: data.id.present ? data.id.value : this.id,
       tripLocalId: data.tripLocalId.present
           ? data.tripLocalId.value
@@ -5098,7 +5108,7 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
 
   @override
   String toString() {
-    return (StringBuffer('LiveWaypointRow(')
+    return (StringBuffer('LegacyLiveWaypointPreV12Row(')
           ..write('id: $id, ')
           ..write('tripLocalId: $tripLocalId, ')
           ..write('lat: $lat, ')
@@ -5123,7 +5133,7 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is LiveWaypointRow &&
+      (other is LegacyLiveWaypointPreV12Row &&
           other.id == this.id &&
           other.tripLocalId == this.tripLocalId &&
           other.lat == this.lat &&
@@ -5133,7 +5143,8 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
           other.timestamp == this.timestamp);
 }
 
-class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
+class LegacyLiveWaypointsPreV12Companion
+    extends UpdateCompanion<LegacyLiveWaypointPreV12Row> {
   final Value<int> id;
   final Value<int> tripLocalId;
   final Value<double> lat;
@@ -5141,7 +5152,7 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
   final Value<double> speedKmh;
   final Value<double> accuracyMeters;
   final Value<DateTime> timestamp;
-  const LiveWaypointsCompanion({
+  const LegacyLiveWaypointsPreV12Companion({
     this.id = const Value.absent(),
     this.tripLocalId = const Value.absent(),
     this.lat = const Value.absent(),
@@ -5150,7 +5161,7 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
     this.accuracyMeters = const Value.absent(),
     this.timestamp = const Value.absent(),
   });
-  LiveWaypointsCompanion.insert({
+  LegacyLiveWaypointsPreV12Companion.insert({
     this.id = const Value.absent(),
     required int tripLocalId,
     required double lat,
@@ -5164,7 +5175,7 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
        speedKmh = Value(speedKmh),
        accuracyMeters = Value(accuracyMeters),
        timestamp = Value(timestamp);
-  static Insertable<LiveWaypointRow> custom({
+  static Insertable<LegacyLiveWaypointPreV12Row> custom({
     Expression<int>? id,
     Expression<int>? tripLocalId,
     Expression<double>? lat,
@@ -5184,7 +5195,7 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
     });
   }
 
-  LiveWaypointsCompanion copyWith({
+  LegacyLiveWaypointsPreV12Companion copyWith({
     Value<int>? id,
     Value<int>? tripLocalId,
     Value<double>? lat,
@@ -5193,7 +5204,7 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
     Value<double>? accuracyMeters,
     Value<DateTime>? timestamp,
   }) {
-    return LiveWaypointsCompanion(
+    return LegacyLiveWaypointsPreV12Companion(
       id: id ?? this.id,
       tripLocalId: tripLocalId ?? this.tripLocalId,
       lat: lat ?? this.lat,
@@ -5233,7 +5244,7 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
 
   @override
   String toString() {
-    return (StringBuffer('LiveWaypointsCompanion(')
+    return (StringBuffer('LegacyLiveWaypointsPreV12Companion(')
           ..write('id: $id, ')
           ..write('tripLocalId: $tripLocalId, ')
           ..write('lat: $lat, ')
@@ -5254,7 +5265,8 @@ abstract class _$LegacyAppDatabaseV10 extends GeneratedDatabase {
   late final $WaypointsTable waypoints = $WaypointsTable(this);
   late final $UserSettingsTable userSettings = $UserSettingsTable(this);
   late final $LiveTripsTable liveTrips = $LiveTripsTable(this);
-  late final $LiveWaypointsTable liveWaypoints = $LiveWaypointsTable(this);
+  late final $LegacyLiveWaypointsPreV12Table legacyLiveWaypointsPreV12 =
+      $LegacyLiveWaypointsPreV12Table(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5264,7 +5276,7 @@ abstract class _$LegacyAppDatabaseV10 extends GeneratedDatabase {
     waypoints,
     userSettings,
     liveTrips,
-    liveWaypoints,
+    legacyLiveWaypointsPreV12,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -7554,8 +7566,8 @@ typedef $$LiveTripsTableProcessedTableManager =
       LiveTripRow,
       PrefetchHooks Function()
     >;
-typedef $$LiveWaypointsTableCreateCompanionBuilder =
-    LiveWaypointsCompanion Function({
+typedef $$LegacyLiveWaypointsPreV12TableCreateCompanionBuilder =
+    LegacyLiveWaypointsPreV12Companion Function({
       Value<int> id,
       required int tripLocalId,
       required double lat,
@@ -7564,8 +7576,8 @@ typedef $$LiveWaypointsTableCreateCompanionBuilder =
       required double accuracyMeters,
       required DateTime timestamp,
     });
-typedef $$LiveWaypointsTableUpdateCompanionBuilder =
-    LiveWaypointsCompanion Function({
+typedef $$LegacyLiveWaypointsPreV12TableUpdateCompanionBuilder =
+    LegacyLiveWaypointsPreV12Companion Function({
       Value<int> id,
       Value<int> tripLocalId,
       Value<double> lat,
@@ -7575,9 +7587,9 @@ typedef $$LiveWaypointsTableUpdateCompanionBuilder =
       Value<DateTime> timestamp,
     });
 
-class $$LiveWaypointsTableFilterComposer
-    extends Composer<_$LegacyAppDatabaseV10, $LiveWaypointsTable> {
-  $$LiveWaypointsTableFilterComposer({
+class $$LegacyLiveWaypointsPreV12TableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV10, $LegacyLiveWaypointsPreV12Table> {
+  $$LegacyLiveWaypointsPreV12TableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -7620,9 +7632,9 @@ class $$LiveWaypointsTableFilterComposer
   );
 }
 
-class $$LiveWaypointsTableOrderingComposer
-    extends Composer<_$LegacyAppDatabaseV10, $LiveWaypointsTable> {
-  $$LiveWaypointsTableOrderingComposer({
+class $$LegacyLiveWaypointsPreV12TableOrderingComposer
+    extends Composer<_$LegacyAppDatabaseV10, $LegacyLiveWaypointsPreV12Table> {
+  $$LegacyLiveWaypointsPreV12TableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -7665,9 +7677,9 @@ class $$LiveWaypointsTableOrderingComposer
   );
 }
 
-class $$LiveWaypointsTableAnnotationComposer
-    extends Composer<_$LegacyAppDatabaseV10, $LiveWaypointsTable> {
-  $$LiveWaypointsTableAnnotationComposer({
+class $$LegacyLiveWaypointsPreV12TableAnnotationComposer
+    extends Composer<_$LegacyAppDatabaseV10, $LegacyLiveWaypointsPreV12Table> {
+  $$LegacyLiveWaypointsPreV12TableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -7700,41 +7712,50 @@ class $$LiveWaypointsTableAnnotationComposer
       $composableBuilder(column: $table.timestamp, builder: (column) => column);
 }
 
-class $$LiveWaypointsTableTableManager
+class $$LegacyLiveWaypointsPreV12TableTableManager
     extends
         RootTableManager<
           _$LegacyAppDatabaseV10,
-          $LiveWaypointsTable,
-          LiveWaypointRow,
-          $$LiveWaypointsTableFilterComposer,
-          $$LiveWaypointsTableOrderingComposer,
-          $$LiveWaypointsTableAnnotationComposer,
-          $$LiveWaypointsTableCreateCompanionBuilder,
-          $$LiveWaypointsTableUpdateCompanionBuilder,
+          $LegacyLiveWaypointsPreV12Table,
+          LegacyLiveWaypointPreV12Row,
+          $$LegacyLiveWaypointsPreV12TableFilterComposer,
+          $$LegacyLiveWaypointsPreV12TableOrderingComposer,
+          $$LegacyLiveWaypointsPreV12TableAnnotationComposer,
+          $$LegacyLiveWaypointsPreV12TableCreateCompanionBuilder,
+          $$LegacyLiveWaypointsPreV12TableUpdateCompanionBuilder,
           (
-            LiveWaypointRow,
+            LegacyLiveWaypointPreV12Row,
             BaseReferences<
               _$LegacyAppDatabaseV10,
-              $LiveWaypointsTable,
-              LiveWaypointRow
+              $LegacyLiveWaypointsPreV12Table,
+              LegacyLiveWaypointPreV12Row
             >,
           ),
-          LiveWaypointRow,
+          LegacyLiveWaypointPreV12Row,
           PrefetchHooks Function()
         > {
-  $$LiveWaypointsTableTableManager(
+  $$LegacyLiveWaypointsPreV12TableTableManager(
     _$LegacyAppDatabaseV10 db,
-    $LiveWaypointsTable table,
+    $LegacyLiveWaypointsPreV12Table table,
   ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$LiveWaypointsTableFilterComposer($db: db, $table: table),
+              $$LegacyLiveWaypointsPreV12TableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
           createOrderingComposer: () =>
-              $$LiveWaypointsTableOrderingComposer($db: db, $table: table),
+              $$LegacyLiveWaypointsPreV12TableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
           createComputedFieldComposer: () =>
-              $$LiveWaypointsTableAnnotationComposer($db: db, $table: table),
+              $$LegacyLiveWaypointsPreV12TableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -7744,7 +7765,7 @@ class $$LiveWaypointsTableTableManager
                 Value<double> speedKmh = const Value.absent(),
                 Value<double> accuracyMeters = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
-              }) => LiveWaypointsCompanion(
+              }) => LegacyLiveWaypointsPreV12Companion(
                 id: id,
                 tripLocalId: tripLocalId,
                 lat: lat,
@@ -7762,7 +7783,7 @@ class $$LiveWaypointsTableTableManager
                 required double speedKmh,
                 required double accuracyMeters,
                 required DateTime timestamp,
-              }) => LiveWaypointsCompanion.insert(
+              }) => LegacyLiveWaypointsPreV12Companion.insert(
                 id: id,
                 tripLocalId: tripLocalId,
                 lat: lat,
@@ -7779,25 +7800,25 @@ class $$LiveWaypointsTableTableManager
       );
 }
 
-typedef $$LiveWaypointsTableProcessedTableManager =
+typedef $$LegacyLiveWaypointsPreV12TableProcessedTableManager =
     ProcessedTableManager<
       _$LegacyAppDatabaseV10,
-      $LiveWaypointsTable,
-      LiveWaypointRow,
-      $$LiveWaypointsTableFilterComposer,
-      $$LiveWaypointsTableOrderingComposer,
-      $$LiveWaypointsTableAnnotationComposer,
-      $$LiveWaypointsTableCreateCompanionBuilder,
-      $$LiveWaypointsTableUpdateCompanionBuilder,
+      $LegacyLiveWaypointsPreV12Table,
+      LegacyLiveWaypointPreV12Row,
+      $$LegacyLiveWaypointsPreV12TableFilterComposer,
+      $$LegacyLiveWaypointsPreV12TableOrderingComposer,
+      $$LegacyLiveWaypointsPreV12TableAnnotationComposer,
+      $$LegacyLiveWaypointsPreV12TableCreateCompanionBuilder,
+      $$LegacyLiveWaypointsPreV12TableUpdateCompanionBuilder,
       (
-        LiveWaypointRow,
+        LegacyLiveWaypointPreV12Row,
         BaseReferences<
           _$LegacyAppDatabaseV10,
-          $LiveWaypointsTable,
-          LiveWaypointRow
+          $LegacyLiveWaypointsPreV12Table,
+          LegacyLiveWaypointPreV12Row
         >,
       ),
-      LiveWaypointRow,
+      LegacyLiveWaypointPreV12Row,
       PrefetchHooks Function()
     >;
 
@@ -7812,6 +7833,9 @@ class $LegacyAppDatabaseV10Manager {
       $$UserSettingsTableTableManager(_db, _db.userSettings);
   $$LiveTripsTableTableManager get liveTrips =>
       $$LiveTripsTableTableManager(_db, _db.liveTrips);
-  $$LiveWaypointsTableTableManager get liveWaypoints =>
-      $$LiveWaypointsTableTableManager(_db, _db.liveWaypoints);
+  $$LegacyLiveWaypointsPreV12TableTableManager get legacyLiveWaypointsPreV12 =>
+      $$LegacyLiveWaypointsPreV12TableTableManager(
+        _db,
+        _db.legacyLiveWaypointsPreV12,
+      );
 }

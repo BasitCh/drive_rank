@@ -1,7 +1,11 @@
 import 'package:flutter/foundation.dart';
 
 enum TrophyType {
-  firstGoal,
+  /// First personal target completed — a `Challenge` with no opponent.
+  /// Named "target", not "goal", to stay distinct from the
+  /// speed/distance goals `RecordGoalEvaluator` drives, which are a
+  /// separate personal-best mechanic.
+  firstTarget,
   firstChallenge,
   firstWin,
   rankClimber,
@@ -9,8 +13,10 @@ enum TrophyType {
   consistent,
   rivalHunter;
 
-  static TrophyType fromName(String name) =>
-      TrophyType.values.firstWhere((t) => t.name == name, orElse: () => firstGoal);
+  static TrophyType fromName(String name) => TrophyType.values.firstWhere(
+    (t) => t.name == name,
+    orElse: () => firstTarget,
+  );
 }
 
 /// A trophy [uid] unlocked at [unlockedAt].

@@ -13,6 +13,7 @@ class TripPoint {
     required this.timestamp,
     this.altitudeMeters,
     this.heading,
+    this.isMocked = false,
   });
 
   final double lat;
@@ -20,6 +21,14 @@ class TripPoint {
   final double speedKmh;
   final double accuracyMeters;
   final DateTime timestamp;
+
+  /// True when the OS reported this fix as coming from a mock location
+  /// provider. Only meaningful on points straight from `GpsService` —
+  /// points rebuilt from persisted rows (`TripRepository.getWaypoints`,
+  /// `CloudSyncService`) default to false because the `waypoints` table
+  /// doesn't carry the flag. Consumed by the social feature's
+  /// leaderboard-eligibility check, never by tracking itself.
+  final bool isMocked;
 
   /// Altitude above sea level, or null when the fix's reported altitude
   /// accuracy was too poor to trust (see
@@ -41,7 +50,8 @@ class TripPoint {
           other.accuracyMeters == accuracyMeters &&
           other.timestamp == timestamp &&
           other.altitudeMeters == altitudeMeters &&
-          other.heading == heading);
+          other.heading == heading &&
+          other.isMocked == isMocked);
 
   @override
   int get hashCode => Object.hash(
@@ -52,5 +62,6 @@ class TripPoint {
     timestamp,
     altitudeMeters,
     heading,
+    isMocked,
   );
 }

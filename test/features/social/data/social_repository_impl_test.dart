@@ -151,7 +151,7 @@ void main() {
 
     test('deleteChallenge cascades to challenge_progress', () async {
       final created = await repo.createChallenge(challengeFor());
-      await repo.upsertProgress(
+      await repo.upsertProgressValue(
         ChallengeProgress(
           challengeId: created.id,
           uid: 'user-1',
@@ -166,9 +166,10 @@ void main() {
   });
 
   group('challenge progress', () {
-    test('upsertProgress on the same (challengeId, uid) updates, not duplicates', () async {
+    test('upsertProgressValue on the same (challengeId, uid) updates, '
+        'not duplicates', () async {
       final created = await repo.createChallenge(challengeFor());
-      await repo.upsertProgress(
+      await repo.upsertProgressValue(
         ChallengeProgress(
           challengeId: created.id,
           uid: 'user-1',
@@ -176,7 +177,7 @@ void main() {
           targetValue: 100,
         ),
       );
-      await repo.upsertProgress(
+      await repo.upsertProgressValue(
         ChallengeProgress(
           challengeId: created.id,
           uid: 'user-1',
@@ -191,18 +192,34 @@ void main() {
   });
 
   group('trophies', () {
+    Trophy trophyFor({String id = 'roadWarrior:user-1:2026-W01'}) => Trophy(
+      id: id,
+      uid: 'user-1',
+      type: TrophyType.roadWarrior,
+      unlockedAt: DateTime(2026, 1, 1),
+    );
+
     test('awardTrophy inserts and watchTrophies emits it', () async {
-      await repo.awardTrophy(
-        Trophy(
-          id: const Uuid().v4(),
-          uid: 'user-1',
-          type: TrophyType.firstGoal,
-          unlockedAt: DateTime(2026, 1, 1),
-        ),
-      );
+      final awarded = await repo.awardTrophy(trophyFor());
+      expect(awarded, isNotNull);
       final trophies = await repo.watchTrophies('user-1').first;
       expect(trophies, hasLength(1));
-      expect(trophies.single.type, TrophyType.firstGoal);
+      expect(trophies.single.type, TrophyType.roadWarrior);
+    });
+
+    test('awarding the same deterministic id twice is a no-op and returns '
+        'null the second time — this is what keeps two trips saved '
+        'back-to-back from double-awarding, since both would pass a '
+        'read-then-insert check', () async {
+      expect(await repo.awardTrophy(trophyFor()), isNotNull);
+      expect(await repo.awardTrophy(trophyFor()), isNull);
+      expect(await repo.getTrophies('user-1'), hasLength(1));
+    });
+
+    test('a different period key is a separate trophy', () async {
+      await repo.awardTrophy(trophyFor());
+      await repo.awardTrophy(trophyFor(id: 'roadWarrior:user-1:2026-W02'));
+      expect(await repo.getTrophies('user-1'), hasLength(2));
     });
   });
 }

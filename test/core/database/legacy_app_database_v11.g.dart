@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'app_database.dart';
+part of 'legacy_app_database_v11.dart';
 
 // ignore_for_file: type=lint
 class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
@@ -4786,12 +4786,16 @@ class LiveTripsCompanion extends UpdateCompanion<LiveTripRow> {
   }
 }
 
-class $LiveWaypointsTable extends LiveWaypoints
-    with TableInfo<$LiveWaypointsTable, LiveWaypointRow> {
+class $LegacyLiveWaypointsPreV12Table extends LegacyLiveWaypointsPreV12
+    with
+        TableInfo<
+          $LegacyLiveWaypointsPreV12Table,
+          LegacyLiveWaypointPreV12Row
+        > {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $LiveWaypointsTable(this.attachedDatabase, [this._alias]);
+  $LegacyLiveWaypointsPreV12Table(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -4867,21 +4871,6 @@ class $LiveWaypointsTable extends LiveWaypoints
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _isMockedMeta = const VerificationMeta(
-    'isMocked',
-  );
-  @override
-  late final GeneratedColumn<bool> isMocked = GeneratedColumn<bool>(
-    'is_mocked',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_mocked" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4891,7 +4880,6 @@ class $LiveWaypointsTable extends LiveWaypoints
     speedKmh,
     accuracyMeters,
     timestamp,
-    isMocked,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4900,7 +4888,7 @@ class $LiveWaypointsTable extends LiveWaypoints
   static const String $name = 'live_waypoints';
   @override
   VerificationContext validateIntegrity(
-    Insertable<LiveWaypointRow> instance, {
+    Insertable<LegacyLiveWaypointPreV12Row> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -4962,21 +4950,18 @@ class $LiveWaypointsTable extends LiveWaypoints
     } else if (isInserting) {
       context.missing(_timestampMeta);
     }
-    if (data.containsKey('is_mocked')) {
-      context.handle(
-        _isMockedMeta,
-        isMocked.isAcceptableOrUnknown(data['is_mocked']!, _isMockedMeta),
-      );
-    }
     return context;
   }
 
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  LiveWaypointRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  LegacyLiveWaypointPreV12Row map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return LiveWaypointRow(
+    return LegacyLiveWaypointPreV12Row(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -5005,20 +4990,17 @@ class $LiveWaypointsTable extends LiveWaypoints
         DriftSqlType.dateTime,
         data['${effectivePrefix}timestamp'],
       )!,
-      isMocked: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_mocked'],
-      )!,
     );
   }
 
   @override
-  $LiveWaypointsTable createAlias(String alias) {
-    return $LiveWaypointsTable(attachedDatabase, alias);
+  $LegacyLiveWaypointsPreV12Table createAlias(String alias) {
+    return $LegacyLiveWaypointsPreV12Table(attachedDatabase, alias);
   }
 }
 
-class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
+class LegacyLiveWaypointPreV12Row extends DataClass
+    implements Insertable<LegacyLiveWaypointPreV12Row> {
   final int id;
   final int tripLocalId;
   final double lat;
@@ -5026,14 +5008,7 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
   final double speedKmh;
   final double accuracyMeters;
   final DateTime timestamp;
-
-  /// Whether the OS reported this fix as coming from a mock location
-  /// provider. Persisted here — not just held in memory — so a trip
-  /// interrupted and recovered mid-drive keeps its spoofing evidence;
-  /// otherwise force-quitting the app would clear it. Recovery rebuilds
-  /// `TripPoint`s from these rows (`ActiveTripStore.load`).
-  final bool isMocked;
-  const LiveWaypointRow({
+  const LegacyLiveWaypointPreV12Row({
     required this.id,
     required this.tripLocalId,
     required this.lat,
@@ -5041,7 +5016,6 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     required this.speedKmh,
     required this.accuracyMeters,
     required this.timestamp,
-    required this.isMocked,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5053,12 +5027,11 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     map['speed_kmh'] = Variable<double>(speedKmh);
     map['accuracy_meters'] = Variable<double>(accuracyMeters);
     map['timestamp'] = Variable<DateTime>(timestamp);
-    map['is_mocked'] = Variable<bool>(isMocked);
     return map;
   }
 
-  LiveWaypointsCompanion toCompanion(bool nullToAbsent) {
-    return LiveWaypointsCompanion(
+  LegacyLiveWaypointsPreV12Companion toCompanion(bool nullToAbsent) {
+    return LegacyLiveWaypointsPreV12Companion(
       id: Value(id),
       tripLocalId: Value(tripLocalId),
       lat: Value(lat),
@@ -5066,16 +5039,15 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
       speedKmh: Value(speedKmh),
       accuracyMeters: Value(accuracyMeters),
       timestamp: Value(timestamp),
-      isMocked: Value(isMocked),
     );
   }
 
-  factory LiveWaypointRow.fromJson(
+  factory LegacyLiveWaypointPreV12Row.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return LiveWaypointRow(
+    return LegacyLiveWaypointPreV12Row(
       id: serializer.fromJson<int>(json['id']),
       tripLocalId: serializer.fromJson<int>(json['tripLocalId']),
       lat: serializer.fromJson<double>(json['lat']),
@@ -5083,7 +5055,6 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
       speedKmh: serializer.fromJson<double>(json['speedKmh']),
       accuracyMeters: serializer.fromJson<double>(json['accuracyMeters']),
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
-      isMocked: serializer.fromJson<bool>(json['isMocked']),
     );
   }
   @override
@@ -5097,11 +5068,10 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
       'speedKmh': serializer.toJson<double>(speedKmh),
       'accuracyMeters': serializer.toJson<double>(accuracyMeters),
       'timestamp': serializer.toJson<DateTime>(timestamp),
-      'isMocked': serializer.toJson<bool>(isMocked),
     };
   }
 
-  LiveWaypointRow copyWith({
+  LegacyLiveWaypointPreV12Row copyWith({
     int? id,
     int? tripLocalId,
     double? lat,
@@ -5109,8 +5079,7 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     double? speedKmh,
     double? accuracyMeters,
     DateTime? timestamp,
-    bool? isMocked,
-  }) => LiveWaypointRow(
+  }) => LegacyLiveWaypointPreV12Row(
     id: id ?? this.id,
     tripLocalId: tripLocalId ?? this.tripLocalId,
     lat: lat ?? this.lat,
@@ -5118,10 +5087,11 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     speedKmh: speedKmh ?? this.speedKmh,
     accuracyMeters: accuracyMeters ?? this.accuracyMeters,
     timestamp: timestamp ?? this.timestamp,
-    isMocked: isMocked ?? this.isMocked,
   );
-  LiveWaypointRow copyWithCompanion(LiveWaypointsCompanion data) {
-    return LiveWaypointRow(
+  LegacyLiveWaypointPreV12Row copyWithCompanion(
+    LegacyLiveWaypointsPreV12Companion data,
+  ) {
+    return LegacyLiveWaypointPreV12Row(
       id: data.id.present ? data.id.value : this.id,
       tripLocalId: data.tripLocalId.present
           ? data.tripLocalId.value
@@ -5133,21 +5103,19 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
           ? data.accuracyMeters.value
           : this.accuracyMeters,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
-      isMocked: data.isMocked.present ? data.isMocked.value : this.isMocked,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('LiveWaypointRow(')
+    return (StringBuffer('LegacyLiveWaypointPreV12Row(')
           ..write('id: $id, ')
           ..write('tripLocalId: $tripLocalId, ')
           ..write('lat: $lat, ')
           ..write('lng: $lng, ')
           ..write('speedKmh: $speedKmh, ')
           ..write('accuracyMeters: $accuracyMeters, ')
-          ..write('timestamp: $timestamp, ')
-          ..write('isMocked: $isMocked')
+          ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
   }
@@ -5161,23 +5129,22 @@ class LiveWaypointRow extends DataClass implements Insertable<LiveWaypointRow> {
     speedKmh,
     accuracyMeters,
     timestamp,
-    isMocked,
   );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is LiveWaypointRow &&
+      (other is LegacyLiveWaypointPreV12Row &&
           other.id == this.id &&
           other.tripLocalId == this.tripLocalId &&
           other.lat == this.lat &&
           other.lng == this.lng &&
           other.speedKmh == this.speedKmh &&
           other.accuracyMeters == this.accuracyMeters &&
-          other.timestamp == this.timestamp &&
-          other.isMocked == this.isMocked);
+          other.timestamp == this.timestamp);
 }
 
-class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
+class LegacyLiveWaypointsPreV12Companion
+    extends UpdateCompanion<LegacyLiveWaypointPreV12Row> {
   final Value<int> id;
   final Value<int> tripLocalId;
   final Value<double> lat;
@@ -5185,8 +5152,7 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
   final Value<double> speedKmh;
   final Value<double> accuracyMeters;
   final Value<DateTime> timestamp;
-  final Value<bool> isMocked;
-  const LiveWaypointsCompanion({
+  const LegacyLiveWaypointsPreV12Companion({
     this.id = const Value.absent(),
     this.tripLocalId = const Value.absent(),
     this.lat = const Value.absent(),
@@ -5194,9 +5160,8 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
     this.speedKmh = const Value.absent(),
     this.accuracyMeters = const Value.absent(),
     this.timestamp = const Value.absent(),
-    this.isMocked = const Value.absent(),
   });
-  LiveWaypointsCompanion.insert({
+  LegacyLiveWaypointsPreV12Companion.insert({
     this.id = const Value.absent(),
     required int tripLocalId,
     required double lat,
@@ -5204,14 +5169,13 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
     required double speedKmh,
     required double accuracyMeters,
     required DateTime timestamp,
-    this.isMocked = const Value.absent(),
   }) : tripLocalId = Value(tripLocalId),
        lat = Value(lat),
        lng = Value(lng),
        speedKmh = Value(speedKmh),
        accuracyMeters = Value(accuracyMeters),
        timestamp = Value(timestamp);
-  static Insertable<LiveWaypointRow> custom({
+  static Insertable<LegacyLiveWaypointPreV12Row> custom({
     Expression<int>? id,
     Expression<int>? tripLocalId,
     Expression<double>? lat,
@@ -5219,7 +5183,6 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
     Expression<double>? speedKmh,
     Expression<double>? accuracyMeters,
     Expression<DateTime>? timestamp,
-    Expression<bool>? isMocked,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5229,11 +5192,10 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
       if (speedKmh != null) 'speed_kmh': speedKmh,
       if (accuracyMeters != null) 'accuracy_meters': accuracyMeters,
       if (timestamp != null) 'timestamp': timestamp,
-      if (isMocked != null) 'is_mocked': isMocked,
     });
   }
 
-  LiveWaypointsCompanion copyWith({
+  LegacyLiveWaypointsPreV12Companion copyWith({
     Value<int>? id,
     Value<int>? tripLocalId,
     Value<double>? lat,
@@ -5241,9 +5203,8 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
     Value<double>? speedKmh,
     Value<double>? accuracyMeters,
     Value<DateTime>? timestamp,
-    Value<bool>? isMocked,
   }) {
-    return LiveWaypointsCompanion(
+    return LegacyLiveWaypointsPreV12Companion(
       id: id ?? this.id,
       tripLocalId: tripLocalId ?? this.tripLocalId,
       lat: lat ?? this.lat,
@@ -5251,7 +5212,6 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
       speedKmh: speedKmh ?? this.speedKmh,
       accuracyMeters: accuracyMeters ?? this.accuracyMeters,
       timestamp: timestamp ?? this.timestamp,
-      isMocked: isMocked ?? this.isMocked,
     );
   }
 
@@ -5279,23 +5239,19 @@ class LiveWaypointsCompanion extends UpdateCompanion<LiveWaypointRow> {
     if (timestamp.present) {
       map['timestamp'] = Variable<DateTime>(timestamp.value);
     }
-    if (isMocked.present) {
-      map['is_mocked'] = Variable<bool>(isMocked.value);
-    }
     return map;
   }
 
   @override
   String toString() {
-    return (StringBuffer('LiveWaypointsCompanion(')
+    return (StringBuffer('LegacyLiveWaypointsPreV12Companion(')
           ..write('id: $id, ')
           ..write('tripLocalId: $tripLocalId, ')
           ..write('lat: $lat, ')
           ..write('lng: $lng, ')
           ..write('speedKmh: $speedKmh, ')
           ..write('accuracyMeters: $accuracyMeters, ')
-          ..write('timestamp: $timestamp, ')
-          ..write('isMocked: $isMocked')
+          ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
   }
@@ -7348,12 +7304,12 @@ class ChallengeProgressCompanion extends UpdateCompanion<ChallengeProgressRow> {
   }
 }
 
-class $TrophiesTable extends Trophies
-    with TableInfo<$TrophiesTable, TrophyRow> {
+class $LegacyTrophiesV11Table extends LegacyTrophiesV11
+    with TableInfo<$LegacyTrophiesV11Table, LegacyTrophyV11Row> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $TrophiesTable(this.attachedDatabase, [this._alias]);
+  $LegacyTrophiesV11Table(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -7434,7 +7390,7 @@ class $TrophiesTable extends Trophies
   static const String $name = 'trophies';
   @override
   VerificationContext validateIntegrity(
-    Insertable<TrophyRow> instance, {
+    Insertable<LegacyTrophyV11Row> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -7489,9 +7445,9 @@ class $TrophiesTable extends Trophies
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  TrophyRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  LegacyTrophyV11Row map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return TrophyRow(
+    return LegacyTrophyV11Row(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -7520,19 +7476,20 @@ class $TrophiesTable extends Trophies
   }
 
   @override
-  $TrophiesTable createAlias(String alias) {
-    return $TrophiesTable(attachedDatabase, alias);
+  $LegacyTrophiesV11Table createAlias(String alias) {
+    return $LegacyTrophiesV11Table(attachedDatabase, alias);
   }
 }
 
-class TrophyRow extends DataClass implements Insertable<TrophyRow> {
+class LegacyTrophyV11Row extends DataClass
+    implements Insertable<LegacyTrophyV11Row> {
   final int id;
   final String remoteId;
   final String uid;
   final String type;
   final DateTime unlockedAt;
   final String? metadataJson;
-  const TrophyRow({
+  const LegacyTrophyV11Row({
     required this.id,
     required this.remoteId,
     required this.uid,
@@ -7554,8 +7511,8 @@ class TrophyRow extends DataClass implements Insertable<TrophyRow> {
     return map;
   }
 
-  TrophiesCompanion toCompanion(bool nullToAbsent) {
-    return TrophiesCompanion(
+  LegacyTrophiesV11Companion toCompanion(bool nullToAbsent) {
+    return LegacyTrophiesV11Companion(
       id: Value(id),
       remoteId: Value(remoteId),
       uid: Value(uid),
@@ -7567,12 +7524,12 @@ class TrophyRow extends DataClass implements Insertable<TrophyRow> {
     );
   }
 
-  factory TrophyRow.fromJson(
+  factory LegacyTrophyV11Row.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return TrophyRow(
+    return LegacyTrophyV11Row(
       id: serializer.fromJson<int>(json['id']),
       remoteId: serializer.fromJson<String>(json['remoteId']),
       uid: serializer.fromJson<String>(json['uid']),
@@ -7594,14 +7551,14 @@ class TrophyRow extends DataClass implements Insertable<TrophyRow> {
     };
   }
 
-  TrophyRow copyWith({
+  LegacyTrophyV11Row copyWith({
     int? id,
     String? remoteId,
     String? uid,
     String? type,
     DateTime? unlockedAt,
     Value<String?> metadataJson = const Value.absent(),
-  }) => TrophyRow(
+  }) => LegacyTrophyV11Row(
     id: id ?? this.id,
     remoteId: remoteId ?? this.remoteId,
     uid: uid ?? this.uid,
@@ -7609,8 +7566,8 @@ class TrophyRow extends DataClass implements Insertable<TrophyRow> {
     unlockedAt: unlockedAt ?? this.unlockedAt,
     metadataJson: metadataJson.present ? metadataJson.value : this.metadataJson,
   );
-  TrophyRow copyWithCompanion(TrophiesCompanion data) {
-    return TrophyRow(
+  LegacyTrophyV11Row copyWithCompanion(LegacyTrophiesV11Companion data) {
+    return LegacyTrophyV11Row(
       id: data.id.present ? data.id.value : this.id,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       uid: data.uid.present ? data.uid.value : this.uid,
@@ -7626,7 +7583,7 @@ class TrophyRow extends DataClass implements Insertable<TrophyRow> {
 
   @override
   String toString() {
-    return (StringBuffer('TrophyRow(')
+    return (StringBuffer('LegacyTrophyV11Row(')
           ..write('id: $id, ')
           ..write('remoteId: $remoteId, ')
           ..write('uid: $uid, ')
@@ -7643,7 +7600,7 @@ class TrophyRow extends DataClass implements Insertable<TrophyRow> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is TrophyRow &&
+      (other is LegacyTrophyV11Row &&
           other.id == this.id &&
           other.remoteId == this.remoteId &&
           other.uid == this.uid &&
@@ -7652,14 +7609,14 @@ class TrophyRow extends DataClass implements Insertable<TrophyRow> {
           other.metadataJson == this.metadataJson);
 }
 
-class TrophiesCompanion extends UpdateCompanion<TrophyRow> {
+class LegacyTrophiesV11Companion extends UpdateCompanion<LegacyTrophyV11Row> {
   final Value<int> id;
   final Value<String> remoteId;
   final Value<String> uid;
   final Value<String> type;
   final Value<DateTime> unlockedAt;
   final Value<String?> metadataJson;
-  const TrophiesCompanion({
+  const LegacyTrophiesV11Companion({
     this.id = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.uid = const Value.absent(),
@@ -7667,7 +7624,7 @@ class TrophiesCompanion extends UpdateCompanion<TrophyRow> {
     this.unlockedAt = const Value.absent(),
     this.metadataJson = const Value.absent(),
   });
-  TrophiesCompanion.insert({
+  LegacyTrophiesV11Companion.insert({
     this.id = const Value.absent(),
     required String remoteId,
     required String uid,
@@ -7678,7 +7635,7 @@ class TrophiesCompanion extends UpdateCompanion<TrophyRow> {
        uid = Value(uid),
        type = Value(type),
        unlockedAt = Value(unlockedAt);
-  static Insertable<TrophyRow> custom({
+  static Insertable<LegacyTrophyV11Row> custom({
     Expression<int>? id,
     Expression<String>? remoteId,
     Expression<String>? uid,
@@ -7696,7 +7653,7 @@ class TrophiesCompanion extends UpdateCompanion<TrophyRow> {
     });
   }
 
-  TrophiesCompanion copyWith({
+  LegacyTrophiesV11Companion copyWith({
     Value<int>? id,
     Value<String>? remoteId,
     Value<String>? uid,
@@ -7704,7 +7661,7 @@ class TrophiesCompanion extends UpdateCompanion<TrophyRow> {
     Value<DateTime>? unlockedAt,
     Value<String?>? metadataJson,
   }) {
-    return TrophiesCompanion(
+    return LegacyTrophiesV11Companion(
       id: id ?? this.id,
       remoteId: remoteId ?? this.remoteId,
       uid: uid ?? this.uid,
@@ -7740,7 +7697,7 @@ class TrophiesCompanion extends UpdateCompanion<TrophyRow> {
 
   @override
   String toString() {
-    return (StringBuffer('TrophiesCompanion(')
+    return (StringBuffer('LegacyTrophiesV11Companion(')
           ..write('id: $id, ')
           ..write('remoteId: $remoteId, ')
           ..write('uid: $uid, ')
@@ -7752,538 +7709,23 @@ class TrophiesCompanion extends UpdateCompanion<TrophyRow> {
   }
 }
 
-class $TripEligibilityTable extends TripEligibility
-    with TableInfo<$TripEligibilityTable, TripEligibilityRow> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $TripEligibilityTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _tripIdMeta = const VerificationMeta('tripId');
-  @override
-  late final GeneratedColumn<int> tripId = GeneratedColumn<int>(
-    'trip_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES trips (id) ON DELETE CASCADE',
-    ),
-  );
-  static const VerificationMeta _tripRemoteIdMeta = const VerificationMeta(
-    'tripRemoteId',
-  );
-  @override
-  late final GeneratedColumn<String> tripRemoteId = GeneratedColumn<String>(
-    'trip_remote_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _eligibleMeta = const VerificationMeta(
-    'eligible',
-  );
-  @override
-  late final GeneratedColumn<bool> eligible = GeneratedColumn<bool>(
-    'eligible',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("eligible" IN (0, 1))',
-    ),
-  );
-  static const VerificationMeta _failureReasonsMeta = const VerificationMeta(
-    'failureReasons',
-  );
-  @override
-  late final GeneratedColumn<String> failureReasons = GeneratedColumn<String>(
-    'failure_reasons',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(''),
-  );
-  static const VerificationMeta _mockedSampleCountMeta = const VerificationMeta(
-    'mockedSampleCount',
-  );
-  @override
-  late final GeneratedColumn<int> mockedSampleCount = GeneratedColumn<int>(
-    'mocked_sample_count',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
-  static const VerificationMeta _startedAtUtcOffsetMinutesMeta =
-      const VerificationMeta('startedAtUtcOffsetMinutes');
-  @override
-  late final GeneratedColumn<int> startedAtUtcOffsetMinutes =
-      GeneratedColumn<int>(
-        'started_at_utc_offset_minutes',
-        aliasedName,
-        false,
-        type: DriftSqlType.int,
-        requiredDuringInsert: true,
-      );
-  static const VerificationMeta _evaluatedAtMeta = const VerificationMeta(
-    'evaluatedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> evaluatedAt = GeneratedColumn<DateTime>(
-    'evaluated_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    tripId,
-    tripRemoteId,
-    eligible,
-    failureReasons,
-    mockedSampleCount,
-    startedAtUtcOffsetMinutes,
-    evaluatedAt,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'trip_eligibility';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<TripEligibilityRow> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('trip_id')) {
-      context.handle(
-        _tripIdMeta,
-        tripId.isAcceptableOrUnknown(data['trip_id']!, _tripIdMeta),
-      );
-    }
-    if (data.containsKey('trip_remote_id')) {
-      context.handle(
-        _tripRemoteIdMeta,
-        tripRemoteId.isAcceptableOrUnknown(
-          data['trip_remote_id']!,
-          _tripRemoteIdMeta,
-        ),
-      );
-    }
-    if (data.containsKey('eligible')) {
-      context.handle(
-        _eligibleMeta,
-        eligible.isAcceptableOrUnknown(data['eligible']!, _eligibleMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_eligibleMeta);
-    }
-    if (data.containsKey('failure_reasons')) {
-      context.handle(
-        _failureReasonsMeta,
-        failureReasons.isAcceptableOrUnknown(
-          data['failure_reasons']!,
-          _failureReasonsMeta,
-        ),
-      );
-    }
-    if (data.containsKey('mocked_sample_count')) {
-      context.handle(
-        _mockedSampleCountMeta,
-        mockedSampleCount.isAcceptableOrUnknown(
-          data['mocked_sample_count']!,
-          _mockedSampleCountMeta,
-        ),
-      );
-    }
-    if (data.containsKey('started_at_utc_offset_minutes')) {
-      context.handle(
-        _startedAtUtcOffsetMinutesMeta,
-        startedAtUtcOffsetMinutes.isAcceptableOrUnknown(
-          data['started_at_utc_offset_minutes']!,
-          _startedAtUtcOffsetMinutesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_startedAtUtcOffsetMinutesMeta);
-    }
-    if (data.containsKey('evaluated_at')) {
-      context.handle(
-        _evaluatedAtMeta,
-        evaluatedAt.isAcceptableOrUnknown(
-          data['evaluated_at']!,
-          _evaluatedAtMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_evaluatedAtMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {tripId};
-  @override
-  TripEligibilityRow map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return TripEligibilityRow(
-      tripId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}trip_id'],
-      )!,
-      tripRemoteId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}trip_remote_id'],
-      ),
-      eligible: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}eligible'],
-      )!,
-      failureReasons: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}failure_reasons'],
-      )!,
-      mockedSampleCount: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}mocked_sample_count'],
-      )!,
-      startedAtUtcOffsetMinutes: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}started_at_utc_offset_minutes'],
-      )!,
-      evaluatedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}evaluated_at'],
-      )!,
-    );
-  }
-
-  @override
-  $TripEligibilityTable createAlias(String alias) {
-    return $TripEligibilityTable(attachedDatabase, alias);
-  }
-}
-
-class TripEligibilityRow extends DataClass
-    implements Insertable<TripEligibilityRow> {
-  final int tripId;
-
-  /// The trip's `remoteId` at evaluation time. A cloud restore re-inserts
-  /// a trip under a *new* autoincrement id, so [tripId] can't survive it;
-  /// this lets a later phase re-associate the verdict by remote id.
-  /// Nullable because `Trips.remoteId` is.
-  final String? tripRemoteId;
-  final bool eligible;
-
-  /// Comma-separated `EligibilityFailureReason.name`s, empty when
-  /// eligible. Denormalized rather than a child table for the same
-  /// reason as `Trips.roadSegmentIds` — it's always read with the row.
-  final String failureReasons;
-
-  /// How many of the trip's samples the OS flagged as mocked. Kept as a
-  /// count, not a bool, so the record says how much of the trip was
-  /// spoofed rather than just that some of it was.
-  final int mockedSampleCount;
-
-  /// The device's UTC offset when this trip was recorded. Consistency
-  /// buckets trips by local calendar day; without the offset captured at
-  /// record time, a user who changes timezone silently re-buckets their
-  /// whole history.
-  final int startedAtUtcOffsetMinutes;
-  final DateTime evaluatedAt;
-  const TripEligibilityRow({
-    required this.tripId,
-    this.tripRemoteId,
-    required this.eligible,
-    required this.failureReasons,
-    required this.mockedSampleCount,
-    required this.startedAtUtcOffsetMinutes,
-    required this.evaluatedAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['trip_id'] = Variable<int>(tripId);
-    if (!nullToAbsent || tripRemoteId != null) {
-      map['trip_remote_id'] = Variable<String>(tripRemoteId);
-    }
-    map['eligible'] = Variable<bool>(eligible);
-    map['failure_reasons'] = Variable<String>(failureReasons);
-    map['mocked_sample_count'] = Variable<int>(mockedSampleCount);
-    map['started_at_utc_offset_minutes'] = Variable<int>(
-      startedAtUtcOffsetMinutes,
-    );
-    map['evaluated_at'] = Variable<DateTime>(evaluatedAt);
-    return map;
-  }
-
-  TripEligibilityCompanion toCompanion(bool nullToAbsent) {
-    return TripEligibilityCompanion(
-      tripId: Value(tripId),
-      tripRemoteId: tripRemoteId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(tripRemoteId),
-      eligible: Value(eligible),
-      failureReasons: Value(failureReasons),
-      mockedSampleCount: Value(mockedSampleCount),
-      startedAtUtcOffsetMinutes: Value(startedAtUtcOffsetMinutes),
-      evaluatedAt: Value(evaluatedAt),
-    );
-  }
-
-  factory TripEligibilityRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return TripEligibilityRow(
-      tripId: serializer.fromJson<int>(json['tripId']),
-      tripRemoteId: serializer.fromJson<String?>(json['tripRemoteId']),
-      eligible: serializer.fromJson<bool>(json['eligible']),
-      failureReasons: serializer.fromJson<String>(json['failureReasons']),
-      mockedSampleCount: serializer.fromJson<int>(json['mockedSampleCount']),
-      startedAtUtcOffsetMinutes: serializer.fromJson<int>(
-        json['startedAtUtcOffsetMinutes'],
-      ),
-      evaluatedAt: serializer.fromJson<DateTime>(json['evaluatedAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'tripId': serializer.toJson<int>(tripId),
-      'tripRemoteId': serializer.toJson<String?>(tripRemoteId),
-      'eligible': serializer.toJson<bool>(eligible),
-      'failureReasons': serializer.toJson<String>(failureReasons),
-      'mockedSampleCount': serializer.toJson<int>(mockedSampleCount),
-      'startedAtUtcOffsetMinutes': serializer.toJson<int>(
-        startedAtUtcOffsetMinutes,
-      ),
-      'evaluatedAt': serializer.toJson<DateTime>(evaluatedAt),
-    };
-  }
-
-  TripEligibilityRow copyWith({
-    int? tripId,
-    Value<String?> tripRemoteId = const Value.absent(),
-    bool? eligible,
-    String? failureReasons,
-    int? mockedSampleCount,
-    int? startedAtUtcOffsetMinutes,
-    DateTime? evaluatedAt,
-  }) => TripEligibilityRow(
-    tripId: tripId ?? this.tripId,
-    tripRemoteId: tripRemoteId.present ? tripRemoteId.value : this.tripRemoteId,
-    eligible: eligible ?? this.eligible,
-    failureReasons: failureReasons ?? this.failureReasons,
-    mockedSampleCount: mockedSampleCount ?? this.mockedSampleCount,
-    startedAtUtcOffsetMinutes:
-        startedAtUtcOffsetMinutes ?? this.startedAtUtcOffsetMinutes,
-    evaluatedAt: evaluatedAt ?? this.evaluatedAt,
-  );
-  TripEligibilityRow copyWithCompanion(TripEligibilityCompanion data) {
-    return TripEligibilityRow(
-      tripId: data.tripId.present ? data.tripId.value : this.tripId,
-      tripRemoteId: data.tripRemoteId.present
-          ? data.tripRemoteId.value
-          : this.tripRemoteId,
-      eligible: data.eligible.present ? data.eligible.value : this.eligible,
-      failureReasons: data.failureReasons.present
-          ? data.failureReasons.value
-          : this.failureReasons,
-      mockedSampleCount: data.mockedSampleCount.present
-          ? data.mockedSampleCount.value
-          : this.mockedSampleCount,
-      startedAtUtcOffsetMinutes: data.startedAtUtcOffsetMinutes.present
-          ? data.startedAtUtcOffsetMinutes.value
-          : this.startedAtUtcOffsetMinutes,
-      evaluatedAt: data.evaluatedAt.present
-          ? data.evaluatedAt.value
-          : this.evaluatedAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('TripEligibilityRow(')
-          ..write('tripId: $tripId, ')
-          ..write('tripRemoteId: $tripRemoteId, ')
-          ..write('eligible: $eligible, ')
-          ..write('failureReasons: $failureReasons, ')
-          ..write('mockedSampleCount: $mockedSampleCount, ')
-          ..write('startedAtUtcOffsetMinutes: $startedAtUtcOffsetMinutes, ')
-          ..write('evaluatedAt: $evaluatedAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    tripId,
-    tripRemoteId,
-    eligible,
-    failureReasons,
-    mockedSampleCount,
-    startedAtUtcOffsetMinutes,
-    evaluatedAt,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is TripEligibilityRow &&
-          other.tripId == this.tripId &&
-          other.tripRemoteId == this.tripRemoteId &&
-          other.eligible == this.eligible &&
-          other.failureReasons == this.failureReasons &&
-          other.mockedSampleCount == this.mockedSampleCount &&
-          other.startedAtUtcOffsetMinutes == this.startedAtUtcOffsetMinutes &&
-          other.evaluatedAt == this.evaluatedAt);
-}
-
-class TripEligibilityCompanion extends UpdateCompanion<TripEligibilityRow> {
-  final Value<int> tripId;
-  final Value<String?> tripRemoteId;
-  final Value<bool> eligible;
-  final Value<String> failureReasons;
-  final Value<int> mockedSampleCount;
-  final Value<int> startedAtUtcOffsetMinutes;
-  final Value<DateTime> evaluatedAt;
-  const TripEligibilityCompanion({
-    this.tripId = const Value.absent(),
-    this.tripRemoteId = const Value.absent(),
-    this.eligible = const Value.absent(),
-    this.failureReasons = const Value.absent(),
-    this.mockedSampleCount = const Value.absent(),
-    this.startedAtUtcOffsetMinutes = const Value.absent(),
-    this.evaluatedAt = const Value.absent(),
-  });
-  TripEligibilityCompanion.insert({
-    this.tripId = const Value.absent(),
-    this.tripRemoteId = const Value.absent(),
-    required bool eligible,
-    this.failureReasons = const Value.absent(),
-    this.mockedSampleCount = const Value.absent(),
-    required int startedAtUtcOffsetMinutes,
-    required DateTime evaluatedAt,
-  }) : eligible = Value(eligible),
-       startedAtUtcOffsetMinutes = Value(startedAtUtcOffsetMinutes),
-       evaluatedAt = Value(evaluatedAt);
-  static Insertable<TripEligibilityRow> custom({
-    Expression<int>? tripId,
-    Expression<String>? tripRemoteId,
-    Expression<bool>? eligible,
-    Expression<String>? failureReasons,
-    Expression<int>? mockedSampleCount,
-    Expression<int>? startedAtUtcOffsetMinutes,
-    Expression<DateTime>? evaluatedAt,
-  }) {
-    return RawValuesInsertable({
-      if (tripId != null) 'trip_id': tripId,
-      if (tripRemoteId != null) 'trip_remote_id': tripRemoteId,
-      if (eligible != null) 'eligible': eligible,
-      if (failureReasons != null) 'failure_reasons': failureReasons,
-      if (mockedSampleCount != null) 'mocked_sample_count': mockedSampleCount,
-      if (startedAtUtcOffsetMinutes != null)
-        'started_at_utc_offset_minutes': startedAtUtcOffsetMinutes,
-      if (evaluatedAt != null) 'evaluated_at': evaluatedAt,
-    });
-  }
-
-  TripEligibilityCompanion copyWith({
-    Value<int>? tripId,
-    Value<String?>? tripRemoteId,
-    Value<bool>? eligible,
-    Value<String>? failureReasons,
-    Value<int>? mockedSampleCount,
-    Value<int>? startedAtUtcOffsetMinutes,
-    Value<DateTime>? evaluatedAt,
-  }) {
-    return TripEligibilityCompanion(
-      tripId: tripId ?? this.tripId,
-      tripRemoteId: tripRemoteId ?? this.tripRemoteId,
-      eligible: eligible ?? this.eligible,
-      failureReasons: failureReasons ?? this.failureReasons,
-      mockedSampleCount: mockedSampleCount ?? this.mockedSampleCount,
-      startedAtUtcOffsetMinutes:
-          startedAtUtcOffsetMinutes ?? this.startedAtUtcOffsetMinutes,
-      evaluatedAt: evaluatedAt ?? this.evaluatedAt,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (tripId.present) {
-      map['trip_id'] = Variable<int>(tripId.value);
-    }
-    if (tripRemoteId.present) {
-      map['trip_remote_id'] = Variable<String>(tripRemoteId.value);
-    }
-    if (eligible.present) {
-      map['eligible'] = Variable<bool>(eligible.value);
-    }
-    if (failureReasons.present) {
-      map['failure_reasons'] = Variable<String>(failureReasons.value);
-    }
-    if (mockedSampleCount.present) {
-      map['mocked_sample_count'] = Variable<int>(mockedSampleCount.value);
-    }
-    if (startedAtUtcOffsetMinutes.present) {
-      map['started_at_utc_offset_minutes'] = Variable<int>(
-        startedAtUtcOffsetMinutes.value,
-      );
-    }
-    if (evaluatedAt.present) {
-      map['evaluated_at'] = Variable<DateTime>(evaluatedAt.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('TripEligibilityCompanion(')
-          ..write('tripId: $tripId, ')
-          ..write('tripRemoteId: $tripRemoteId, ')
-          ..write('eligible: $eligible, ')
-          ..write('failureReasons: $failureReasons, ')
-          ..write('mockedSampleCount: $mockedSampleCount, ')
-          ..write('startedAtUtcOffsetMinutes: $startedAtUtcOffsetMinutes, ')
-          ..write('evaluatedAt: $evaluatedAt')
-          ..write(')'))
-        .toString();
-  }
-}
-
-abstract class _$AppDatabase extends GeneratedDatabase {
-  _$AppDatabase(QueryExecutor e) : super(e);
-  $AppDatabaseManager get managers => $AppDatabaseManager(this);
+abstract class _$LegacyAppDatabaseV11 extends GeneratedDatabase {
+  _$LegacyAppDatabaseV11(QueryExecutor e) : super(e);
+  $LegacyAppDatabaseV11Manager get managers =>
+      $LegacyAppDatabaseV11Manager(this);
   late final $TripsTable trips = $TripsTable(this);
   late final $WaypointsTable waypoints = $WaypointsTable(this);
   late final $UserSettingsTable userSettings = $UserSettingsTable(this);
   late final $LiveTripsTable liveTrips = $LiveTripsTable(this);
-  late final $LiveWaypointsTable liveWaypoints = $LiveWaypointsTable(this);
+  late final $LegacyLiveWaypointsPreV12Table legacyLiveWaypointsPreV12 =
+      $LegacyLiveWaypointsPreV12Table(this);
   late final $FriendsTable friends = $FriendsTable(this);
   late final $FriendRequestsTable friendRequests = $FriendRequestsTable(this);
   late final $ChallengesTable challenges = $ChallengesTable(this);
   late final $ChallengeProgressTable challengeProgress =
       $ChallengeProgressTable(this);
-  late final $TrophiesTable trophies = $TrophiesTable(this);
-  late final $TripEligibilityTable tripEligibility = $TripEligibilityTable(
-    this,
-  );
-  late final Index idxTrophiesRemoteId = Index(
-    'idx_trophies_remote_id',
-    'CREATE UNIQUE INDEX idx_trophies_remote_id ON trophies (remote_id)',
-  );
+  late final $LegacyTrophiesV11Table legacyTrophiesV11 =
+      $LegacyTrophiesV11Table(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8293,14 +7735,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     waypoints,
     userSettings,
     liveTrips,
-    liveWaypoints,
+    legacyLiveWaypointsPreV12,
     friends,
     friendRequests,
     challenges,
     challengeProgress,
-    trophies,
-    tripEligibility,
-    idxTrophiesRemoteId,
+    legacyTrophiesV11,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -8317,13 +7757,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('challenge_progress', kind: UpdateKind.delete)],
-    ),
-    WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'trips',
-        limitUpdateKind: UpdateKind.delete,
-      ),
-      result: [TableUpdate('trip_eligibility', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -8402,14 +7835,15 @@ typedef $$TripsTableUpdateCompanionBuilder =
     });
 
 final class $$TripsTableReferences
-    extends BaseReferences<_$AppDatabase, $TripsTable, TripRow> {
+    extends BaseReferences<_$LegacyAppDatabaseV11, $TripsTable, TripRow> {
   $$TripsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<$WaypointsTable, List<WaypointRow>>
-  _waypointsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.waypoints,
-    aliasName: $_aliasNameGenerator(db.trips.id, db.waypoints.tripId),
-  );
+  _waypointsRefsTable(_$LegacyAppDatabaseV11 db) =>
+      MultiTypedResultKey.fromTable(
+        db.waypoints,
+        aliasName: $_aliasNameGenerator(db.trips.id, db.waypoints.tripId),
+      );
 
   $$WaypointsTableProcessedTableManager get waypointsRefs {
     final manager = $$WaypointsTableTableManager(
@@ -8422,29 +7856,10 @@ final class $$TripsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
-
-  static MultiTypedResultKey<$TripEligibilityTable, List<TripEligibilityRow>>
-  _tripEligibilityRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.tripEligibility,
-    aliasName: $_aliasNameGenerator(db.trips.id, db.tripEligibility.tripId),
-  );
-
-  $$TripEligibilityTableProcessedTableManager get tripEligibilityRefs {
-    final manager = $$TripEligibilityTableTableManager(
-      $_db,
-      $_db.tripEligibility,
-    ).filter((f) => f.tripId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(
-      _tripEligibilityRefsTable($_db),
-    );
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
 }
 
-class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
+class $$TripsTableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV11, $TripsTable> {
   $$TripsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -8641,35 +8056,10 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
     );
     return f(composer);
   }
-
-  Expression<bool> tripEligibilityRefs(
-    Expression<bool> Function($$TripEligibilityTableFilterComposer f) f,
-  ) {
-    final $$TripEligibilityTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.tripEligibility,
-      getReferencedColumn: (t) => t.tripId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$TripEligibilityTableFilterComposer(
-            $db: $db,
-            $table: $db.tripEligibility,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$TripsTableOrderingComposer
-    extends Composer<_$AppDatabase, $TripsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $TripsTable> {
   $$TripsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -8844,7 +8234,7 @@ class $$TripsTableOrderingComposer
 }
 
 class $$TripsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TripsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $TripsTable> {
   $$TripsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -9021,37 +8411,12 @@ class $$TripsTableAnnotationComposer
     );
     return f(composer);
   }
-
-  Expression<T> tripEligibilityRefs<T extends Object>(
-    Expression<T> Function($$TripEligibilityTableAnnotationComposer a) f,
-  ) {
-    final $$TripEligibilityTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.tripEligibility,
-      getReferencedColumn: (t) => t.tripId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$TripEligibilityTableAnnotationComposer(
-            $db: $db,
-            $table: $db.tripEligibility,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$TripsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV11,
           $TripsTable,
           TripRow,
           $$TripsTableFilterComposer,
@@ -9061,9 +8426,9 @@ class $$TripsTableTableManager
           $$TripsTableUpdateCompanionBuilder,
           (TripRow, $$TripsTableReferences),
           TripRow,
-          PrefetchHooks Function({bool waypointsRefs, bool tripEligibilityRefs})
+          PrefetchHooks Function({bool waypointsRefs})
         > {
-  $$TripsTableTableManager(_$AppDatabase db, $TripsTable table)
+  $$TripsTableTableManager(_$LegacyAppDatabaseV11 db, $TripsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -9220,70 +8585,39 @@ class $$TripsTableTableManager
                     (e.readTable(table), $$TripsTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback:
-              ({waypointsRefs = false, tripEligibilityRefs = false}) {
-                return PrefetchHooks(
-                  db: db,
-                  explicitlyWatchedTables: [
-                    if (waypointsRefs) db.waypoints,
-                    if (tripEligibilityRefs) db.tripEligibility,
-                  ],
-                  addJoins: null,
-                  getPrefetchedDataCallback: (items) async {
-                    return [
-                      if (waypointsRefs)
-                        await $_getPrefetchedData<
-                          TripRow,
-                          $TripsTable,
-                          WaypointRow
-                        >(
-                          currentTable: table,
-                          referencedTable: $$TripsTableReferences
-                              ._waypointsRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$TripsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).waypointsRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.tripId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (tripEligibilityRefs)
-                        await $_getPrefetchedData<
-                          TripRow,
-                          $TripsTable,
-                          TripEligibilityRow
-                        >(
-                          currentTable: table,
-                          referencedTable: $$TripsTableReferences
-                              ._tripEligibilityRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$TripsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).tripEligibilityRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.tripId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                    ];
-                  },
-                );
+          prefetchHooksCallback: ({waypointsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (waypointsRefs) db.waypoints],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (waypointsRefs)
+                    await $_getPrefetchedData<
+                      TripRow,
+                      $TripsTable,
+                      WaypointRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$TripsTableReferences
+                          ._waypointsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$TripsTableReferences(db, table, p0).waypointsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.tripId == item.id),
+                      typedResults: items,
+                    ),
+                ];
               },
+            );
+          },
         ),
       );
 }
 
 typedef $$TripsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV11,
       $TripsTable,
       TripRow,
       $$TripsTableFilterComposer,
@@ -9293,7 +8627,7 @@ typedef $$TripsTableProcessedTableManager =
       $$TripsTableUpdateCompanionBuilder,
       (TripRow, $$TripsTableReferences),
       TripRow,
-      PrefetchHooks Function({bool waypointsRefs, bool tripEligibilityRefs})
+      PrefetchHooks Function({bool waypointsRefs})
     >;
 typedef $$WaypointsTableCreateCompanionBuilder =
     WaypointsCompanion Function({
@@ -9321,12 +8655,12 @@ typedef $$WaypointsTableUpdateCompanionBuilder =
     });
 
 final class $$WaypointsTableReferences
-    extends BaseReferences<_$AppDatabase, $WaypointsTable, WaypointRow> {
+    extends
+        BaseReferences<_$LegacyAppDatabaseV11, $WaypointsTable, WaypointRow> {
   $$WaypointsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $TripsTable _tripIdTable(_$AppDatabase db) => db.trips.createAlias(
-    $_aliasNameGenerator(db.waypoints.tripId, db.trips.id),
-  );
+  static $TripsTable _tripIdTable(_$LegacyAppDatabaseV11 db) => db.trips
+      .createAlias($_aliasNameGenerator(db.waypoints.tripId, db.trips.id));
 
   $$TripsTableProcessedTableManager get tripId {
     final $_column = $_itemColumn<int>('trip_id')!;
@@ -9344,7 +8678,7 @@ final class $$WaypointsTableReferences
 }
 
 class $$WaypointsTableFilterComposer
-    extends Composer<_$AppDatabase, $WaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $WaypointsTable> {
   $$WaypointsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -9417,7 +8751,7 @@ class $$WaypointsTableFilterComposer
 }
 
 class $$WaypointsTableOrderingComposer
-    extends Composer<_$AppDatabase, $WaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $WaypointsTable> {
   $$WaypointsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -9490,7 +8824,7 @@ class $$WaypointsTableOrderingComposer
 }
 
 class $$WaypointsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $WaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $WaypointsTable> {
   $$WaypointsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -9553,7 +8887,7 @@ class $$WaypointsTableAnnotationComposer
 class $$WaypointsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV11,
           $WaypointsTable,
           WaypointRow,
           $$WaypointsTableFilterComposer,
@@ -9565,7 +8899,7 @@ class $$WaypointsTableTableManager
           WaypointRow,
           PrefetchHooks Function({bool tripId})
         > {
-  $$WaypointsTableTableManager(_$AppDatabase db, $WaypointsTable table)
+  $$WaypointsTableTableManager(_$LegacyAppDatabaseV11 db, $WaypointsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -9675,7 +9009,7 @@ class $$WaypointsTableTableManager
 
 typedef $$WaypointsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV11,
       $WaypointsTable,
       WaypointRow,
       $$WaypointsTableFilterComposer,
@@ -9747,7 +9081,7 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
     });
 
 class $$UserSettingsTableFilterComposer
-    extends Composer<_$AppDatabase, $UserSettingsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $UserSettingsTable> {
   $$UserSettingsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -9887,7 +9221,7 @@ class $$UserSettingsTableFilterComposer
 }
 
 class $$UserSettingsTableOrderingComposer
-    extends Composer<_$AppDatabase, $UserSettingsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $UserSettingsTable> {
   $$UserSettingsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -10027,7 +9361,7 @@ class $$UserSettingsTableOrderingComposer
 }
 
 class $$UserSettingsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $UserSettingsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $UserSettingsTable> {
   $$UserSettingsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -10147,7 +9481,7 @@ class $$UserSettingsTableAnnotationComposer
 class $$UserSettingsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV11,
           $UserSettingsTable,
           UserSettingsRow,
           $$UserSettingsTableFilterComposer,
@@ -10157,13 +9491,19 @@ class $$UserSettingsTableTableManager
           $$UserSettingsTableUpdateCompanionBuilder,
           (
             UserSettingsRow,
-            BaseReferences<_$AppDatabase, $UserSettingsTable, UserSettingsRow>,
+            BaseReferences<
+              _$LegacyAppDatabaseV11,
+              $UserSettingsTable,
+              UserSettingsRow
+            >,
           ),
           UserSettingsRow,
           PrefetchHooks Function()
         > {
-  $$UserSettingsTableTableManager(_$AppDatabase db, $UserSettingsTable table)
-    : super(
+  $$UserSettingsTableTableManager(
+    _$LegacyAppDatabaseV11 db,
+    $UserSettingsTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
@@ -10295,7 +9635,7 @@ class $$UserSettingsTableTableManager
 
 typedef $$UserSettingsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV11,
       $UserSettingsTable,
       UserSettingsRow,
       $$UserSettingsTableFilterComposer,
@@ -10305,7 +9645,11 @@ typedef $$UserSettingsTableProcessedTableManager =
       $$UserSettingsTableUpdateCompanionBuilder,
       (
         UserSettingsRow,
-        BaseReferences<_$AppDatabase, $UserSettingsTable, UserSettingsRow>,
+        BaseReferences<
+          _$LegacyAppDatabaseV11,
+          $UserSettingsTable,
+          UserSettingsRow
+        >,
       ),
       UserSettingsRow,
       PrefetchHooks Function()
@@ -10346,7 +9690,7 @@ typedef $$LiveTripsTableUpdateCompanionBuilder =
     });
 
 class $$LiveTripsTableFilterComposer
-    extends Composer<_$AppDatabase, $LiveTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $LiveTripsTable> {
   $$LiveTripsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -10426,7 +9770,7 @@ class $$LiveTripsTableFilterComposer
 }
 
 class $$LiveTripsTableOrderingComposer
-    extends Composer<_$AppDatabase, $LiveTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $LiveTripsTable> {
   $$LiveTripsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -10506,7 +9850,7 @@ class $$LiveTripsTableOrderingComposer
 }
 
 class $$LiveTripsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $LiveTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $LiveTripsTable> {
   $$LiveTripsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -10574,7 +9918,7 @@ class $$LiveTripsTableAnnotationComposer
 class $$LiveTripsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV11,
           $LiveTripsTable,
           LiveTripRow,
           $$LiveTripsTableFilterComposer,
@@ -10584,12 +9928,16 @@ class $$LiveTripsTableTableManager
           $$LiveTripsTableUpdateCompanionBuilder,
           (
             LiveTripRow,
-            BaseReferences<_$AppDatabase, $LiveTripsTable, LiveTripRow>,
+            BaseReferences<
+              _$LegacyAppDatabaseV11,
+              $LiveTripsTable,
+              LiveTripRow
+            >,
           ),
           LiveTripRow,
           PrefetchHooks Function()
         > {
-  $$LiveTripsTableTableManager(_$AppDatabase db, $LiveTripsTable table)
+  $$LiveTripsTableTableManager(_$LegacyAppDatabaseV11 db, $LiveTripsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -10674,7 +10022,7 @@ class $$LiveTripsTableTableManager
 
 typedef $$LiveTripsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV11,
       $LiveTripsTable,
       LiveTripRow,
       $$LiveTripsTableFilterComposer,
@@ -10684,13 +10032,13 @@ typedef $$LiveTripsTableProcessedTableManager =
       $$LiveTripsTableUpdateCompanionBuilder,
       (
         LiveTripRow,
-        BaseReferences<_$AppDatabase, $LiveTripsTable, LiveTripRow>,
+        BaseReferences<_$LegacyAppDatabaseV11, $LiveTripsTable, LiveTripRow>,
       ),
       LiveTripRow,
       PrefetchHooks Function()
     >;
-typedef $$LiveWaypointsTableCreateCompanionBuilder =
-    LiveWaypointsCompanion Function({
+typedef $$LegacyLiveWaypointsPreV12TableCreateCompanionBuilder =
+    LegacyLiveWaypointsPreV12Companion Function({
       Value<int> id,
       required int tripLocalId,
       required double lat,
@@ -10698,10 +10046,9 @@ typedef $$LiveWaypointsTableCreateCompanionBuilder =
       required double speedKmh,
       required double accuracyMeters,
       required DateTime timestamp,
-      Value<bool> isMocked,
     });
-typedef $$LiveWaypointsTableUpdateCompanionBuilder =
-    LiveWaypointsCompanion Function({
+typedef $$LegacyLiveWaypointsPreV12TableUpdateCompanionBuilder =
+    LegacyLiveWaypointsPreV12Companion Function({
       Value<int> id,
       Value<int> tripLocalId,
       Value<double> lat,
@@ -10709,12 +10056,11 @@ typedef $$LiveWaypointsTableUpdateCompanionBuilder =
       Value<double> speedKmh,
       Value<double> accuracyMeters,
       Value<DateTime> timestamp,
-      Value<bool> isMocked,
     });
 
-class $$LiveWaypointsTableFilterComposer
-    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
-  $$LiveWaypointsTableFilterComposer({
+class $$LegacyLiveWaypointsPreV12TableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV11, $LegacyLiveWaypointsPreV12Table> {
+  $$LegacyLiveWaypointsPreV12TableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -10755,16 +10101,11 @@ class $$LiveWaypointsTableFilterComposer
     column: $table.timestamp,
     builder: (column) => ColumnFilters(column),
   );
-
-  ColumnFilters<bool> get isMocked => $composableBuilder(
-    column: $table.isMocked,
-    builder: (column) => ColumnFilters(column),
-  );
 }
 
-class $$LiveWaypointsTableOrderingComposer
-    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
-  $$LiveWaypointsTableOrderingComposer({
+class $$LegacyLiveWaypointsPreV12TableOrderingComposer
+    extends Composer<_$LegacyAppDatabaseV11, $LegacyLiveWaypointsPreV12Table> {
+  $$LegacyLiveWaypointsPreV12TableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -10805,16 +10146,11 @@ class $$LiveWaypointsTableOrderingComposer
     column: $table.timestamp,
     builder: (column) => ColumnOrderings(column),
   );
-
-  ColumnOrderings<bool> get isMocked => $composableBuilder(
-    column: $table.isMocked,
-    builder: (column) => ColumnOrderings(column),
-  );
 }
 
-class $$LiveWaypointsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
-  $$LiveWaypointsTableAnnotationComposer({
+class $$LegacyLiveWaypointsPreV12TableAnnotationComposer
+    extends Composer<_$LegacyAppDatabaseV11, $LegacyLiveWaypointsPreV12Table> {
+  $$LegacyLiveWaypointsPreV12TableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -10845,40 +10181,52 @@ class $$LiveWaypointsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get timestamp =>
       $composableBuilder(column: $table.timestamp, builder: (column) => column);
-
-  GeneratedColumn<bool> get isMocked =>
-      $composableBuilder(column: $table.isMocked, builder: (column) => column);
 }
 
-class $$LiveWaypointsTableTableManager
+class $$LegacyLiveWaypointsPreV12TableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
-          $LiveWaypointsTable,
-          LiveWaypointRow,
-          $$LiveWaypointsTableFilterComposer,
-          $$LiveWaypointsTableOrderingComposer,
-          $$LiveWaypointsTableAnnotationComposer,
-          $$LiveWaypointsTableCreateCompanionBuilder,
-          $$LiveWaypointsTableUpdateCompanionBuilder,
+          _$LegacyAppDatabaseV11,
+          $LegacyLiveWaypointsPreV12Table,
+          LegacyLiveWaypointPreV12Row,
+          $$LegacyLiveWaypointsPreV12TableFilterComposer,
+          $$LegacyLiveWaypointsPreV12TableOrderingComposer,
+          $$LegacyLiveWaypointsPreV12TableAnnotationComposer,
+          $$LegacyLiveWaypointsPreV12TableCreateCompanionBuilder,
+          $$LegacyLiveWaypointsPreV12TableUpdateCompanionBuilder,
           (
-            LiveWaypointRow,
-            BaseReferences<_$AppDatabase, $LiveWaypointsTable, LiveWaypointRow>,
+            LegacyLiveWaypointPreV12Row,
+            BaseReferences<
+              _$LegacyAppDatabaseV11,
+              $LegacyLiveWaypointsPreV12Table,
+              LegacyLiveWaypointPreV12Row
+            >,
           ),
-          LiveWaypointRow,
+          LegacyLiveWaypointPreV12Row,
           PrefetchHooks Function()
         > {
-  $$LiveWaypointsTableTableManager(_$AppDatabase db, $LiveWaypointsTable table)
-    : super(
+  $$LegacyLiveWaypointsPreV12TableTableManager(
+    _$LegacyAppDatabaseV11 db,
+    $LegacyLiveWaypointsPreV12Table table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$LiveWaypointsTableFilterComposer($db: db, $table: table),
+              $$LegacyLiveWaypointsPreV12TableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
           createOrderingComposer: () =>
-              $$LiveWaypointsTableOrderingComposer($db: db, $table: table),
+              $$LegacyLiveWaypointsPreV12TableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
           createComputedFieldComposer: () =>
-              $$LiveWaypointsTableAnnotationComposer($db: db, $table: table),
+              $$LegacyLiveWaypointsPreV12TableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -10888,8 +10236,7 @@ class $$LiveWaypointsTableTableManager
                 Value<double> speedKmh = const Value.absent(),
                 Value<double> accuracyMeters = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
-                Value<bool> isMocked = const Value.absent(),
-              }) => LiveWaypointsCompanion(
+              }) => LegacyLiveWaypointsPreV12Companion(
                 id: id,
                 tripLocalId: tripLocalId,
                 lat: lat,
@@ -10897,7 +10244,6 @@ class $$LiveWaypointsTableTableManager
                 speedKmh: speedKmh,
                 accuracyMeters: accuracyMeters,
                 timestamp: timestamp,
-                isMocked: isMocked,
               ),
           createCompanionCallback:
               ({
@@ -10908,8 +10254,7 @@ class $$LiveWaypointsTableTableManager
                 required double speedKmh,
                 required double accuracyMeters,
                 required DateTime timestamp,
-                Value<bool> isMocked = const Value.absent(),
-              }) => LiveWaypointsCompanion.insert(
+              }) => LegacyLiveWaypointsPreV12Companion.insert(
                 id: id,
                 tripLocalId: tripLocalId,
                 lat: lat,
@@ -10917,7 +10262,6 @@ class $$LiveWaypointsTableTableManager
                 speedKmh: speedKmh,
                 accuracyMeters: accuracyMeters,
                 timestamp: timestamp,
-                isMocked: isMocked,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -10927,21 +10271,25 @@ class $$LiveWaypointsTableTableManager
       );
 }
 
-typedef $$LiveWaypointsTableProcessedTableManager =
+typedef $$LegacyLiveWaypointsPreV12TableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
-      $LiveWaypointsTable,
-      LiveWaypointRow,
-      $$LiveWaypointsTableFilterComposer,
-      $$LiveWaypointsTableOrderingComposer,
-      $$LiveWaypointsTableAnnotationComposer,
-      $$LiveWaypointsTableCreateCompanionBuilder,
-      $$LiveWaypointsTableUpdateCompanionBuilder,
+      _$LegacyAppDatabaseV11,
+      $LegacyLiveWaypointsPreV12Table,
+      LegacyLiveWaypointPreV12Row,
+      $$LegacyLiveWaypointsPreV12TableFilterComposer,
+      $$LegacyLiveWaypointsPreV12TableOrderingComposer,
+      $$LegacyLiveWaypointsPreV12TableAnnotationComposer,
+      $$LegacyLiveWaypointsPreV12TableCreateCompanionBuilder,
+      $$LegacyLiveWaypointsPreV12TableUpdateCompanionBuilder,
       (
-        LiveWaypointRow,
-        BaseReferences<_$AppDatabase, $LiveWaypointsTable, LiveWaypointRow>,
+        LegacyLiveWaypointPreV12Row,
+        BaseReferences<
+          _$LegacyAppDatabaseV11,
+          $LegacyLiveWaypointsPreV12Table,
+          LegacyLiveWaypointPreV12Row
+        >,
       ),
-      LiveWaypointRow,
+      LegacyLiveWaypointPreV12Row,
       PrefetchHooks Function()
     >;
 typedef $$FriendsTableCreateCompanionBuilder =
@@ -10966,7 +10314,7 @@ typedef $$FriendsTableUpdateCompanionBuilder =
     });
 
 class $$FriendsTableFilterComposer
-    extends Composer<_$AppDatabase, $FriendsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $FriendsTable> {
   $$FriendsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11011,7 +10359,7 @@ class $$FriendsTableFilterComposer
 }
 
 class $$FriendsTableOrderingComposer
-    extends Composer<_$AppDatabase, $FriendsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $FriendsTable> {
   $$FriendsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -11056,7 +10404,7 @@ class $$FriendsTableOrderingComposer
 }
 
 class $$FriendsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $FriendsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $FriendsTable> {
   $$FriendsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11089,7 +10437,7 @@ class $$FriendsTableAnnotationComposer
 class $$FriendsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV11,
           $FriendsTable,
           FriendRow,
           $$FriendsTableFilterComposer,
@@ -11097,11 +10445,14 @@ class $$FriendsTableTableManager
           $$FriendsTableAnnotationComposer,
           $$FriendsTableCreateCompanionBuilder,
           $$FriendsTableUpdateCompanionBuilder,
-          (FriendRow, BaseReferences<_$AppDatabase, $FriendsTable, FriendRow>),
+          (
+            FriendRow,
+            BaseReferences<_$LegacyAppDatabaseV11, $FriendsTable, FriendRow>,
+          ),
           FriendRow,
           PrefetchHooks Function()
         > {
-  $$FriendsTableTableManager(_$AppDatabase db, $FriendsTable table)
+  $$FriendsTableTableManager(_$LegacyAppDatabaseV11 db, $FriendsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -11158,7 +10509,7 @@ class $$FriendsTableTableManager
 
 typedef $$FriendsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV11,
       $FriendsTable,
       FriendRow,
       $$FriendsTableFilterComposer,
@@ -11166,7 +10517,10 @@ typedef $$FriendsTableProcessedTableManager =
       $$FriendsTableAnnotationComposer,
       $$FriendsTableCreateCompanionBuilder,
       $$FriendsTableUpdateCompanionBuilder,
-      (FriendRow, BaseReferences<_$AppDatabase, $FriendsTable, FriendRow>),
+      (
+        FriendRow,
+        BaseReferences<_$LegacyAppDatabaseV11, $FriendsTable, FriendRow>,
+      ),
       FriendRow,
       PrefetchHooks Function()
     >;
@@ -11192,7 +10546,7 @@ typedef $$FriendRequestsTableUpdateCompanionBuilder =
     });
 
 class $$FriendRequestsTableFilterComposer
-    extends Composer<_$AppDatabase, $FriendRequestsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $FriendRequestsTable> {
   $$FriendRequestsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11237,7 +10591,7 @@ class $$FriendRequestsTableFilterComposer
 }
 
 class $$FriendRequestsTableOrderingComposer
-    extends Composer<_$AppDatabase, $FriendRequestsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $FriendRequestsTable> {
   $$FriendRequestsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -11282,7 +10636,7 @@ class $$FriendRequestsTableOrderingComposer
 }
 
 class $$FriendRequestsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $FriendRequestsTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $FriendRequestsTable> {
   $$FriendRequestsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11315,7 +10669,7 @@ class $$FriendRequestsTableAnnotationComposer
 class $$FriendRequestsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV11,
           $FriendRequestsTable,
           FriendRequestRow,
           $$FriendRequestsTableFilterComposer,
@@ -11326,7 +10680,7 @@ class $$FriendRequestsTableTableManager
           (
             FriendRequestRow,
             BaseReferences<
-              _$AppDatabase,
+              _$LegacyAppDatabaseV11,
               $FriendRequestsTable,
               FriendRequestRow
             >,
@@ -11335,7 +10689,7 @@ class $$FriendRequestsTableTableManager
           PrefetchHooks Function()
         > {
   $$FriendRequestsTableTableManager(
-    _$AppDatabase db,
+    _$LegacyAppDatabaseV11 db,
     $FriendRequestsTable table,
   ) : super(
         TableManagerState(
@@ -11393,7 +10747,7 @@ class $$FriendRequestsTableTableManager
 
 typedef $$FriendRequestsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV11,
       $FriendRequestsTable,
       FriendRequestRow,
       $$FriendRequestsTableFilterComposer,
@@ -11403,7 +10757,11 @@ typedef $$FriendRequestsTableProcessedTableManager =
       $$FriendRequestsTableUpdateCompanionBuilder,
       (
         FriendRequestRow,
-        BaseReferences<_$AppDatabase, $FriendRequestsTable, FriendRequestRow>,
+        BaseReferences<
+          _$LegacyAppDatabaseV11,
+          $FriendRequestsTable,
+          FriendRequestRow
+        >,
       ),
       FriendRequestRow,
       PrefetchHooks Function()
@@ -11440,14 +10798,15 @@ typedef $$ChallengesTableUpdateCompanionBuilder =
     });
 
 final class $$ChallengesTableReferences
-    extends BaseReferences<_$AppDatabase, $ChallengesTable, ChallengeRow> {
+    extends
+        BaseReferences<_$LegacyAppDatabaseV11, $ChallengesTable, ChallengeRow> {
   $$ChallengesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<
     $ChallengeProgressTable,
     List<ChallengeProgressRow>
   >
-  _challengeProgressRefsTable(_$AppDatabase db) =>
+  _challengeProgressRefsTable(_$LegacyAppDatabaseV11 db) =>
       MultiTypedResultKey.fromTable(
         db.challengeProgress,
         aliasName: $_aliasNameGenerator(
@@ -11472,7 +10831,7 @@ final class $$ChallengesTableReferences
 }
 
 class $$ChallengesTableFilterComposer
-    extends Composer<_$AppDatabase, $ChallengesTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $ChallengesTable> {
   $$ChallengesTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11567,7 +10926,7 @@ class $$ChallengesTableFilterComposer
 }
 
 class $$ChallengesTableOrderingComposer
-    extends Composer<_$AppDatabase, $ChallengesTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $ChallengesTable> {
   $$ChallengesTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -11637,7 +10996,7 @@ class $$ChallengesTableOrderingComposer
 }
 
 class $$ChallengesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ChallengesTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $ChallengesTable> {
   $$ChallengesTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11717,7 +11076,7 @@ class $$ChallengesTableAnnotationComposer
 class $$ChallengesTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV11,
           $ChallengesTable,
           ChallengeRow,
           $$ChallengesTableFilterComposer,
@@ -11729,8 +11088,10 @@ class $$ChallengesTableTableManager
           ChallengeRow,
           PrefetchHooks Function({bool challengeProgressRefs})
         > {
-  $$ChallengesTableTableManager(_$AppDatabase db, $ChallengesTable table)
-    : super(
+  $$ChallengesTableTableManager(
+    _$LegacyAppDatabaseV11 db,
+    $ChallengesTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
@@ -11844,7 +11205,7 @@ class $$ChallengesTableTableManager
 
 typedef $$ChallengesTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV11,
       $ChallengesTable,
       ChallengeRow,
       $$ChallengesTableFilterComposer,
@@ -11880,7 +11241,7 @@ typedef $$ChallengeProgressTableUpdateCompanionBuilder =
 final class $$ChallengeProgressTableReferences
     extends
         BaseReferences<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV11,
           $ChallengeProgressTable,
           ChallengeProgressRow
         > {
@@ -11890,7 +11251,7 @@ final class $$ChallengeProgressTableReferences
     super.$_typedResult,
   );
 
-  static $ChallengesTable _challengeIdTable(_$AppDatabase db) =>
+  static $ChallengesTable _challengeIdTable(_$LegacyAppDatabaseV11 db) =>
       db.challenges.createAlias(
         $_aliasNameGenerator(
           db.challengeProgress.challengeId,
@@ -11914,7 +11275,7 @@ final class $$ChallengeProgressTableReferences
 }
 
 class $$ChallengeProgressTableFilterComposer
-    extends Composer<_$AppDatabase, $ChallengeProgressTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $ChallengeProgressTable> {
   $$ChallengeProgressTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11972,7 +11333,7 @@ class $$ChallengeProgressTableFilterComposer
 }
 
 class $$ChallengeProgressTableOrderingComposer
-    extends Composer<_$AppDatabase, $ChallengeProgressTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $ChallengeProgressTable> {
   $$ChallengeProgressTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -12030,7 +11391,7 @@ class $$ChallengeProgressTableOrderingComposer
 }
 
 class $$ChallengeProgressTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ChallengeProgressTable> {
+    extends Composer<_$LegacyAppDatabaseV11, $ChallengeProgressTable> {
   $$ChallengeProgressTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -12088,7 +11449,7 @@ class $$ChallengeProgressTableAnnotationComposer
 class $$ChallengeProgressTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV11,
           $ChallengeProgressTable,
           ChallengeProgressRow,
           $$ChallengeProgressTableFilterComposer,
@@ -12101,7 +11462,7 @@ class $$ChallengeProgressTableTableManager
           PrefetchHooks Function({bool challengeId})
         > {
   $$ChallengeProgressTableTableManager(
-    _$AppDatabase db,
+    _$LegacyAppDatabaseV11 db,
     $ChallengeProgressTable table,
   ) : super(
         TableManagerState(
@@ -12209,7 +11570,7 @@ class $$ChallengeProgressTableTableManager
 
 typedef $$ChallengeProgressTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV11,
       $ChallengeProgressTable,
       ChallengeProgressRow,
       $$ChallengeProgressTableFilterComposer,
@@ -12221,8 +11582,8 @@ typedef $$ChallengeProgressTableProcessedTableManager =
       ChallengeProgressRow,
       PrefetchHooks Function({bool challengeId})
     >;
-typedef $$TrophiesTableCreateCompanionBuilder =
-    TrophiesCompanion Function({
+typedef $$LegacyTrophiesV11TableCreateCompanionBuilder =
+    LegacyTrophiesV11Companion Function({
       Value<int> id,
       required String remoteId,
       required String uid,
@@ -12230,8 +11591,8 @@ typedef $$TrophiesTableCreateCompanionBuilder =
       required DateTime unlockedAt,
       Value<String?> metadataJson,
     });
-typedef $$TrophiesTableUpdateCompanionBuilder =
-    TrophiesCompanion Function({
+typedef $$LegacyTrophiesV11TableUpdateCompanionBuilder =
+    LegacyTrophiesV11Companion Function({
       Value<int> id,
       Value<String> remoteId,
       Value<String> uid,
@@ -12240,9 +11601,9 @@ typedef $$TrophiesTableUpdateCompanionBuilder =
       Value<String?> metadataJson,
     });
 
-class $$TrophiesTableFilterComposer
-    extends Composer<_$AppDatabase, $TrophiesTable> {
-  $$TrophiesTableFilterComposer({
+class $$LegacyTrophiesV11TableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV11, $LegacyTrophiesV11Table> {
+  $$LegacyTrophiesV11TableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -12280,9 +11641,9 @@ class $$TrophiesTableFilterComposer
   );
 }
 
-class $$TrophiesTableOrderingComposer
-    extends Composer<_$AppDatabase, $TrophiesTable> {
-  $$TrophiesTableOrderingComposer({
+class $$LegacyTrophiesV11TableOrderingComposer
+    extends Composer<_$LegacyAppDatabaseV11, $LegacyTrophiesV11Table> {
+  $$LegacyTrophiesV11TableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -12320,9 +11681,9 @@ class $$TrophiesTableOrderingComposer
   );
 }
 
-class $$TrophiesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TrophiesTable> {
-  $$TrophiesTableAnnotationComposer({
+class $$LegacyTrophiesV11TableAnnotationComposer
+    extends Composer<_$LegacyAppDatabaseV11, $LegacyTrophiesV11Table> {
+  $$LegacyTrophiesV11TableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -12352,32 +11713,44 @@ class $$TrophiesTableAnnotationComposer
   );
 }
 
-class $$TrophiesTableTableManager
+class $$LegacyTrophiesV11TableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
-          $TrophiesTable,
-          TrophyRow,
-          $$TrophiesTableFilterComposer,
-          $$TrophiesTableOrderingComposer,
-          $$TrophiesTableAnnotationComposer,
-          $$TrophiesTableCreateCompanionBuilder,
-          $$TrophiesTableUpdateCompanionBuilder,
-          (TrophyRow, BaseReferences<_$AppDatabase, $TrophiesTable, TrophyRow>),
-          TrophyRow,
+          _$LegacyAppDatabaseV11,
+          $LegacyTrophiesV11Table,
+          LegacyTrophyV11Row,
+          $$LegacyTrophiesV11TableFilterComposer,
+          $$LegacyTrophiesV11TableOrderingComposer,
+          $$LegacyTrophiesV11TableAnnotationComposer,
+          $$LegacyTrophiesV11TableCreateCompanionBuilder,
+          $$LegacyTrophiesV11TableUpdateCompanionBuilder,
+          (
+            LegacyTrophyV11Row,
+            BaseReferences<
+              _$LegacyAppDatabaseV11,
+              $LegacyTrophiesV11Table,
+              LegacyTrophyV11Row
+            >,
+          ),
+          LegacyTrophyV11Row,
           PrefetchHooks Function()
         > {
-  $$TrophiesTableTableManager(_$AppDatabase db, $TrophiesTable table)
-    : super(
+  $$LegacyTrophiesV11TableTableManager(
+    _$LegacyAppDatabaseV11 db,
+    $LegacyTrophiesV11Table table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$TrophiesTableFilterComposer($db: db, $table: table),
+              $$LegacyTrophiesV11TableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$TrophiesTableOrderingComposer($db: db, $table: table),
+              $$LegacyTrophiesV11TableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$TrophiesTableAnnotationComposer($db: db, $table: table),
+              $$LegacyTrophiesV11TableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -12386,7 +11759,7 @@ class $$TrophiesTableTableManager
                 Value<String> type = const Value.absent(),
                 Value<DateTime> unlockedAt = const Value.absent(),
                 Value<String?> metadataJson = const Value.absent(),
-              }) => TrophiesCompanion(
+              }) => LegacyTrophiesV11Companion(
                 id: id,
                 remoteId: remoteId,
                 uid: uid,
@@ -12402,7 +11775,7 @@ class $$TrophiesTableTableManager
                 required String type,
                 required DateTime unlockedAt,
                 Value<String?> metadataJson = const Value.absent(),
-              }) => TrophiesCompanion.insert(
+              }) => LegacyTrophiesV11Companion.insert(
                 id: id,
                 remoteId: remoteId,
                 uid: uid,
@@ -12418,397 +11791,31 @@ class $$TrophiesTableTableManager
       );
 }
 
-typedef $$TrophiesTableProcessedTableManager =
+typedef $$LegacyTrophiesV11TableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
-      $TrophiesTable,
-      TrophyRow,
-      $$TrophiesTableFilterComposer,
-      $$TrophiesTableOrderingComposer,
-      $$TrophiesTableAnnotationComposer,
-      $$TrophiesTableCreateCompanionBuilder,
-      $$TrophiesTableUpdateCompanionBuilder,
-      (TrophyRow, BaseReferences<_$AppDatabase, $TrophiesTable, TrophyRow>),
-      TrophyRow,
+      _$LegacyAppDatabaseV11,
+      $LegacyTrophiesV11Table,
+      LegacyTrophyV11Row,
+      $$LegacyTrophiesV11TableFilterComposer,
+      $$LegacyTrophiesV11TableOrderingComposer,
+      $$LegacyTrophiesV11TableAnnotationComposer,
+      $$LegacyTrophiesV11TableCreateCompanionBuilder,
+      $$LegacyTrophiesV11TableUpdateCompanionBuilder,
+      (
+        LegacyTrophyV11Row,
+        BaseReferences<
+          _$LegacyAppDatabaseV11,
+          $LegacyTrophiesV11Table,
+          LegacyTrophyV11Row
+        >,
+      ),
+      LegacyTrophyV11Row,
       PrefetchHooks Function()
     >;
-typedef $$TripEligibilityTableCreateCompanionBuilder =
-    TripEligibilityCompanion Function({
-      Value<int> tripId,
-      Value<String?> tripRemoteId,
-      required bool eligible,
-      Value<String> failureReasons,
-      Value<int> mockedSampleCount,
-      required int startedAtUtcOffsetMinutes,
-      required DateTime evaluatedAt,
-    });
-typedef $$TripEligibilityTableUpdateCompanionBuilder =
-    TripEligibilityCompanion Function({
-      Value<int> tripId,
-      Value<String?> tripRemoteId,
-      Value<bool> eligible,
-      Value<String> failureReasons,
-      Value<int> mockedSampleCount,
-      Value<int> startedAtUtcOffsetMinutes,
-      Value<DateTime> evaluatedAt,
-    });
 
-final class $$TripEligibilityTableReferences
-    extends
-        BaseReferences<
-          _$AppDatabase,
-          $TripEligibilityTable,
-          TripEligibilityRow
-        > {
-  $$TripEligibilityTableReferences(
-    super.$_db,
-    super.$_table,
-    super.$_typedResult,
-  );
-
-  static $TripsTable _tripIdTable(_$AppDatabase db) => db.trips.createAlias(
-    $_aliasNameGenerator(db.tripEligibility.tripId, db.trips.id),
-  );
-
-  $$TripsTableProcessedTableManager get tripId {
-    final $_column = $_itemColumn<int>('trip_id')!;
-
-    final manager = $$TripsTableTableManager(
-      $_db,
-      $_db.trips,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_tripIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
-class $$TripEligibilityTableFilterComposer
-    extends Composer<_$AppDatabase, $TripEligibilityTable> {
-  $$TripEligibilityTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get tripRemoteId => $composableBuilder(
-    column: $table.tripRemoteId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get eligible => $composableBuilder(
-    column: $table.eligible,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get failureReasons => $composableBuilder(
-    column: $table.failureReasons,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get mockedSampleCount => $composableBuilder(
-    column: $table.mockedSampleCount,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get startedAtUtcOffsetMinutes => $composableBuilder(
-    column: $table.startedAtUtcOffsetMinutes,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get evaluatedAt => $composableBuilder(
-    column: $table.evaluatedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  $$TripsTableFilterComposer get tripId {
-    final $$TripsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.tripId,
-      referencedTable: $db.trips,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$TripsTableFilterComposer(
-            $db: $db,
-            $table: $db.trips,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$TripEligibilityTableOrderingComposer
-    extends Composer<_$AppDatabase, $TripEligibilityTable> {
-  $$TripEligibilityTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get tripRemoteId => $composableBuilder(
-    column: $table.tripRemoteId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get eligible => $composableBuilder(
-    column: $table.eligible,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get failureReasons => $composableBuilder(
-    column: $table.failureReasons,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get mockedSampleCount => $composableBuilder(
-    column: $table.mockedSampleCount,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get startedAtUtcOffsetMinutes => $composableBuilder(
-    column: $table.startedAtUtcOffsetMinutes,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get evaluatedAt => $composableBuilder(
-    column: $table.evaluatedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  $$TripsTableOrderingComposer get tripId {
-    final $$TripsTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.tripId,
-      referencedTable: $db.trips,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$TripsTableOrderingComposer(
-            $db: $db,
-            $table: $db.trips,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$TripEligibilityTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TripEligibilityTable> {
-  $$TripEligibilityTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get tripRemoteId => $composableBuilder(
-    column: $table.tripRemoteId,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<bool> get eligible =>
-      $composableBuilder(column: $table.eligible, builder: (column) => column);
-
-  GeneratedColumn<String> get failureReasons => $composableBuilder(
-    column: $table.failureReasons,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get mockedSampleCount => $composableBuilder(
-    column: $table.mockedSampleCount,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get startedAtUtcOffsetMinutes => $composableBuilder(
-    column: $table.startedAtUtcOffsetMinutes,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get evaluatedAt => $composableBuilder(
-    column: $table.evaluatedAt,
-    builder: (column) => column,
-  );
-
-  $$TripsTableAnnotationComposer get tripId {
-    final $$TripsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.tripId,
-      referencedTable: $db.trips,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$TripsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.trips,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$TripEligibilityTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $TripEligibilityTable,
-          TripEligibilityRow,
-          $$TripEligibilityTableFilterComposer,
-          $$TripEligibilityTableOrderingComposer,
-          $$TripEligibilityTableAnnotationComposer,
-          $$TripEligibilityTableCreateCompanionBuilder,
-          $$TripEligibilityTableUpdateCompanionBuilder,
-          (TripEligibilityRow, $$TripEligibilityTableReferences),
-          TripEligibilityRow,
-          PrefetchHooks Function({bool tripId})
-        > {
-  $$TripEligibilityTableTableManager(
-    _$AppDatabase db,
-    $TripEligibilityTable table,
-  ) : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$TripEligibilityTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$TripEligibilityTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$TripEligibilityTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<int> tripId = const Value.absent(),
-                Value<String?> tripRemoteId = const Value.absent(),
-                Value<bool> eligible = const Value.absent(),
-                Value<String> failureReasons = const Value.absent(),
-                Value<int> mockedSampleCount = const Value.absent(),
-                Value<int> startedAtUtcOffsetMinutes = const Value.absent(),
-                Value<DateTime> evaluatedAt = const Value.absent(),
-              }) => TripEligibilityCompanion(
-                tripId: tripId,
-                tripRemoteId: tripRemoteId,
-                eligible: eligible,
-                failureReasons: failureReasons,
-                mockedSampleCount: mockedSampleCount,
-                startedAtUtcOffsetMinutes: startedAtUtcOffsetMinutes,
-                evaluatedAt: evaluatedAt,
-              ),
-          createCompanionCallback:
-              ({
-                Value<int> tripId = const Value.absent(),
-                Value<String?> tripRemoteId = const Value.absent(),
-                required bool eligible,
-                Value<String> failureReasons = const Value.absent(),
-                Value<int> mockedSampleCount = const Value.absent(),
-                required int startedAtUtcOffsetMinutes,
-                required DateTime evaluatedAt,
-              }) => TripEligibilityCompanion.insert(
-                tripId: tripId,
-                tripRemoteId: tripRemoteId,
-                eligible: eligible,
-                failureReasons: failureReasons,
-                mockedSampleCount: mockedSampleCount,
-                startedAtUtcOffsetMinutes: startedAtUtcOffsetMinutes,
-                evaluatedAt: evaluatedAt,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable(table),
-                  $$TripEligibilityTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: ({tripId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (tripId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.tripId,
-                                referencedTable:
-                                    $$TripEligibilityTableReferences
-                                        ._tripIdTable(db),
-                                referencedColumn:
-                                    $$TripEligibilityTableReferences
-                                        ._tripIdTable(db)
-                                        .id,
-                              )
-                              as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$TripEligibilityTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $TripEligibilityTable,
-      TripEligibilityRow,
-      $$TripEligibilityTableFilterComposer,
-      $$TripEligibilityTableOrderingComposer,
-      $$TripEligibilityTableAnnotationComposer,
-      $$TripEligibilityTableCreateCompanionBuilder,
-      $$TripEligibilityTableUpdateCompanionBuilder,
-      (TripEligibilityRow, $$TripEligibilityTableReferences),
-      TripEligibilityRow,
-      PrefetchHooks Function({bool tripId})
-    >;
-
-class $AppDatabaseManager {
-  final _$AppDatabase _db;
-  $AppDatabaseManager(this._db);
+class $LegacyAppDatabaseV11Manager {
+  final _$LegacyAppDatabaseV11 _db;
+  $LegacyAppDatabaseV11Manager(this._db);
   $$TripsTableTableManager get trips =>
       $$TripsTableTableManager(_db, _db.trips);
   $$WaypointsTableTableManager get waypoints =>
@@ -12817,8 +11824,11 @@ class $AppDatabaseManager {
       $$UserSettingsTableTableManager(_db, _db.userSettings);
   $$LiveTripsTableTableManager get liveTrips =>
       $$LiveTripsTableTableManager(_db, _db.liveTrips);
-  $$LiveWaypointsTableTableManager get liveWaypoints =>
-      $$LiveWaypointsTableTableManager(_db, _db.liveWaypoints);
+  $$LegacyLiveWaypointsPreV12TableTableManager get legacyLiveWaypointsPreV12 =>
+      $$LegacyLiveWaypointsPreV12TableTableManager(
+        _db,
+        _db.legacyLiveWaypointsPreV12,
+      );
   $$FriendsTableTableManager get friends =>
       $$FriendsTableTableManager(_db, _db.friends);
   $$FriendRequestsTableTableManager get friendRequests =>
@@ -12827,8 +11837,6 @@ class $AppDatabaseManager {
       $$ChallengesTableTableManager(_db, _db.challenges);
   $$ChallengeProgressTableTableManager get challengeProgress =>
       $$ChallengeProgressTableTableManager(_db, _db.challengeProgress);
-  $$TrophiesTableTableManager get trophies =>
-      $$TrophiesTableTableManager(_db, _db.trophies);
-  $$TripEligibilityTableTableManager get tripEligibility =>
-      $$TripEligibilityTableTableManager(_db, _db.tripEligibility);
+  $$LegacyTrophiesV11TableTableManager get legacyTrophiesV11 =>
+      $$LegacyTrophiesV11TableTableManager(_db, _db.legacyTrophiesV11);
 }

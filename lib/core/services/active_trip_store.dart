@@ -129,6 +129,11 @@ class ActiveTripStore {
               speedKmh: point.speedKmh,
               accuracyMeters: point.accuracyMeters,
               timestamp: point.timestamp,
+              // Carried through recovery so "mock GPS, then force-kill
+              // the app" can't launder a spoofed trip past the social
+              // eligibility check — that check runs on the in-memory
+              // points, which are rebuilt from these rows after a crash.
+              isMocked: Value(point.isMocked),
             ),
           );
     } catch (e) {
@@ -180,6 +185,7 @@ class ActiveTripStore {
             speedKmh: w.speedKmh,
             accuracyMeters: w.accuracyMeters,
             timestamp: w.timestamp,
+            isMocked: w.isMocked,
           ),
       ];
       final stats = LiveTripStats(

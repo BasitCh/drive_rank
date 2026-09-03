@@ -4,6 +4,9 @@ import 'package:drive_rank/features/social/data/datasources/social_local_data_so
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge_progress.dart'
     as domain;
+import 'package:drive_rank/features/social/domain/entities/competition_eligibility.dart';
+import 'package:drive_rank/features/social/domain/entities/competition_trip.dart';
+import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
 import 'package:drive_rank/features/social/domain/entities/friend.dart';
 import 'package:drive_rank/features/social/domain/entities/friend_request.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
@@ -173,20 +176,39 @@ class SocialRepositoryImpl implements SocialRepository {
   }
 
   @override
-  Future<void> updateChallengeStatus({
+  Future<bool> updateChallengeStatus({
     required String challengeId,
     required ChallengeStatus status,
-  }) {
-    return _local.updateChallengeStatus(
+  }) async {
+    final changed = await _local.updateChallengeStatus(
       remoteId: challengeId,
       status: status.name,
       updatedAt: DateTime.now(),
     );
+    return changed > 0;
   }
 
   @override
   Future<void> deleteChallenge(String challengeId) {
     return _local.deleteChallenge(challengeId);
+  }
+
+  @override
+  Future<List<Challenge>> getActiveChallengesAt({
+    required String uid,
+    required DateTime at,
+  }) async {
+    final rows = await _local.getActiveChallengesAt(uid: uid, at: at);
+    return rows.map(_challengeFromRow).toList();
+  }
+
+  @override
+  Future<List<Challenge>> getLapsedActiveChallenges({
+    required String uid,
+    required DateTime at,
+  }) async {
+    final rows = await _local.getLapsedActiveChallenges(uid: uid, at: at);
+    return rows.map(_challengeFromRow).toList();
   }
 
   // Challenge progress
@@ -202,22 +224,48 @@ class SocialRepositoryImpl implements SocialRepository {
   }
 
   @override
-  Future<void> upsertProgress(domain.ChallengeProgress progress) async {
+  Future<domain.ChallengeProgress?> getProgress({
+    required String challengeId,
+    required String uid,
+  }) async {
+    final challengeRow = await _local.getChallengeByRemoteId(challengeId);
+    if (challengeRow == null) return null;
+    final row = await _local.getProgress(
+      challengeRowId: challengeRow.id,
+      uid: uid,
+    );
+    return row == null ? null : _progressFromRow(row, challengeId);
+  }
+
+  @override
+  Future<void> upsertProgressValue(domain.ChallengeProgress progress) async {
     final challengeRow = await _local.getChallengeByRemoteId(
       progress.challengeId,
     );
     if (challengeRow == null) {
       throw ArgumentError('No challenge found for id ${progress.challengeId}');
     }
-    await _local.upsertProgress(
-      ChallengeProgressCompanion.insert(
-        challengeId: challengeRow.id,
-        uid: progress.uid,
-        currentValue: Value(progress.currentValue),
-        targetValue: progress.targetValue,
-        lastCalculatedAt: Value(progress.lastCalculatedAt),
-        completedAt: Value(progress.completedAt),
-      ),
+    await _local.upsertProgressValue(
+      challengeRowId: challengeRow.id,
+      uid: progress.uid,
+      currentValue: progress.currentValue,
+      targetValue: progress.targetValue,
+      lastCalculatedAt: progress.lastCalculatedAt ?? DateTime.now(),
+    );
+  }
+
+  @override
+  Future<void> markProgressComplete({
+    required String challengeId,
+    required String uid,
+    required DateTime completedAt,
+  }) async {
+    final challengeRow = await _local.getChallengeByRemoteId(challengeId);
+    if (challengeRow == null) return;
+    await _local.markProgressComplete(
+      challengeRowId: challengeRow.id,
+      uid: uid,
+      completedAt: completedAt,
     );
   }
 
@@ -231,8 +279,14 @@ class SocialRepositoryImpl implements SocialRepository {
   }
 
   @override
-  Future<Trophy> awardTrophy(Trophy trophy) async {
-    final row = await _local.insertTrophy(
+  Future<List<Trophy>> getTrophies(String uid) async {
+    final rows = await _local.getTrophies(uid);
+    return rows.map(_trophyFromRow).toList();
+  }
+
+  @override
+  Future<Trophy?> awardTrophy(Trophy trophy) async {
+    final row = await _local.insertTrophyIfAbsent(
       TrophiesCompanion.insert(
         remoteId: trophy.id,
         uid: trophy.uid,
@@ -241,7 +295,75 @@ class SocialRepositoryImpl implements SocialRepository {
         metadataJson: Value(trophy.metadataJson),
       ),
     );
-    return _trophyFromRow(row);
+    // Null means the deterministic id was already present — the user
+    // holds this trophy, so this isn't a new unlock.
+    return row == null ? null : _trophyFromRow(row);
+  }
+
+  // Competition inputs
+
+  @override
+  Future<List<CompetitionTrip>> getCompetitionTrips({
+    required String uid,
+    required CompetitionWindow window,
+  }) async {
+    final rows = await _local.getTripsWithEligibility(
+      uid: uid,
+      start: window.start,
+      end: window.end,
+    );
+    return [
+      for (final (trip, eligibility) in rows)
+        CompetitionTrip(
+          tripId: trip.id,
+          startedAt: trip.startedAt,
+          distanceKm: trip.distanceKm,
+          durationSeconds: trip.durationSeconds,
+          // No verdict row means the trip predates the competition
+          // engine — read as eligible rather than dropping the user's
+          // whole history from every leaderboard.
+          eligible: eligibility?.eligible ?? true,
+          utcOffsetMinutes:
+              eligibility?.startedAtUtcOffsetMinutes ??
+              trip.startedAt.timeZoneOffset.inMinutes,
+        ),
+    ];
+  }
+
+  @override
+  Future<void> recordTripEligibility({
+    required int tripId,
+    required CompetitionEligibility eligibility,
+    required DateTime startedAt,
+    String? tripRemoteId,
+  }) {
+    return _local.upsertTripEligibility(
+      TripEligibilityCompanion.insert(
+        tripId: Value(tripId),
+        tripRemoteId: Value(tripRemoteId),
+        eligible: eligibility.eligible,
+        failureReasons: Value(
+          eligibility.reasons.map((r) => r.name).join(','),
+        ),
+        mockedSampleCount: Value(eligibility.mockedSampleCount),
+        startedAtUtcOffsetMinutes: startedAt.timeZoneOffset.inMinutes,
+        evaluatedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  @override
+  Future<CompetitionEligibility?> getTripEligibility(int tripId) async {
+    final row = await _local.getTripEligibility(tripId);
+    if (row == null) return null;
+    return CompetitionEligibility(
+      reasons: row.failureReasons
+          .split(',')
+          .map(EligibilityFailureReason.fromName)
+          .whereType<EligibilityFailureReason>()
+          .toList(growable: false),
+      mockedSampleCount: row.mockedSampleCount,
+    );
   }
 
   // Row -> entity mapping

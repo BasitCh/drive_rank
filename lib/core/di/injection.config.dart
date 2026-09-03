@@ -59,10 +59,16 @@ import 'package:drive_rank/features/profile/presentation/bloc/profile_bloc.dart'
     as _i868;
 import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart'
     as _i866;
+import 'package:drive_rank/features/social/data/processors/local_social_trip_processor.dart'
+    as _i319;
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart'
     as _i621;
 import 'package:drive_rank/features/social/domain/repositories/social_repository.dart'
     as _i247;
+import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart'
+    as _i163;
+import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart'
+    as _i804;
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart'
     as _i687;
 import 'package:drive_rank/features/trip_insights/data/insights_repository.dart'
@@ -135,6 +141,9 @@ _i174.GetIt $initGetIt(
     () => _i495.PreviewPaywallService(gh<_i447.LocaleService>()),
   );
   gh.lazySingleton<_i88.RemoteTripSink>(() => const _i88.NoopRemoteTripSink());
+  gh.lazySingleton<_i163.CompetitionMetricCalculator>(
+    () => const _i163.DefaultCompetitionMetricCalculator(),
+  );
   gh.lazySingleton<_i364.PublicProfileService>(
     () => _i364.NoopPublicProfileService(),
   );
@@ -279,6 +288,12 @@ _i174.GetIt $initGetIt(
       gh<_i970.TerritoryStatsService>(),
     ),
   );
+  gh.lazySingleton<_i804.SocialTripProcessor>(
+    () => _i319.LocalSocialTripProcessor(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
   gh.factory<_i687.TrackingBloc>(
     () => _i687.TrackingBloc(
       gh<_i375.GpsService>(),
@@ -291,6 +306,7 @@ _i174.GetIt $initGetIt(
       gh<_i201.LiveTripNotificationService>(),
       gh<_i46.TelemetryService>(),
       gh<_i183.RetentionNotificationService>(),
+      gh<_i804.SocialTripProcessor>(),
     ),
   );
   return getIt;

@@ -94,6 +94,7 @@ class GpsService {
           accuracyMeters: cached.accuracy,
           timestamp: cached.timestamp,
           altitudeMeters: _reliableAltitude(cached),
+          isMocked: cached.isMocked,
         ),
       );
     } catch (_) {
@@ -189,6 +190,9 @@ class GpsService {
         timestamp: p.timestamp,
         altitudeMeters: _reliableAltitude(p),
         heading: _reliableHeading(p, speedKmh),
+        // Passed through untouched — tracking never acts on it. The
+        // social feature's eligibility check is the only consumer.
+        isMocked: p.isMocked,
       ),
     );
   }

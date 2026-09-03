@@ -7,6 +7,7 @@ import 'package:drive_rank/core/database/tables/challenges_table.dart';
 import 'package:drive_rank/core/database/tables/friend_requests_table.dart';
 import 'package:drive_rank/core/database/tables/friends_table.dart';
 import 'package:drive_rank/core/database/tables/live_trips_table.dart';
+import 'package:drive_rank/core/database/tables/trip_eligibility_table.dart';
 import 'package:drive_rank/core/database/tables/trips_table.dart';
 import 'package:drive_rank/core/database/tables/trophies_table.dart';
 import 'package:drive_rank/core/database/tables/user_settings_table.dart';
@@ -33,6 +34,7 @@ part 'app_database.g.dart';
     Challenges,
     ChallengeProgress,
     Trophies,
+    TripEligibility,
   ],
 )
 @singleton
@@ -43,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -191,6 +193,39 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(challenges); // must precede challengeProgress
         await m.createTable(challengeProgress);
         await m.createTable(trophies);
+      }
+      if (from < 12) {
+        // v12 — the competition engine's persistence.
+        //
+        // `trip_eligibility` records whether a saved trip counts toward
+        // competition. Deliberately a separate table rather than columns
+        // on `trips`: social state stays out of the production trip
+        // schema, and the row is keyed on trip_id alone so it survives
+        // both uid-rewriting migrations (see the table's doc comment).
+        // No backfill — an absent row reads as eligible, so existing
+        // history keeps counting without re-walking every old trip's
+        // waypoints.
+        await m.createTable(tripEligibility);
+
+        // Collapses a repeated trophy award to one row at the database
+        // level, since trophy remote ids are deterministic (see
+        // `trophyRemoteId`). Raw SQL keeps this independent of
+        // generated code; `IF NOT EXISTS` makes it a no-op on a
+        // database that already created the index via `createAll`. Safe
+        // to add now precisely because v11 never shipped, so no
+        // duplicate rows can exist in the wild to reject it.
+        await customStatement(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_trophies_remote_id '
+          'ON trophies (remote_id)',
+        );
+
+        // Carries mock-location evidence through crash recovery — the
+        // eligibility check runs on in-memory points, which are rebuilt
+        // from live_waypoints after an interrupted trip resumes.
+        await customStatement(
+          'ALTER TABLE live_waypoints ADD COLUMN is_mocked '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
       }
     },
     beforeOpen: (details) async {
