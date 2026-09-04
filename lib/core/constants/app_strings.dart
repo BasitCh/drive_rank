@@ -352,16 +352,22 @@ class AppStrings {
   static const String rankingsUnranked = 'UNRANKED';
   static const String rankingsRankPrefix = '#';
 
-  /// "12 km behind #17" — the gap to the position directly above.
-  static String rankingsBehindNext(String gap, int rank) =>
-      '$gap behind #$rank';
+  /// "2.1k km to beat Road Explorer" — the actionable version of a
+  /// rank. A position on its own tells the user nothing they can do;
+  /// naming the gap and who holds it turns the board into a target.
+  static String rankingsToBeat(String gap, String name) =>
+      '$gap to beat $name';
 
-  /// Shown to whoever is top of the board: names who is closest behind
-  /// them, so being first still has something to play for.
-  static String rankingsDefending(String name, String gap) =>
-      '$name is $gap behind you';
+  /// Shown to whoever is top of the board: what they're defending, so
+  /// being first still has stakes.
+  static String rankingsAheadOf(String gap, String name) =>
+      "You're $gap ahead of $name";
 
   static const String rankingsLeadingAlone = "You're setting the pace";
+
+  /// Subtitle on a benchmark row — says what the thing *is*, in the slot
+  /// where a real driver's car and country go.
+  static const String rankingsPaceReference = 'Pace reference';
 
   /// The label on a benchmark row. Deliberately shouty and unmissable —
   /// a benchmark must never be mistakable for a person.
@@ -375,14 +381,14 @@ class AppStrings {
   // who has plenty but is still the only real competitor here. Telling
   // the second "complete trips to establish your ranking" would be
   // plainly wrong — they already did.
-  static const String rankingsSparseTitle = "You're one of the first";
-  static const String rankingsSparseBody =
-      'Complete trips to establish your ranking. The benchmarks below are '
-      'fixed targets to measure yourself against.';
-  static const String rankingsSparseRankedTitle = 'Only you so far';
-  static const String rankingsSparseRankedBody =
-      "You're the only driver ranked here yet. The benchmarks below are "
-      'fixed targets to measure yourself against, not other people.';
+  //
+  // Both are deliberately one line: on a sparse board this note appears
+  // every single time, and a three-line paragraph pushed the podium
+  // itself below the fold.
+  static const String rankingsSparseTitle =
+      "You're one of the first — complete a drive to get ranked";
+  static const String rankingsSparseRankedTitle =
+      "You're the only driver ranked here yet";
   static const String rankingsNoTripsTitle = 'No ranked drives yet';
   static const String rankingsNoTripsBody =
       'Finish a drive and your position appears here. Short or '

@@ -2,14 +2,18 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
+import 'package:drive_rank/core/database/app_database.dart'
+    show UserSettingsRow;
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
+import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
 import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart';
 import 'package:drive_rank/features/social/presentation/widgets/leaderboard_row.dart';
-import 'package:drive_rank/features/social/presentation/widgets/my_rank_card.dart';
+import 'package:drive_rank/features/social/presentation/widgets/my_rank_hero.dart';
 import 'package:drive_rank/features/social/presentation/widgets/ranking_pills.dart';
+import 'package:drive_rank/features/social/presentation/widgets/top_three_podium.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -75,25 +79,23 @@ class _RankingsBody extends StatelessWidget {
                 RankingPills<CompetitionMetric>(
                   items: _metrics,
                   active: state.metric,
-                  onChanged: (m) =>
-                      context.read<RankingsBloc>().add(
-                        RankingsMetricChanged(m),
-                      ),
+                  onChanged: (m) => context.read<RankingsBloc>().add(
+                    RankingsMetricChanged(m),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 RankingPills<LeaderboardPeriod>(
                   items: _periods,
                   active: state.period,
-                  onChanged: (p) =>
-                      context.read<RankingsBloc>().add(
-                        RankingsPeriodChanged(p),
-                      ),
+                  onChanged: (p) => context.read<RankingsBloc>().add(
+                    RankingsPeriodChanged(p),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                // Your standing is pinned above the list rather than
-                // being its first row: it's the answer the screen
-                // exists to give, and as a scrolling child it slid out
-                // of view as soon as the user looked down the board.
+                // Your standing stays pinned rather than scrolling with
+                // the board: it's the answer the screen exists to give,
+                // and as a scrolling child it slid out of view the
+                // moment the user looked down the list.
                 if (state.board?.me != null) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -111,8 +113,6 @@ class _RankingsBody extends StatelessWidget {
   }
 }
 
-/// The pinned header: the viewer's own standing, plus the sparse-board
-/// explanation when they're the only real competitor.
 class _MyRank extends StatelessWidget {
   const _MyRank({required this.state});
 
@@ -122,20 +122,11 @@ class _MyRank extends StatelessWidget {
   Widget build(BuildContext context) {
     final board = state.board!;
     final format = _MetricFormat.of(state.metric);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MyRankCard(
-          board: board,
-          formattedValue: format.value(board.me!.entry.value),
-          unitLabel: format.unit(board.me!.entry.value),
-          formatGap: format.gap,
-        ),
-        if (board.isSparse) ...[
-          const SizedBox(height: AppSpacing.sm),
-          _SparseNote(hasRankedDrives: board.me!.entry.value > 0),
-        ],
-      ],
+    return MyRankHero(
+      board: board,
+      formattedValue: format.value(board.me!.entry.value),
+      unitLabel: format.unit(board.me!.entry.value),
+      formatGap: format.gap,
     );
   }
 }
@@ -155,9 +146,8 @@ class _MetricFormat {
   final bool isDays;
   final LocaleService _locale;
 
-  String _daysUnit(num value) => value == 1
-      ? AppStrings.rankingsUnitDay
-      : AppStrings.rankingsUnitDays;
+  String _daysUnit(num value) =>
+      value == 1 ? AppStrings.rankingsUnitDay : AppStrings.rankingsUnitDays;
 
   String value(double v) =>
       isDays ? v.round().toString() : _locale.formatDistanceValue(v);
@@ -219,20 +209,48 @@ class _Board extends StatelessWidget {
     }
 
     final format = _MetricFormat.of(state.metric);
+    final podium = board.positions.take(3).toList();
+    final rest = board.positions.skip(3).toList();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+      padding: const EdgeInsets.only(bottom: 16),
       children: [
-        for (final position in board.positions) ...[
-          LeaderboardRow(
-            position: position,
-            formattedValue: format.value(position.entry.value),
-            unitLabel: format.unit(position.entry.value),
+        TopThreePodium(
+          positions: podium,
+          formatValue: format.value,
+          unitFor: format.unit,
+          viewer: state.viewer,
+        ),
+        if (board.isSparse) ...[
+          const SizedBox(height: AppSpacing.md),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: _SparseNote(hasRankedDrives: board.me!.entry.value > 0),
           ),
-          const SizedBox(height: 5),
+        ],
+        if (rest.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final position in rest) ...[
+                  LeaderboardRow(
+                    position: position,
+                    formattedValue: format.value(position.entry.value),
+                    unitLabel: format.unit(position.entry.value),
+                    subtitle: _subtitleFor(position, state.viewer),
+                    viewer: state.viewer,
+                  ),
+                  const SizedBox(height: 5),
+                ],
+              ],
+            ),
+          ),
         ],
         if (board.benchmarksShown) ...[
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
           Text(
             AppStrings.rankingsBenchmarkFooter,
             textAlign: TextAlign.center,
@@ -242,14 +260,32 @@ class _Board extends StatelessWidget {
       ],
     );
   }
+
+  /// The row's second line. A benchmark says what it is; the viewer gets
+  /// their car. Anyone else is left blank rather than given a
+  /// placeholder — their identity arrives with the remote phase.
+  String? _subtitleFor(LeaderboardPosition position, UserSettingsRow? viewer) {
+    if (position.entry.isBenchmark) return AppStrings.rankingsPaceReference;
+    if (!position.entry.isCurrentUser || viewer == null) return null;
+    final car = [
+      viewer.carMake,
+      viewer.carModel,
+    ].where((part) => part.isNotEmpty).join(' ');
+    return car.isEmpty ? null : car;
+  }
 }
 
-/// Shown while the viewer is the only real competitor. Deliberately not
-/// an empty state — the board below it is populated with benchmarks, so
-/// the message explains the situation rather than apologising for it.
+/// Shown while the viewer is the only real competitor.
 ///
-/// The copy splits on whether they've actually ranked anything yet: the
-/// two situations look identical structurally but need opposite advice.
+/// Deliberately not an empty state — the board above it is populated
+/// with benchmarks, so this explains the situation rather than
+/// apologising for it. Kept to a single line: it appears on every
+/// sparse board, and as a paragraph it pushed the podium itself below
+/// the fold.
+///
+/// The copy splits on whether they've actually ranked anything yet —
+/// the two situations look identical structurally but need opposite
+/// advice.
 class _SparseNote extends StatelessWidget {
   const _SparseNote({required this.hasRankedDrives});
 
@@ -258,27 +294,29 @@ class _SparseNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.tealDim,
         border: Border.all(color: AppColors.teal.withValues(alpha: 0.12)),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            hasRankedDrives
-                ? AppStrings.rankingsSparseRankedTitle
-                : AppStrings.rankingsSparseTitle,
-            style: AppTextStyles.title.copyWith(color: AppColors.teal),
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 15,
+            color: AppColors.teal,
           ),
-          const SizedBox(height: 4),
-          Text(
-            hasRankedDrives
-                ? AppStrings.rankingsSparseRankedBody
-                : AppStrings.rankingsSparseBody,
-            style: AppTextStyles.bodySmall,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              hasRankedDrives
+                  ? AppStrings.rankingsSparseRankedTitle
+                  : AppStrings.rankingsSparseTitle,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
         ],
       ),

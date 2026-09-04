@@ -52,6 +52,7 @@ class RankingsState {
     required this.period,
     required this.rankingsEnabled,
     this.board,
+    this.viewer,
   });
 
   factory RankingsState.initial() => const RankingsState(
@@ -64,6 +65,12 @@ class RankingsState {
   final bool isLoading;
   final CompetitionMetric metric;
   final LeaderboardPeriod period;
+
+  /// The viewer's settings row — their vehicle art and country for
+  /// their own row on the board. Only the viewer's identity is known
+  /// locally; other real drivers arrive with the remote phase carrying
+  /// their own.
+  final UserSettingsRow? viewer;
 
   /// False when the kill switch is off — the page renders its disabled
   /// state and stops showing standings. Never inferred from a missing
@@ -78,12 +85,14 @@ class RankingsState {
     LeaderboardPeriod? period,
     bool? rankingsEnabled,
     Leaderboard? board,
+    UserSettingsRow? viewer,
   }) => RankingsState(
     isLoading: isLoading ?? this.isLoading,
     metric: metric ?? this.metric,
     period: period ?? this.period,
     rankingsEnabled: rankingsEnabled ?? this.rankingsEnabled,
     board: board ?? this.board,
+    viewer: viewer ?? this.viewer,
   );
 }
 
@@ -141,7 +150,12 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     final uidChanged = settings.uid != _uid;
     _uid = settings.uid;
 
-    emit(state.copyWith(rankingsEnabled: settings.rankingsEnabled));
+    emit(
+      state.copyWith(
+        rankingsEnabled: settings.rankingsEnabled,
+        viewer: settings,
+      ),
+    );
 
     if (uidChanged) {
       // Rebuild the trips subscription against the new uid rather than
