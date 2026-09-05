@@ -100,6 +100,48 @@ class FirestoreTripSink implements RemoteTripSink {
     }
   }
 
+  @override
+  Future<void> deleteTrip({
+    required String uid,
+    required String remoteId,
+  }) async {
+    final tripPath = 'users/$uid/trips/$remoteId';
+    final tripRef = _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('trips')
+        .doc(remoteId);
+
+    try {
+      // Firestore does not cascade: deleting the parent leaves the
+      // waypoint chunks as orphaned documents that still bill storage and
+      // still come back if a doc is ever recreated at this path. Chunks
+      // go first, so an interrupted delete leaves the trip doc — which is
+      // what the tombstone retries on — rather than an unreachable tail
+      // of waypoints nothing points at any more.
+      final chunks = await tripRef.collection('waypointChunks').get();
+      for (final chunk in chunks.docs) {
+        await chunk.reference.delete();
+      }
+      await tripRef.delete();
+
+      if (kDebugMode) {
+        debugPrint(
+          '[FirestoreTripSink] ✗ deleted $tripPath '
+          '(+${chunks.docs.length} waypoint chunk(s))',
+        );
+      }
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[FirestoreTripSink] delete $tripPath failed: $e\n$st');
+      }
+      // Rethrow so the tombstone survives and the next online tick tries
+      // again. A doc that was already gone is not an error here —
+      // Firestore's delete is idempotent and succeeds on a missing doc.
+      rethrow;
+    }
+  }
+
   Map<String, dynamic> _tripPayload(TripRow trip) => {
     'topSpeedKmh': trip.topSpeedKmh,
     'avgSpeedKmh': trip.avgSpeedKmh,

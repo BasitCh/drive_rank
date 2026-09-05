@@ -237,8 +237,53 @@ class TripRepository {
         .toList();
   }
 
-  Future<int> deleteTrip(int id) {
-    return (_db.delete(_db.trips)..where((t) => t.id.equals(id))).go();
+  /// Deletes a trip locally **and** records a tombstone so it is removed
+  /// from the cloud too.
+  ///
+  /// Without the tombstone this method was a half-delete: the local row
+  /// went, the Firestore doc stayed, and the next restore — or simply the
+  /// next device — brought the trip back. Recording the intent rather
+  /// than deleting remotely inline is what makes it survive being
+  /// offline; `SyncManager` drains the queue on the next online tick.
+  Future<int> deleteTrip(int id) async {
+    final trip = await getById(id);
+    final remoteId = trip?.remoteId;
+    return _db.transaction(() async {
+      if (remoteId != null && remoteId.isNotEmpty) {
+        await _db
+            .into(_db.deletedTrips)
+            .insertOnConflictUpdate(
+              DeletedTripsCompanion.insert(
+                remoteId: remoteId,
+                uid: trip!.uid,
+                deletedAt: DateTime.now(),
+              ),
+            );
+      }
+      return (_db.delete(_db.trips)..where((t) => t.id.equals(id))).go();
+    });
+  }
+
+  /// Trips deleted locally whose cloud copy is still to be removed.
+  Future<List<DeletedTripRow>> pendingRemoteDeletions(String uid) {
+    return (_db.select(_db.deletedTrips)
+          ..where((d) => d.uid.equals(uid))
+          ..orderBy([(d) => OrderingTerm.asc(d.deletedAt)]))
+        .get();
+  }
+
+  /// Drops a tombstone once the cloud copy is confirmed gone.
+  Future<void> clearRemoteDeletion(String remoteId) {
+    return (_db.delete(_db.deletedTrips)
+          ..where((d) => d.remoteId.equals(remoteId)))
+        .go();
+  }
+
+  /// Whether a restore should skip this doc — it is one the user already
+  /// deleted, and the delete simply hasn't reached the cloud yet.
+  Future<Set<String>> deletedRemoteIds(String uid) async {
+    final rows = await pendingRemoteDeletions(uid);
+    return rows.map((r) => r.remoteId).toSet();
   }
 
   /// Deletes every trip owned by [uid] — waypoints cascade via the FK.

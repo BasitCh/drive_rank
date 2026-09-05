@@ -51,8 +51,14 @@ class CloudSyncService {
           .limit(_tripRestoreLimit)
           .get();
 
+      // Docs the user already deleted, whose delete hasn't reached the
+      // cloud yet. Restoring one would undo a deletion they watched
+      // happen — the exact resurrection this whole path is guarding.
+      final deleted = await _trips.deletedRemoteIds(uid);
+
       var restored = 0;
       for (final doc in snapshot.docs) {
+        if (deleted.contains(doc.id)) continue;
         final data = doc.data();
         final waypoints = await _decodeWaypoints(doc.reference, data);
         final trip = _decodeTripCompanion(uid, doc.id, data);

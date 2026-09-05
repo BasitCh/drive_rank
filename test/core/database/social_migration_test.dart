@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import 'legacy_app_database_v10.dart' as v10;
 import 'legacy_app_database_v11.dart' as v11;
 import 'legacy_app_database_v12.dart' as v12;
+import 'legacy_app_database_v13.dart' as v13;
 
 void main() {
   late Directory tempDir;
@@ -363,6 +364,87 @@ void main() {
           .get();
       // 26 at v12, plus rankings_enabled.
       expect(columns, hasLength(27));
+    });
+  });
+
+  group('v13 -> v14 — trip deletions that stick', () {
+    test('adds deleted_trips without disturbing existing history', () async {
+      final legacyDb = v13.LegacyAppDatabaseV13(NativeDatabase(dbFile));
+      final tripId = await legacyDb
+          .into(legacyDb.trips)
+          .insert(
+            v13.TripsCompanion.insert(
+              uid: 'user-1',
+              topSpeedKmh: 118,
+              avgSpeedKmh: 64,
+              distanceKm: 212.4,
+              durationSeconds: 10_320,
+              startedAt: DateTime(2026, 9, 2),
+              remoteId: const Value('remote-1'),
+              isSynced: const Value(true),
+            ),
+          );
+      await legacyDb.close();
+
+      final db = openMigrated();
+
+      // The tombstone table arrives empty — there is nothing to backfill,
+      // because trips deleted under the old behaviour left no record of
+      // having existed.
+      expect(await db.select(db.deletedTrips).get(), isEmpty);
+
+      final trips = await db.select(db.trips).get();
+      expect(trips, hasLength(1));
+      expect(trips.single.id, tripId);
+      expect(trips.single.remoteId, 'remote-1');
+      expect(trips.single.distanceKm, 212.4);
+    });
+
+    test('the upgraded database can record and drop a tombstone', () async {
+      final legacyDb = v13.LegacyAppDatabaseV13(NativeDatabase(dbFile));
+      await legacyDb.close();
+
+      final db = openMigrated();
+      await db
+          .into(db.deletedTrips)
+          .insert(
+            DeletedTripsCompanion.insert(
+              remoteId: 'remote-1',
+              uid: 'user-1',
+              deletedAt: DateTime(2026, 9, 5),
+            ),
+          );
+
+      expect(
+        (await db.select(db.deletedTrips).get()).single.remoteId,
+        'remote-1',
+      );
+
+      // Same doc tombstoned twice — a delete retried after a failure —
+      // collapses onto one row rather than duplicating the work.
+      await db
+          .into(db.deletedTrips)
+          .insertOnConflictUpdate(
+            DeletedTripsCompanion.insert(
+              remoteId: 'remote-1',
+              uid: 'user-1',
+              deletedAt: DateTime(2026, 9, 6),
+            ),
+          );
+      expect(await db.select(db.deletedTrips).get(), hasLength(1));
+    });
+
+    test('the v14 schema has the column count the fixture was frozen '
+        'against — a later migration that alters one of these tables '
+        'must freeze it, not reuse the live definition', () async {
+      final legacyDb = v13.LegacyAppDatabaseV13(NativeDatabase(dbFile));
+      await legacyDb.close();
+
+      final db = openMigrated();
+      final columns = await db
+          .customSelect('PRAGMA table_info(deleted_trips)')
+          .get();
+      expect(columns, hasLength(3));
     });
   });
 }

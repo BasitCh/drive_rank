@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'app_database.dart';
+part of 'legacy_app_database_v13.dart';
 
 // ignore_for_file: type=lint
 class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
@@ -8330,282 +8330,10 @@ class TripEligibilityCompanion extends UpdateCompanion<TripEligibilityRow> {
   }
 }
 
-class $DeletedTripsTable extends DeletedTrips
-    with TableInfo<$DeletedTripsTable, DeletedTripRow> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $DeletedTripsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _remoteIdMeta = const VerificationMeta(
-    'remoteId',
-  );
-  @override
-  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
-    'remote_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
-  @override
-  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
-    'uid',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
-    'deletedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
-    'deleted_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [remoteId, uid, deletedAt];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'deleted_trips';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<DeletedTripRow> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('remote_id')) {
-      context.handle(
-        _remoteIdMeta,
-        remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_remoteIdMeta);
-    }
-    if (data.containsKey('uid')) {
-      context.handle(
-        _uidMeta,
-        uid.isAcceptableOrUnknown(data['uid']!, _uidMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_uidMeta);
-    }
-    if (data.containsKey('deleted_at')) {
-      context.handle(
-        _deletedAtMeta,
-        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_deletedAtMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {remoteId};
-  @override
-  DeletedTripRow map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return DeletedTripRow(
-      remoteId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}remote_id'],
-      )!,
-      uid: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}uid'],
-      )!,
-      deletedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}deleted_at'],
-      )!,
-    );
-  }
-
-  @override
-  $DeletedTripsTable createAlias(String alias) {
-    return $DeletedTripsTable(attachedDatabase, alias);
-  }
-}
-
-class DeletedTripRow extends DataClass implements Insertable<DeletedTripRow> {
-  /// The cloud document id. Primary key, so deleting the same trip twice
-  /// (or re-recording a tombstone during a retry) collapses to one row.
-  final String remoteId;
-
-  /// Which account's subcollection holds the doc. Stored rather than read
-  /// from the session, because the delete may drain long after a uid
-  /// change and must not be re-pointed at whoever is signed in then.
-  final String uid;
-  final DateTime deletedAt;
-  const DeletedTripRow({
-    required this.remoteId,
-    required this.uid,
-    required this.deletedAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['remote_id'] = Variable<String>(remoteId);
-    map['uid'] = Variable<String>(uid);
-    map['deleted_at'] = Variable<DateTime>(deletedAt);
-    return map;
-  }
-
-  DeletedTripsCompanion toCompanion(bool nullToAbsent) {
-    return DeletedTripsCompanion(
-      remoteId: Value(remoteId),
-      uid: Value(uid),
-      deletedAt: Value(deletedAt),
-    );
-  }
-
-  factory DeletedTripRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return DeletedTripRow(
-      remoteId: serializer.fromJson<String>(json['remoteId']),
-      uid: serializer.fromJson<String>(json['uid']),
-      deletedAt: serializer.fromJson<DateTime>(json['deletedAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'remoteId': serializer.toJson<String>(remoteId),
-      'uid': serializer.toJson<String>(uid),
-      'deletedAt': serializer.toJson<DateTime>(deletedAt),
-    };
-  }
-
-  DeletedTripRow copyWith({
-    String? remoteId,
-    String? uid,
-    DateTime? deletedAt,
-  }) => DeletedTripRow(
-    remoteId: remoteId ?? this.remoteId,
-    uid: uid ?? this.uid,
-    deletedAt: deletedAt ?? this.deletedAt,
-  );
-  DeletedTripRow copyWithCompanion(DeletedTripsCompanion data) {
-    return DeletedTripRow(
-      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
-      uid: data.uid.present ? data.uid.value : this.uid,
-      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('DeletedTripRow(')
-          ..write('remoteId: $remoteId, ')
-          ..write('uid: $uid, ')
-          ..write('deletedAt: $deletedAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(remoteId, uid, deletedAt);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is DeletedTripRow &&
-          other.remoteId == this.remoteId &&
-          other.uid == this.uid &&
-          other.deletedAt == this.deletedAt);
-}
-
-class DeletedTripsCompanion extends UpdateCompanion<DeletedTripRow> {
-  final Value<String> remoteId;
-  final Value<String> uid;
-  final Value<DateTime> deletedAt;
-  final Value<int> rowid;
-  const DeletedTripsCompanion({
-    this.remoteId = const Value.absent(),
-    this.uid = const Value.absent(),
-    this.deletedAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  DeletedTripsCompanion.insert({
-    required String remoteId,
-    required String uid,
-    required DateTime deletedAt,
-    this.rowid = const Value.absent(),
-  }) : remoteId = Value(remoteId),
-       uid = Value(uid),
-       deletedAt = Value(deletedAt);
-  static Insertable<DeletedTripRow> custom({
-    Expression<String>? remoteId,
-    Expression<String>? uid,
-    Expression<DateTime>? deletedAt,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (remoteId != null) 'remote_id': remoteId,
-      if (uid != null) 'uid': uid,
-      if (deletedAt != null) 'deleted_at': deletedAt,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  DeletedTripsCompanion copyWith({
-    Value<String>? remoteId,
-    Value<String>? uid,
-    Value<DateTime>? deletedAt,
-    Value<int>? rowid,
-  }) {
-    return DeletedTripsCompanion(
-      remoteId: remoteId ?? this.remoteId,
-      uid: uid ?? this.uid,
-      deletedAt: deletedAt ?? this.deletedAt,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (remoteId.present) {
-      map['remote_id'] = Variable<String>(remoteId.value);
-    }
-    if (uid.present) {
-      map['uid'] = Variable<String>(uid.value);
-    }
-    if (deletedAt.present) {
-      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('DeletedTripsCompanion(')
-          ..write('remoteId: $remoteId, ')
-          ..write('uid: $uid, ')
-          ..write('deletedAt: $deletedAt, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
-abstract class _$AppDatabase extends GeneratedDatabase {
-  _$AppDatabase(QueryExecutor e) : super(e);
-  $AppDatabaseManager get managers => $AppDatabaseManager(this);
+abstract class _$LegacyAppDatabaseV13 extends GeneratedDatabase {
+  _$LegacyAppDatabaseV13(QueryExecutor e) : super(e);
+  $LegacyAppDatabaseV13Manager get managers =>
+      $LegacyAppDatabaseV13Manager(this);
   late final $TripsTable trips = $TripsTable(this);
   late final $WaypointsTable waypoints = $WaypointsTable(this);
   late final $UserSettingsTable userSettings = $UserSettingsTable(this);
@@ -8620,7 +8348,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TripEligibilityTable tripEligibility = $TripEligibilityTable(
     this,
   );
-  late final $DeletedTripsTable deletedTrips = $DeletedTripsTable(this);
   late final Index idxTrophiesRemoteId = Index(
     'idx_trophies_remote_id',
     'CREATE UNIQUE INDEX idx_trophies_remote_id ON trophies (remote_id)',
@@ -8641,7 +8368,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     challengeProgress,
     trophies,
     tripEligibility,
-    deletedTrips,
     idxTrophiesRemoteId,
   ];
   @override
@@ -8744,14 +8470,15 @@ typedef $$TripsTableUpdateCompanionBuilder =
     });
 
 final class $$TripsTableReferences
-    extends BaseReferences<_$AppDatabase, $TripsTable, TripRow> {
+    extends BaseReferences<_$LegacyAppDatabaseV13, $TripsTable, TripRow> {
   $$TripsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<$WaypointsTable, List<WaypointRow>>
-  _waypointsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.waypoints,
-    aliasName: $_aliasNameGenerator(db.trips.id, db.waypoints.tripId),
-  );
+  _waypointsRefsTable(_$LegacyAppDatabaseV13 db) =>
+      MultiTypedResultKey.fromTable(
+        db.waypoints,
+        aliasName: $_aliasNameGenerator(db.trips.id, db.waypoints.tripId),
+      );
 
   $$WaypointsTableProcessedTableManager get waypointsRefs {
     final manager = $$WaypointsTableTableManager(
@@ -8766,10 +8493,11 @@ final class $$TripsTableReferences
   }
 
   static MultiTypedResultKey<$TripEligibilityTable, List<TripEligibilityRow>>
-  _tripEligibilityRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.tripEligibility,
-    aliasName: $_aliasNameGenerator(db.trips.id, db.tripEligibility.tripId),
-  );
+  _tripEligibilityRefsTable(_$LegacyAppDatabaseV13 db) =>
+      MultiTypedResultKey.fromTable(
+        db.tripEligibility,
+        aliasName: $_aliasNameGenerator(db.trips.id, db.tripEligibility.tripId),
+      );
 
   $$TripEligibilityTableProcessedTableManager get tripEligibilityRefs {
     final manager = $$TripEligibilityTableTableManager(
@@ -8786,7 +8514,8 @@ final class $$TripsTableReferences
   }
 }
 
-class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
+class $$TripsTableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV13, $TripsTable> {
   $$TripsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -9011,7 +8740,7 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
 }
 
 class $$TripsTableOrderingComposer
-    extends Composer<_$AppDatabase, $TripsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $TripsTable> {
   $$TripsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -9186,7 +8915,7 @@ class $$TripsTableOrderingComposer
 }
 
 class $$TripsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TripsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $TripsTable> {
   $$TripsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -9393,7 +9122,7 @@ class $$TripsTableAnnotationComposer
 class $$TripsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $TripsTable,
           TripRow,
           $$TripsTableFilterComposer,
@@ -9405,7 +9134,7 @@ class $$TripsTableTableManager
           TripRow,
           PrefetchHooks Function({bool waypointsRefs, bool tripEligibilityRefs})
         > {
-  $$TripsTableTableManager(_$AppDatabase db, $TripsTable table)
+  $$TripsTableTableManager(_$LegacyAppDatabaseV13 db, $TripsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -9625,7 +9354,7 @@ class $$TripsTableTableManager
 
 typedef $$TripsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $TripsTable,
       TripRow,
       $$TripsTableFilterComposer,
@@ -9663,12 +9392,12 @@ typedef $$WaypointsTableUpdateCompanionBuilder =
     });
 
 final class $$WaypointsTableReferences
-    extends BaseReferences<_$AppDatabase, $WaypointsTable, WaypointRow> {
+    extends
+        BaseReferences<_$LegacyAppDatabaseV13, $WaypointsTable, WaypointRow> {
   $$WaypointsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $TripsTable _tripIdTable(_$AppDatabase db) => db.trips.createAlias(
-    $_aliasNameGenerator(db.waypoints.tripId, db.trips.id),
-  );
+  static $TripsTable _tripIdTable(_$LegacyAppDatabaseV13 db) => db.trips
+      .createAlias($_aliasNameGenerator(db.waypoints.tripId, db.trips.id));
 
   $$TripsTableProcessedTableManager get tripId {
     final $_column = $_itemColumn<int>('trip_id')!;
@@ -9686,7 +9415,7 @@ final class $$WaypointsTableReferences
 }
 
 class $$WaypointsTableFilterComposer
-    extends Composer<_$AppDatabase, $WaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $WaypointsTable> {
   $$WaypointsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -9759,7 +9488,7 @@ class $$WaypointsTableFilterComposer
 }
 
 class $$WaypointsTableOrderingComposer
-    extends Composer<_$AppDatabase, $WaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $WaypointsTable> {
   $$WaypointsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -9832,7 +9561,7 @@ class $$WaypointsTableOrderingComposer
 }
 
 class $$WaypointsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $WaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $WaypointsTable> {
   $$WaypointsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -9895,7 +9624,7 @@ class $$WaypointsTableAnnotationComposer
 class $$WaypointsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $WaypointsTable,
           WaypointRow,
           $$WaypointsTableFilterComposer,
@@ -9907,7 +9636,7 @@ class $$WaypointsTableTableManager
           WaypointRow,
           PrefetchHooks Function({bool tripId})
         > {
-  $$WaypointsTableTableManager(_$AppDatabase db, $WaypointsTable table)
+  $$WaypointsTableTableManager(_$LegacyAppDatabaseV13 db, $WaypointsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -10017,7 +9746,7 @@ class $$WaypointsTableTableManager
 
 typedef $$WaypointsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $WaypointsTable,
       WaypointRow,
       $$WaypointsTableFilterComposer,
@@ -10091,7 +9820,7 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
     });
 
 class $$UserSettingsTableFilterComposer
-    extends Composer<_$AppDatabase, $UserSettingsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $UserSettingsTable> {
   $$UserSettingsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -10236,7 +9965,7 @@ class $$UserSettingsTableFilterComposer
 }
 
 class $$UserSettingsTableOrderingComposer
-    extends Composer<_$AppDatabase, $UserSettingsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $UserSettingsTable> {
   $$UserSettingsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -10381,7 +10110,7 @@ class $$UserSettingsTableOrderingComposer
 }
 
 class $$UserSettingsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $UserSettingsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $UserSettingsTable> {
   $$UserSettingsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -10506,7 +10235,7 @@ class $$UserSettingsTableAnnotationComposer
 class $$UserSettingsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $UserSettingsTable,
           UserSettingsRow,
           $$UserSettingsTableFilterComposer,
@@ -10516,13 +10245,19 @@ class $$UserSettingsTableTableManager
           $$UserSettingsTableUpdateCompanionBuilder,
           (
             UserSettingsRow,
-            BaseReferences<_$AppDatabase, $UserSettingsTable, UserSettingsRow>,
+            BaseReferences<
+              _$LegacyAppDatabaseV13,
+              $UserSettingsTable,
+              UserSettingsRow
+            >,
           ),
           UserSettingsRow,
           PrefetchHooks Function()
         > {
-  $$UserSettingsTableTableManager(_$AppDatabase db, $UserSettingsTable table)
-    : super(
+  $$UserSettingsTableTableManager(
+    _$LegacyAppDatabaseV13 db,
+    $UserSettingsTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
@@ -10658,7 +10393,7 @@ class $$UserSettingsTableTableManager
 
 typedef $$UserSettingsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $UserSettingsTable,
       UserSettingsRow,
       $$UserSettingsTableFilterComposer,
@@ -10668,7 +10403,11 @@ typedef $$UserSettingsTableProcessedTableManager =
       $$UserSettingsTableUpdateCompanionBuilder,
       (
         UserSettingsRow,
-        BaseReferences<_$AppDatabase, $UserSettingsTable, UserSettingsRow>,
+        BaseReferences<
+          _$LegacyAppDatabaseV13,
+          $UserSettingsTable,
+          UserSettingsRow
+        >,
       ),
       UserSettingsRow,
       PrefetchHooks Function()
@@ -10709,7 +10448,7 @@ typedef $$LiveTripsTableUpdateCompanionBuilder =
     });
 
 class $$LiveTripsTableFilterComposer
-    extends Composer<_$AppDatabase, $LiveTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $LiveTripsTable> {
   $$LiveTripsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -10789,7 +10528,7 @@ class $$LiveTripsTableFilterComposer
 }
 
 class $$LiveTripsTableOrderingComposer
-    extends Composer<_$AppDatabase, $LiveTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $LiveTripsTable> {
   $$LiveTripsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -10869,7 +10608,7 @@ class $$LiveTripsTableOrderingComposer
 }
 
 class $$LiveTripsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $LiveTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $LiveTripsTable> {
   $$LiveTripsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -10937,7 +10676,7 @@ class $$LiveTripsTableAnnotationComposer
 class $$LiveTripsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $LiveTripsTable,
           LiveTripRow,
           $$LiveTripsTableFilterComposer,
@@ -10947,12 +10686,16 @@ class $$LiveTripsTableTableManager
           $$LiveTripsTableUpdateCompanionBuilder,
           (
             LiveTripRow,
-            BaseReferences<_$AppDatabase, $LiveTripsTable, LiveTripRow>,
+            BaseReferences<
+              _$LegacyAppDatabaseV13,
+              $LiveTripsTable,
+              LiveTripRow
+            >,
           ),
           LiveTripRow,
           PrefetchHooks Function()
         > {
-  $$LiveTripsTableTableManager(_$AppDatabase db, $LiveTripsTable table)
+  $$LiveTripsTableTableManager(_$LegacyAppDatabaseV13 db, $LiveTripsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -11037,7 +10780,7 @@ class $$LiveTripsTableTableManager
 
 typedef $$LiveTripsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $LiveTripsTable,
       LiveTripRow,
       $$LiveTripsTableFilterComposer,
@@ -11047,7 +10790,7 @@ typedef $$LiveTripsTableProcessedTableManager =
       $$LiveTripsTableUpdateCompanionBuilder,
       (
         LiveTripRow,
-        BaseReferences<_$AppDatabase, $LiveTripsTable, LiveTripRow>,
+        BaseReferences<_$LegacyAppDatabaseV13, $LiveTripsTable, LiveTripRow>,
       ),
       LiveTripRow,
       PrefetchHooks Function()
@@ -11076,7 +10819,7 @@ typedef $$LiveWaypointsTableUpdateCompanionBuilder =
     });
 
 class $$LiveWaypointsTableFilterComposer
-    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $LiveWaypointsTable> {
   $$LiveWaypointsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11126,7 +10869,7 @@ class $$LiveWaypointsTableFilterComposer
 }
 
 class $$LiveWaypointsTableOrderingComposer
-    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $LiveWaypointsTable> {
   $$LiveWaypointsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -11176,7 +10919,7 @@ class $$LiveWaypointsTableOrderingComposer
 }
 
 class $$LiveWaypointsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $LiveWaypointsTable> {
   $$LiveWaypointsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11216,7 +10959,7 @@ class $$LiveWaypointsTableAnnotationComposer
 class $$LiveWaypointsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $LiveWaypointsTable,
           LiveWaypointRow,
           $$LiveWaypointsTableFilterComposer,
@@ -11226,13 +10969,19 @@ class $$LiveWaypointsTableTableManager
           $$LiveWaypointsTableUpdateCompanionBuilder,
           (
             LiveWaypointRow,
-            BaseReferences<_$AppDatabase, $LiveWaypointsTable, LiveWaypointRow>,
+            BaseReferences<
+              _$LegacyAppDatabaseV13,
+              $LiveWaypointsTable,
+              LiveWaypointRow
+            >,
           ),
           LiveWaypointRow,
           PrefetchHooks Function()
         > {
-  $$LiveWaypointsTableTableManager(_$AppDatabase db, $LiveWaypointsTable table)
-    : super(
+  $$LiveWaypointsTableTableManager(
+    _$LegacyAppDatabaseV13 db,
+    $LiveWaypointsTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
@@ -11292,7 +11041,7 @@ class $$LiveWaypointsTableTableManager
 
 typedef $$LiveWaypointsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $LiveWaypointsTable,
       LiveWaypointRow,
       $$LiveWaypointsTableFilterComposer,
@@ -11302,7 +11051,11 @@ typedef $$LiveWaypointsTableProcessedTableManager =
       $$LiveWaypointsTableUpdateCompanionBuilder,
       (
         LiveWaypointRow,
-        BaseReferences<_$AppDatabase, $LiveWaypointsTable, LiveWaypointRow>,
+        BaseReferences<
+          _$LegacyAppDatabaseV13,
+          $LiveWaypointsTable,
+          LiveWaypointRow
+        >,
       ),
       LiveWaypointRow,
       PrefetchHooks Function()
@@ -11329,7 +11082,7 @@ typedef $$FriendsTableUpdateCompanionBuilder =
     });
 
 class $$FriendsTableFilterComposer
-    extends Composer<_$AppDatabase, $FriendsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $FriendsTable> {
   $$FriendsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11374,7 +11127,7 @@ class $$FriendsTableFilterComposer
 }
 
 class $$FriendsTableOrderingComposer
-    extends Composer<_$AppDatabase, $FriendsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $FriendsTable> {
   $$FriendsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -11419,7 +11172,7 @@ class $$FriendsTableOrderingComposer
 }
 
 class $$FriendsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $FriendsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $FriendsTable> {
   $$FriendsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11452,7 +11205,7 @@ class $$FriendsTableAnnotationComposer
 class $$FriendsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $FriendsTable,
           FriendRow,
           $$FriendsTableFilterComposer,
@@ -11460,11 +11213,14 @@ class $$FriendsTableTableManager
           $$FriendsTableAnnotationComposer,
           $$FriendsTableCreateCompanionBuilder,
           $$FriendsTableUpdateCompanionBuilder,
-          (FriendRow, BaseReferences<_$AppDatabase, $FriendsTable, FriendRow>),
+          (
+            FriendRow,
+            BaseReferences<_$LegacyAppDatabaseV13, $FriendsTable, FriendRow>,
+          ),
           FriendRow,
           PrefetchHooks Function()
         > {
-  $$FriendsTableTableManager(_$AppDatabase db, $FriendsTable table)
+  $$FriendsTableTableManager(_$LegacyAppDatabaseV13 db, $FriendsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -11521,7 +11277,7 @@ class $$FriendsTableTableManager
 
 typedef $$FriendsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $FriendsTable,
       FriendRow,
       $$FriendsTableFilterComposer,
@@ -11529,7 +11285,10 @@ typedef $$FriendsTableProcessedTableManager =
       $$FriendsTableAnnotationComposer,
       $$FriendsTableCreateCompanionBuilder,
       $$FriendsTableUpdateCompanionBuilder,
-      (FriendRow, BaseReferences<_$AppDatabase, $FriendsTable, FriendRow>),
+      (
+        FriendRow,
+        BaseReferences<_$LegacyAppDatabaseV13, $FriendsTable, FriendRow>,
+      ),
       FriendRow,
       PrefetchHooks Function()
     >;
@@ -11555,7 +11314,7 @@ typedef $$FriendRequestsTableUpdateCompanionBuilder =
     });
 
 class $$FriendRequestsTableFilterComposer
-    extends Composer<_$AppDatabase, $FriendRequestsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $FriendRequestsTable> {
   $$FriendRequestsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11600,7 +11359,7 @@ class $$FriendRequestsTableFilterComposer
 }
 
 class $$FriendRequestsTableOrderingComposer
-    extends Composer<_$AppDatabase, $FriendRequestsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $FriendRequestsTable> {
   $$FriendRequestsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -11645,7 +11404,7 @@ class $$FriendRequestsTableOrderingComposer
 }
 
 class $$FriendRequestsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $FriendRequestsTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $FriendRequestsTable> {
   $$FriendRequestsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11678,7 +11437,7 @@ class $$FriendRequestsTableAnnotationComposer
 class $$FriendRequestsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $FriendRequestsTable,
           FriendRequestRow,
           $$FriendRequestsTableFilterComposer,
@@ -11689,7 +11448,7 @@ class $$FriendRequestsTableTableManager
           (
             FriendRequestRow,
             BaseReferences<
-              _$AppDatabase,
+              _$LegacyAppDatabaseV13,
               $FriendRequestsTable,
               FriendRequestRow
             >,
@@ -11698,7 +11457,7 @@ class $$FriendRequestsTableTableManager
           PrefetchHooks Function()
         > {
   $$FriendRequestsTableTableManager(
-    _$AppDatabase db,
+    _$LegacyAppDatabaseV13 db,
     $FriendRequestsTable table,
   ) : super(
         TableManagerState(
@@ -11756,7 +11515,7 @@ class $$FriendRequestsTableTableManager
 
 typedef $$FriendRequestsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $FriendRequestsTable,
       FriendRequestRow,
       $$FriendRequestsTableFilterComposer,
@@ -11766,7 +11525,11 @@ typedef $$FriendRequestsTableProcessedTableManager =
       $$FriendRequestsTableUpdateCompanionBuilder,
       (
         FriendRequestRow,
-        BaseReferences<_$AppDatabase, $FriendRequestsTable, FriendRequestRow>,
+        BaseReferences<
+          _$LegacyAppDatabaseV13,
+          $FriendRequestsTable,
+          FriendRequestRow
+        >,
       ),
       FriendRequestRow,
       PrefetchHooks Function()
@@ -11803,14 +11566,15 @@ typedef $$ChallengesTableUpdateCompanionBuilder =
     });
 
 final class $$ChallengesTableReferences
-    extends BaseReferences<_$AppDatabase, $ChallengesTable, ChallengeRow> {
+    extends
+        BaseReferences<_$LegacyAppDatabaseV13, $ChallengesTable, ChallengeRow> {
   $$ChallengesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<
     $ChallengeProgressTable,
     List<ChallengeProgressRow>
   >
-  _challengeProgressRefsTable(_$AppDatabase db) =>
+  _challengeProgressRefsTable(_$LegacyAppDatabaseV13 db) =>
       MultiTypedResultKey.fromTable(
         db.challengeProgress,
         aliasName: $_aliasNameGenerator(
@@ -11835,7 +11599,7 @@ final class $$ChallengesTableReferences
 }
 
 class $$ChallengesTableFilterComposer
-    extends Composer<_$AppDatabase, $ChallengesTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $ChallengesTable> {
   $$ChallengesTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11930,7 +11694,7 @@ class $$ChallengesTableFilterComposer
 }
 
 class $$ChallengesTableOrderingComposer
-    extends Composer<_$AppDatabase, $ChallengesTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $ChallengesTable> {
   $$ChallengesTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -12000,7 +11764,7 @@ class $$ChallengesTableOrderingComposer
 }
 
 class $$ChallengesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ChallengesTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $ChallengesTable> {
   $$ChallengesTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -12080,7 +11844,7 @@ class $$ChallengesTableAnnotationComposer
 class $$ChallengesTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $ChallengesTable,
           ChallengeRow,
           $$ChallengesTableFilterComposer,
@@ -12092,8 +11856,10 @@ class $$ChallengesTableTableManager
           ChallengeRow,
           PrefetchHooks Function({bool challengeProgressRefs})
         > {
-  $$ChallengesTableTableManager(_$AppDatabase db, $ChallengesTable table)
-    : super(
+  $$ChallengesTableTableManager(
+    _$LegacyAppDatabaseV13 db,
+    $ChallengesTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
@@ -12207,7 +11973,7 @@ class $$ChallengesTableTableManager
 
 typedef $$ChallengesTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $ChallengesTable,
       ChallengeRow,
       $$ChallengesTableFilterComposer,
@@ -12243,7 +12009,7 @@ typedef $$ChallengeProgressTableUpdateCompanionBuilder =
 final class $$ChallengeProgressTableReferences
     extends
         BaseReferences<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $ChallengeProgressTable,
           ChallengeProgressRow
         > {
@@ -12253,7 +12019,7 @@ final class $$ChallengeProgressTableReferences
     super.$_typedResult,
   );
 
-  static $ChallengesTable _challengeIdTable(_$AppDatabase db) =>
+  static $ChallengesTable _challengeIdTable(_$LegacyAppDatabaseV13 db) =>
       db.challenges.createAlias(
         $_aliasNameGenerator(
           db.challengeProgress.challengeId,
@@ -12277,7 +12043,7 @@ final class $$ChallengeProgressTableReferences
 }
 
 class $$ChallengeProgressTableFilterComposer
-    extends Composer<_$AppDatabase, $ChallengeProgressTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $ChallengeProgressTable> {
   $$ChallengeProgressTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -12335,7 +12101,7 @@ class $$ChallengeProgressTableFilterComposer
 }
 
 class $$ChallengeProgressTableOrderingComposer
-    extends Composer<_$AppDatabase, $ChallengeProgressTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $ChallengeProgressTable> {
   $$ChallengeProgressTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -12393,7 +12159,7 @@ class $$ChallengeProgressTableOrderingComposer
 }
 
 class $$ChallengeProgressTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ChallengeProgressTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $ChallengeProgressTable> {
   $$ChallengeProgressTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -12451,7 +12217,7 @@ class $$ChallengeProgressTableAnnotationComposer
 class $$ChallengeProgressTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $ChallengeProgressTable,
           ChallengeProgressRow,
           $$ChallengeProgressTableFilterComposer,
@@ -12464,7 +12230,7 @@ class $$ChallengeProgressTableTableManager
           PrefetchHooks Function({bool challengeId})
         > {
   $$ChallengeProgressTableTableManager(
-    _$AppDatabase db,
+    _$LegacyAppDatabaseV13 db,
     $ChallengeProgressTable table,
   ) : super(
         TableManagerState(
@@ -12572,7 +12338,7 @@ class $$ChallengeProgressTableTableManager
 
 typedef $$ChallengeProgressTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $ChallengeProgressTable,
       ChallengeProgressRow,
       $$ChallengeProgressTableFilterComposer,
@@ -12604,7 +12370,7 @@ typedef $$TrophiesTableUpdateCompanionBuilder =
     });
 
 class $$TrophiesTableFilterComposer
-    extends Composer<_$AppDatabase, $TrophiesTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $TrophiesTable> {
   $$TrophiesTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -12644,7 +12410,7 @@ class $$TrophiesTableFilterComposer
 }
 
 class $$TrophiesTableOrderingComposer
-    extends Composer<_$AppDatabase, $TrophiesTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $TrophiesTable> {
   $$TrophiesTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -12684,7 +12450,7 @@ class $$TrophiesTableOrderingComposer
 }
 
 class $$TrophiesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TrophiesTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $TrophiesTable> {
   $$TrophiesTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -12718,7 +12484,7 @@ class $$TrophiesTableAnnotationComposer
 class $$TrophiesTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $TrophiesTable,
           TrophyRow,
           $$TrophiesTableFilterComposer,
@@ -12726,11 +12492,14 @@ class $$TrophiesTableTableManager
           $$TrophiesTableAnnotationComposer,
           $$TrophiesTableCreateCompanionBuilder,
           $$TrophiesTableUpdateCompanionBuilder,
-          (TrophyRow, BaseReferences<_$AppDatabase, $TrophiesTable, TrophyRow>),
+          (
+            TrophyRow,
+            BaseReferences<_$LegacyAppDatabaseV13, $TrophiesTable, TrophyRow>,
+          ),
           TrophyRow,
           PrefetchHooks Function()
         > {
-  $$TrophiesTableTableManager(_$AppDatabase db, $TrophiesTable table)
+  $$TrophiesTableTableManager(_$LegacyAppDatabaseV13 db, $TrophiesTable table)
     : super(
         TableManagerState(
           db: db,
@@ -12783,7 +12552,7 @@ class $$TrophiesTableTableManager
 
 typedef $$TrophiesTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $TrophiesTable,
       TrophyRow,
       $$TrophiesTableFilterComposer,
@@ -12791,7 +12560,10 @@ typedef $$TrophiesTableProcessedTableManager =
       $$TrophiesTableAnnotationComposer,
       $$TrophiesTableCreateCompanionBuilder,
       $$TrophiesTableUpdateCompanionBuilder,
-      (TrophyRow, BaseReferences<_$AppDatabase, $TrophiesTable, TrophyRow>),
+      (
+        TrophyRow,
+        BaseReferences<_$LegacyAppDatabaseV13, $TrophiesTable, TrophyRow>,
+      ),
       TrophyRow,
       PrefetchHooks Function()
     >;
@@ -12819,7 +12591,7 @@ typedef $$TripEligibilityTableUpdateCompanionBuilder =
 final class $$TripEligibilityTableReferences
     extends
         BaseReferences<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $TripEligibilityTable,
           TripEligibilityRow
         > {
@@ -12829,9 +12601,10 @@ final class $$TripEligibilityTableReferences
     super.$_typedResult,
   );
 
-  static $TripsTable _tripIdTable(_$AppDatabase db) => db.trips.createAlias(
-    $_aliasNameGenerator(db.tripEligibility.tripId, db.trips.id),
-  );
+  static $TripsTable _tripIdTable(_$LegacyAppDatabaseV13 db) =>
+      db.trips.createAlias(
+        $_aliasNameGenerator(db.tripEligibility.tripId, db.trips.id),
+      );
 
   $$TripsTableProcessedTableManager get tripId {
     final $_column = $_itemColumn<int>('trip_id')!;
@@ -12849,7 +12622,7 @@ final class $$TripEligibilityTableReferences
 }
 
 class $$TripEligibilityTableFilterComposer
-    extends Composer<_$AppDatabase, $TripEligibilityTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $TripEligibilityTable> {
   $$TripEligibilityTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -12912,7 +12685,7 @@ class $$TripEligibilityTableFilterComposer
 }
 
 class $$TripEligibilityTableOrderingComposer
-    extends Composer<_$AppDatabase, $TripEligibilityTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $TripEligibilityTable> {
   $$TripEligibilityTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -12975,7 +12748,7 @@ class $$TripEligibilityTableOrderingComposer
 }
 
 class $$TripEligibilityTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TripEligibilityTable> {
+    extends Composer<_$LegacyAppDatabaseV13, $TripEligibilityTable> {
   $$TripEligibilityTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -13038,7 +12811,7 @@ class $$TripEligibilityTableAnnotationComposer
 class $$TripEligibilityTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV13,
           $TripEligibilityTable,
           TripEligibilityRow,
           $$TripEligibilityTableFilterComposer,
@@ -13051,7 +12824,7 @@ class $$TripEligibilityTableTableManager
           PrefetchHooks Function({bool tripId})
         > {
   $$TripEligibilityTableTableManager(
-    _$AppDatabase db,
+    _$LegacyAppDatabaseV13 db,
     $TripEligibilityTable table,
   ) : super(
         TableManagerState(
@@ -13156,7 +12929,7 @@ class $$TripEligibilityTableTableManager
 
 typedef $$TripEligibilityTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV13,
       $TripEligibilityTable,
       TripEligibilityRow,
       $$TripEligibilityTableFilterComposer,
@@ -13168,172 +12941,10 @@ typedef $$TripEligibilityTableProcessedTableManager =
       TripEligibilityRow,
       PrefetchHooks Function({bool tripId})
     >;
-typedef $$DeletedTripsTableCreateCompanionBuilder =
-    DeletedTripsCompanion Function({
-      required String remoteId,
-      required String uid,
-      required DateTime deletedAt,
-      Value<int> rowid,
-    });
-typedef $$DeletedTripsTableUpdateCompanionBuilder =
-    DeletedTripsCompanion Function({
-      Value<String> remoteId,
-      Value<String> uid,
-      Value<DateTime> deletedAt,
-      Value<int> rowid,
-    });
 
-class $$DeletedTripsTableFilterComposer
-    extends Composer<_$AppDatabase, $DeletedTripsTable> {
-  $$DeletedTripsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get remoteId => $composableBuilder(
-    column: $table.remoteId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get uid => $composableBuilder(
-    column: $table.uid,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
-    column: $table.deletedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$DeletedTripsTableOrderingComposer
-    extends Composer<_$AppDatabase, $DeletedTripsTable> {
-  $$DeletedTripsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get remoteId => $composableBuilder(
-    column: $table.remoteId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get uid => $composableBuilder(
-    column: $table.uid,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
-    column: $table.deletedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$DeletedTripsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $DeletedTripsTable> {
-  $$DeletedTripsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get remoteId =>
-      $composableBuilder(column: $table.remoteId, builder: (column) => column);
-
-  GeneratedColumn<String> get uid =>
-      $composableBuilder(column: $table.uid, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get deletedAt =>
-      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
-}
-
-class $$DeletedTripsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $DeletedTripsTable,
-          DeletedTripRow,
-          $$DeletedTripsTableFilterComposer,
-          $$DeletedTripsTableOrderingComposer,
-          $$DeletedTripsTableAnnotationComposer,
-          $$DeletedTripsTableCreateCompanionBuilder,
-          $$DeletedTripsTableUpdateCompanionBuilder,
-          (
-            DeletedTripRow,
-            BaseReferences<_$AppDatabase, $DeletedTripsTable, DeletedTripRow>,
-          ),
-          DeletedTripRow,
-          PrefetchHooks Function()
-        > {
-  $$DeletedTripsTableTableManager(_$AppDatabase db, $DeletedTripsTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$DeletedTripsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$DeletedTripsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$DeletedTripsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> remoteId = const Value.absent(),
-                Value<String> uid = const Value.absent(),
-                Value<DateTime> deletedAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => DeletedTripsCompanion(
-                remoteId: remoteId,
-                uid: uid,
-                deletedAt: deletedAt,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String remoteId,
-                required String uid,
-                required DateTime deletedAt,
-                Value<int> rowid = const Value.absent(),
-              }) => DeletedTripsCompanion.insert(
-                remoteId: remoteId,
-                uid: uid,
-                deletedAt: deletedAt,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$DeletedTripsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $DeletedTripsTable,
-      DeletedTripRow,
-      $$DeletedTripsTableFilterComposer,
-      $$DeletedTripsTableOrderingComposer,
-      $$DeletedTripsTableAnnotationComposer,
-      $$DeletedTripsTableCreateCompanionBuilder,
-      $$DeletedTripsTableUpdateCompanionBuilder,
-      (
-        DeletedTripRow,
-        BaseReferences<_$AppDatabase, $DeletedTripsTable, DeletedTripRow>,
-      ),
-      DeletedTripRow,
-      PrefetchHooks Function()
-    >;
-
-class $AppDatabaseManager {
-  final _$AppDatabase _db;
-  $AppDatabaseManager(this._db);
+class $LegacyAppDatabaseV13Manager {
+  final _$LegacyAppDatabaseV13 _db;
+  $LegacyAppDatabaseV13Manager(this._db);
   $$TripsTableTableManager get trips =>
       $$TripsTableTableManager(_db, _db.trips);
   $$WaypointsTableTableManager get waypoints =>
@@ -13356,6 +12967,4 @@ class $AppDatabaseManager {
       $$TrophiesTableTableManager(_db, _db.trophies);
   $$TripEligibilityTableTableManager get tripEligibility =>
       $$TripEligibilityTableTableManager(_db, _db.tripEligibility);
-  $$DeletedTripsTableTableManager get deletedTrips =>
-      $$DeletedTripsTableTableManager(_db, _db.deletedTrips);
 }

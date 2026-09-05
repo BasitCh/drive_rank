@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:drive_rank/core/database/tables/challenge_progress_table.dart';
 import 'package:drive_rank/core/database/tables/challenges_table.dart';
+import 'package:drive_rank/core/database/tables/deleted_trips_table.dart';
 import 'package:drive_rank/core/database/tables/friend_requests_table.dart';
 import 'package:drive_rank/core/database/tables/friends_table.dart';
 import 'package:drive_rank/core/database/tables/live_trips_table.dart';
@@ -35,6 +36,7 @@ part 'app_database.g.dart';
     ChallengeProgress,
     Trophies,
     TripEligibility,
+    DeletedTrips,
   ],
 )
 @singleton
@@ -45,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -238,6 +240,14 @@ class AppDatabase extends _$AppDatabase {
           'ALTER TABLE user_settings ADD COLUMN rankings_enabled '
           'INTEGER NOT NULL DEFAULT 1',
         );
+      }
+      if (from < 14) {
+        // v14 — `deleted_trips`: the tombstones that make deleting a
+        // trip stick. Until now a delete only removed the local row, so
+        // the cloud copy came back on the next restore. No backfill is
+        // possible or wanted — trips already deleted under the old
+        // behaviour left no record of ever having existed.
+        await m.createTable(deletedTrips);
       }
     },
     beforeOpen: (details) async {
