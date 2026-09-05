@@ -61,7 +61,7 @@ void main() {
         unlockedLabel: '3 Sep',
       );
       expect(decorationOf(tester).color, isNot(AppColors.card));
-      expect(find.byIcon(Icons.lock_outline_rounded), findsNothing);
+      expect(find.byIcon(Icons.lock_rounded), findsNothing);
     });
 
     testWidgets('an earned trophy that is normally unearnable still reads '
@@ -73,7 +73,7 @@ void main() {
         unlockedAt: DateTime(2026, 9, 3),
         unlockedLabel: '3 Sep',
       );
-      expect(find.byIcon(Icons.lock_outline_rounded), findsNothing);
+      expect(find.byIcon(Icons.lock_rounded), findsNothing);
       expect(find.text('3 Sep'), findsOneWidget);
       expect(
         find.text(TrophyType.firstWin.unavailableReason!),
@@ -87,7 +87,7 @@ void main() {
         'blockers because it has none', (tester) async {
       await pump(tester, TrophyType.consistent);
       expect(decorationOf(tester).color, AppColors.card);
-      expect(find.byIcon(Icons.lock_outline_rounded), findsNothing);
+      expect(find.byIcon(Icons.lock_rounded), findsNothing);
       expect(find.text(TrophyType.consistent.description), findsOneWidget);
     });
   });
@@ -95,14 +95,14 @@ void main() {
   group("a trophy that can't be earned yet", () {
     testWidgets('is locked and states the reason', (tester) async {
       await pump(tester, TrophyType.firstWin);
-      expect(find.byIcon(Icons.lock_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
       expect(find.text('Needs friends'), findsOneWidget);
     });
 
     testWidgets('rank climber blames the lack of drivers, not friends',
         (tester) async {
       await pump(tester, TrophyType.rankClimber);
-      expect(find.byIcon(Icons.lock_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
       expect(find.text('Needs more drivers'), findsOneWidget);
     });
 

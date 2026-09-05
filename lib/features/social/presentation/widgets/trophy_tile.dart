@@ -53,11 +53,29 @@ class TrophyTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(type.icon, size: 22, color: accent),
+              // A medal, not a stray corner icon: the glyph sits in a
+              // ring so the seven tiles share one rhythm and an earned
+              // one reads as a filled award rather than a tinted icon.
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _earned
+                      ? AppColors.teal.withValues(alpha: 0.14)
+                      : AppColors.bg2,
+                  border: Border.all(
+                    color: _earned
+                        ? AppColors.teal.withValues(alpha: 0.45)
+                        : AppColors.border,
+                  ),
+                ),
+                child: Icon(type.icon, size: 22, color: accent),
+              ),
               const Spacer(),
               if (blocked)
                 const Icon(
-                  Icons.lock_outline_rounded,
+                  Icons.lock_rounded,
                   size: 14,
                   color: AppColors.textTertiary,
                 ),

@@ -35,14 +35,21 @@ enum TrophyType {
     rivalHunter => AppStrings.trophyRivalHunterBody,
   };
 
+  /// One solid, high-contrast glyph each.
+  ///
+  /// These render at 22px inside a 44px badge, so anything with internal
+  /// detail turns to mush — which is why the two-figure `sports_kabaddi`
+  /// and the hairline `my_location` crosshair are not used. Each shape
+  /// also has to be distinguishable from the other six at a glance in a
+  /// two-column grid.
   IconData get icon => switch (this) {
     firstTarget => Icons.flag_rounded,
-    firstChallenge => Icons.sports_kabaddi_rounded,
-    firstWin => Icons.military_tech_rounded,
+    firstChallenge => Icons.sports_mma_rounded,
+    firstWin => Icons.emoji_events_rounded,
     rankClimber => Icons.trending_up_rounded,
     roadWarrior => Icons.local_fire_department_rounded,
-    consistent => Icons.calendar_month_rounded,
-    rivalHunter => Icons.my_location_rounded,
+    consistent => Icons.event_available_rounded,
+    rivalHunter => Icons.military_tech_rounded,
   };
 
   /// Whether anything in the app can currently award this trophy.
