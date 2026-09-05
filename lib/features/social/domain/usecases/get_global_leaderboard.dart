@@ -32,9 +32,18 @@ class GetGlobalLeaderboard {
     required LeaderboardPeriod period,
     DateTime? now,
     BenchmarkVisibilityPolicy policy = const BenchmarkVisibilityPolicy(),
+    int? excludeTripId,
   }) async {
     final window = CompetitionWindow.forPeriod(period, now ?? DateTime.now());
-    final trips = await _social.getCompetitionTrips(uid: uid, window: window);
+    final allTrips = await _social.getCompetitionTrips(
+      uid: uid,
+      window: window,
+    );
+    // Used to answer "where would they be without this trip?", which is
+    // how per-trip rank movement is derived without storing a snapshot.
+    final trips = excludeTripId == null
+        ? allTrips
+        : allTrips.where((t) => t.tripId != excludeTripId).toList();
     final myValue = _calculator.calculate(
       metric: metric,
       trips: trips,

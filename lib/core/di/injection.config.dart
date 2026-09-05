@@ -67,8 +67,16 @@ import 'package:drive_rank/features/social/domain/repositories/social_repository
     as _i247;
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart'
     as _i163;
+import 'package:drive_rank/features/social/domain/usecases/create_target.dart'
+    as _i302;
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart'
     as _i932;
+import 'package:drive_rank/features/social/domain/usecases/get_targets.dart'
+    as _i683;
+import 'package:drive_rank/features/social/domain/usecases/get_trip_rank_change.dart'
+    as _i593;
+import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart'
+    as _i717;
 import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart'
     as _i804;
 import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart'
@@ -81,6 +89,8 @@ import 'package:drive_rank/features/trip_insights/domain/usecases/build_insights
     as _i486;
 import 'package:drive_rank/features/trip_insights/presentation/bloc/insights_bloc.dart'
     as _i723;
+import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_social_bloc.dart'
+    as _i121;
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_bloc.dart'
     as _i990;
 import 'package:drive_rank/shared/repositories/trip_repository.dart' as _i634;
@@ -292,23 +302,29 @@ _i174.GetIt $initGetIt(
       gh<_i970.TerritoryStatsService>(),
     ),
   );
-  gh.lazySingleton<_i804.SocialTripProcessor>(
-    () => _i319.LocalSocialTripProcessor(
-      gh<_i247.SocialRepository>(),
-      gh<_i163.CompetitionMetricCalculator>(),
-    ),
-  );
   gh.factory<_i932.GetGlobalLeaderboard>(
     () => _i932.GetGlobalLeaderboard(
       gh<_i247.SocialRepository>(),
       gh<_i163.CompetitionMetricCalculator>(),
     ),
   );
-  gh.factory<_i840.RankingsBloc>(
-    () => _i840.RankingsBloc(
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i634.TripRepository>(),
-      gh<_i932.GetGlobalLeaderboard>(),
+  gh.factory<_i683.GetTargets>(
+    () => _i683.GetTargets(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.factory<_i717.RefreshTargetProgress>(
+    () => _i717.RefreshTargetProgress(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.lazySingleton<_i804.SocialTripProcessor>(
+    () => _i319.LocalSocialTripProcessor(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+      gh<_i717.RefreshTargetProgress>(),
     ),
   );
   gh.factory<_i687.TrackingBloc>(
@@ -324,6 +340,34 @@ _i174.GetIt $initGetIt(
       gh<_i46.TelemetryService>(),
       gh<_i183.RetentionNotificationService>(),
       gh<_i804.SocialTripProcessor>(),
+    ),
+  );
+  gh.factory<_i593.GetTripRankChange>(
+    () => _i593.GetTripRankChange(gh<_i932.GetGlobalLeaderboard>()),
+  );
+  gh.factory<_i121.TripSocialBloc>(
+    () => _i121.TripSocialBloc(
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i247.SocialRepository>(),
+      gh<_i593.GetTripRankChange>(),
+      gh<_i683.GetTargets>(),
+    ),
+  );
+  gh.factory<_i302.CreateTarget>(
+    () => _i302.CreateTarget(
+      gh<_i247.SocialRepository>(),
+      gh<_i717.RefreshTargetProgress>(),
+    ),
+  );
+  gh.factory<_i840.RankingsBloc>(
+    () => _i840.RankingsBloc(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i634.TripRepository>(),
+      gh<_i932.GetGlobalLeaderboard>(),
+      gh<_i683.GetTargets>(),
+      gh<_i302.CreateTarget>(),
+      gh<_i247.SocialRepository>(),
     ),
   );
   return getIt;

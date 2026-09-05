@@ -2,7 +2,8 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
-import 'package:drive_rank/core/database/app_database.dart' show UserSettingsRow;
+import 'package:drive_rank/core/database/app_database.dart'
+    show UserSettingsRow;
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
 import 'package:drive_rank/features/social/presentation/widgets/benchmark_badge.dart';
 import 'package:drive_rank/features/social/presentation/widgets/rank_identity.dart';
@@ -94,9 +95,7 @@ class LeaderboardRow extends StatelessWidget {
                           fontFamily: 'Outfit',
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: isMe
-                              ? AppColors.teal
-                              : AppColors.textPrimary,
+                          color: isMe ? AppColors.teal : AppColors.textPrimary,
                         ),
                       ),
                     ),

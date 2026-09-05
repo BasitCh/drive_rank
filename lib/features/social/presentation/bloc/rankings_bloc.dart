@@ -6,7 +6,13 @@ import 'package:drive_rank/core/database/app_database.dart'
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
+import 'package:drive_rank/features/social/domain/entities/target.dart';
+import 'package:drive_rank/features/social/domain/entities/trophy.dart';
+import 'package:drive_rank/features/social/domain/repositories/social_repository.dart';
+import 'package:drive_rank/features/social/domain/usecases/create_target.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart';
+import 'package:drive_rank/features/social/domain/usecases/get_targets.dart';
+import 'package:drive_rank/features/social/presentation/widgets/rankings_tab_bar.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter/foundation.dart';
@@ -32,6 +38,27 @@ class RankingsPeriodChanged extends RankingsEvent {
   final LeaderboardPeriod period;
 }
 
+class RankingsTabChanged extends RankingsEvent {
+  const RankingsTabChanged(this.tab);
+  final RankingsTab tab;
+}
+
+class RankingsTargetCreated extends RankingsEvent {
+  const RankingsTargetCreated({
+    required this.metric,
+    required this.period,
+    required this.value,
+  });
+  final CompetitionMetric metric;
+  final LeaderboardPeriod period;
+  final double value;
+}
+
+class RankingsTargetCancelled extends RankingsEvent {
+  const RankingsTargetCancelled(this.targetId);
+  final String targetId;
+}
+
 /// The settings row changed — carries the uid and the kill-switch flag,
 /// both of which can move under a running screen.
 class _RankingsSettingsChanged extends RankingsEvent {
@@ -51,8 +78,11 @@ class RankingsState {
     required this.metric,
     required this.period,
     required this.rankingsEnabled,
+    required this.tab,
     this.board,
     this.viewer,
+    this.targets = const [],
+    this.trophies = const [],
   });
 
   factory RankingsState.initial() => const RankingsState(
@@ -60,6 +90,7 @@ class RankingsState {
     metric: CompetitionMetric.distance,
     period: LeaderboardPeriod.weekly,
     rankingsEnabled: true,
+    tab: RankingsTab.board,
   );
 
   final bool isLoading;
@@ -79,6 +110,18 @@ class RankingsState {
 
   final Leaderboard? board;
 
+  /// Which surface is showing.
+  final RankingsTab tab;
+
+  /// Personal targets with their progress recomputed — head-to-head
+  /// challenges are excluded upstream, since nothing can supply an
+  /// opponent's value yet.
+  final List<Target> targets;
+
+  /// Every trophy this user has actually unlocked. The grid pairs these
+  /// against `TrophyType.values` so unearned ones still show.
+  final List<Trophy> trophies;
+
   RankingsState copyWith({
     bool? isLoading,
     CompetitionMetric? metric,
@@ -86,6 +129,9 @@ class RankingsState {
     bool? rankingsEnabled,
     Leaderboard? board,
     UserSettingsRow? viewer,
+    RankingsTab? tab,
+    List<Target>? targets,
+    List<Trophy>? trophies,
   }) => RankingsState(
     isLoading: isLoading ?? this.isLoading,
     metric: metric ?? this.metric,
@@ -93,6 +139,9 @@ class RankingsState {
     rankingsEnabled: rankingsEnabled ?? this.rankingsEnabled,
     board: board ?? this.board,
     viewer: viewer ?? this.viewer,
+    tab: tab ?? this.tab,
+    targets: targets ?? this.targets,
+    trophies: trophies ?? this.trophies,
   );
 }
 
@@ -109,11 +158,20 @@ class RankingsState {
 /// whenever the uid actually changes.
 @injectable
 class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
-  RankingsBloc(this._settings, this._trips, this._getLeaderboard)
-    : super(RankingsState.initial()) {
+  RankingsBloc(
+    this._settings,
+    this._trips,
+    this._getLeaderboard,
+    this._getTargets,
+    this._createTarget,
+    this._social,
+  ) : super(RankingsState.initial()) {
     on<RankingsStarted>(_onStarted);
     on<RankingsMetricChanged>(_onMetricChanged);
     on<RankingsPeriodChanged>(_onPeriodChanged);
+    on<RankingsTabChanged>(_onTabChanged);
+    on<RankingsTargetCreated>(_onTargetCreated);
+    on<RankingsTargetCancelled>(_onTargetCancelled);
     on<_RankingsSettingsChanged>(_onSettingsChanged);
     on<_RankingsTripsChanged>(_onTripsChanged);
   }
@@ -121,6 +179,9 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
   final UserSettingsRepository _settings;
   final TripRepository _trips;
   final GetGlobalLeaderboard _getLeaderboard;
+  final GetTargets _getTargets;
+  final CreateTarget _createTarget;
+  final SocialRepository _social;
 
   StreamSubscription<UserSettingsRow>? _settingsSub;
   StreamSubscription<List<TripRow>>? _tripsSub;
@@ -174,6 +235,42 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     Emitter<RankingsState> emit,
   ) => _rebuild(emit);
 
+  /// Switching surface doesn't recompute anything — the board, targets
+  /// and trophies are all already in state, and a tab tap that showed
+  /// a spinner for data it already had would just look slow.
+  void _onTabChanged(RankingsTabChanged event, Emitter<RankingsState> emit) {
+    if (event.tab == state.tab) return;
+    emit(state.copyWith(tab: event.tab));
+  }
+
+  Future<void> _onTargetCreated(
+    RankingsTargetCreated event,
+    Emitter<RankingsState> emit,
+  ) async {
+    final uid = _uid;
+    if (uid == null) return;
+    await _createTarget(
+      uid: uid,
+      metric: event.metric,
+      period: event.period,
+      targetValue: event.value,
+    );
+    await _rebuild(emit);
+  }
+
+  Future<void> _onTargetCancelled(
+    RankingsTargetCancelled event,
+    Emitter<RankingsState> emit,
+  ) async {
+    // Cancelled rather than deleted: the row stays as a record that it
+    // was set and abandoned, and `GetTargets` filters it out.
+    await _social.updateChallengeStatus(
+      challengeId: event.targetId,
+      status: ChallengeStatus.cancelled,
+    );
+    await _rebuild(emit);
+  }
+
   Future<void> _onMetricChanged(
     RankingsMetricChanged event,
     Emitter<RankingsState> emit,
@@ -216,6 +313,8 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
       metric: nextMetric,
       period: nextPeriod,
     );
+    final targets = await _getTargets(uid: uid);
+    final trophies = await _social.getTrophies(uid);
     if (isClosed) return;
     emit(
       state.copyWith(
@@ -223,6 +322,8 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
         metric: nextMetric,
         period: nextPeriod,
         board: board,
+        targets: targets,
+        trophies: trophies,
       ),
     );
   }

@@ -7,13 +7,19 @@ import 'package:drive_rank/core/database/app_database.dart'
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
+import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
+import 'package:drive_rank/features/social/domain/entities/target.dart';
 import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart';
+import 'package:drive_rank/features/social/presentation/widgets/create_target_sheet.dart';
 import 'package:drive_rank/features/social/presentation/widgets/leaderboard_row.dart';
 import 'package:drive_rank/features/social/presentation/widgets/my_rank_hero.dart';
 import 'package:drive_rank/features/social/presentation/widgets/ranking_pills.dart';
+import 'package:drive_rank/features/social/presentation/widgets/rankings_tab_bar.dart';
+import 'package:drive_rank/features/social/presentation/widgets/targets_tab.dart';
 import 'package:drive_rank/features/social/presentation/widgets/top_three_podium.dart';
+import 'package:drive_rank/features/social/presentation/widgets/trophies_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -72,38 +78,59 @@ class _RankingsBody extends StatelessWidget {
               );
             }
 
+            final isBoard = state.tab == RankingsTab.board;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _Header(),
-                RankingPills<CompetitionMetric>(
-                  items: _metrics,
-                  active: state.metric,
-                  onChanged: (m) => context.read<RankingsBloc>().add(
-                    RankingsMetricChanged(m),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                RankingPills<LeaderboardPeriod>(
-                  items: _periods,
-                  active: state.period,
-                  onChanged: (p) => context.read<RankingsBloc>().add(
-                    RankingsPeriodChanged(p),
-                  ),
+                RankingsTabBar(
+                  active: state.tab,
+                  onChanged: (t) =>
+                      context.read<RankingsBloc>().add(RankingsTabChanged(t)),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                // Your standing stays pinned rather than scrolling with
-                // the board: it's the answer the screen exists to give,
-                // and as a scrolling child it slid out of view the
-                // moment the user looked down the list.
-                if (state.board?.me != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: _MyRank(state: state),
+                // The metric and period filters belong to the board and
+                // only the board — above Targets or Trophies they'd be
+                // two rows of chrome that filter nothing.
+                if (isBoard) ...[
+                  RankingPills<CompetitionMetric>(
+                    items: _metrics,
+                    active: state.metric,
+                    onChanged: (m) => context.read<RankingsBloc>().add(
+                      RankingsMetricChanged(m),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  RankingPills<LeaderboardPeriod>(
+                    items: _periods,
+                    active: state.period,
+                    onChanged: (p) => context.read<RankingsBloc>().add(
+                      RankingsPeriodChanged(p),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
+                  // Your standing stays pinned rather than scrolling
+                  // with the board: it's the answer the screen exists
+                  // to give, and as a scrolling child it slid out of
+                  // view the moment the user looked down the list.
+                  if (state.board?.me != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: _MyRank(state: state),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
                 ],
-                Expanded(child: _Board(state: state)),
+                Expanded(
+                  child: switch (state.tab) {
+                    RankingsTab.board => _Board(state: state),
+                    RankingsTab.targets => _Targets(state: state),
+                    RankingsTab.trophies => TrophiesTab(
+                      trophies: state.trophies,
+                      formatUnlockedAt: _formatDay,
+                    ),
+                  },
+                ),
               ],
             );
           },
@@ -168,6 +195,158 @@ class _MetricFormat {
     // Round a partial day up: "1 day behind" is truer than "0 days".
     final days = magnitude.ceil();
     return '$days ${_daysUnit(days).toLowerCase()}';
+  }
+}
+
+/// Weekday/date label for a deadline or an unlock date.
+///
+/// Deliberately not `intl` — the app has no localized date formatting
+/// anywhere, and a target deadline reads better as a weekday ("Sunday")
+/// than a date when it's inside the coming week.
+String _formatDay(DateTime day) {
+  const weekdays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final local = day.toLocal();
+  final now = DateTime.now();
+  final withinAWeek = local.difference(now).inDays.abs() < 7;
+  if (withinAWeek) return weekdays[local.weekday - 1];
+  return '${local.day} ${months[local.month - 1]}';
+}
+
+/// The Targets tab, wired to the bloc.
+///
+/// All formatting is assembled here and handed down, so `TargetsTab` and
+/// `TargetCard` never touch enums, `LocaleService` or dates.
+class _Targets extends StatelessWidget {
+  const _Targets({required this.state});
+
+  final RankingsState state;
+
+  static String _metricLabel(CompetitionMetric metric) => switch (metric) {
+    CompetitionMetric.distance => AppStrings.rankingsMetricDistance,
+    CompetitionMetric.longestTrip => AppStrings.rankingsMetricLongestTrip,
+    CompetitionMetric.consistency => AppStrings.rankingsMetricConsistency,
+  };
+
+  static String _periodLabel(LeaderboardPeriod period) => switch (period) {
+    LeaderboardPeriod.weekly => AppStrings.rankingsPeriodWeek,
+    LeaderboardPeriod.monthly => AppStrings.rankingsPeriodMonth,
+    LeaderboardPeriod.allTime => AppStrings.rankingsPeriodAllTime,
+  };
+
+  Future<void> _create(BuildContext context) async {
+    final bloc = context.read<RankingsBloc>();
+    final request = await showModalBottomSheet<NewTargetRequest>(
+      context: context,
+      backgroundColor: AppColors.bg2,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const CreateTargetSheet(deadlineFor: _deadlineFor),
+    );
+    if (request == null) return;
+    bloc.add(
+      RankingsTargetCreated(
+        metric: request.metric,
+        period: request.period,
+        value: request.value,
+      ),
+    );
+  }
+
+  /// The deadline a period would inherit, so the sheet can show it
+  /// without computing a date itself — `CompetitionWindow` stays the one
+  /// definition of when a period ends.
+  static String _deadlineFor(LeaderboardPeriod period) {
+    final window = CompetitionWindow.forPeriod(period, DateTime.now());
+    final end = window.end;
+    if (end == null) return AppStrings.rankingsPeriodAllTime;
+    // The window end is exclusive, so the last day you can drive on is
+    // the day before it.
+    return AppStrings.targetsEndsOn(
+      _formatDay(end.subtract(const Duration(days: 1))),
+    );
+  }
+
+  Future<void> _confirmCancel(BuildContext context, Target target) async {
+    final bloc = context.read<RankingsBloc>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.bg2,
+        title: const Text(AppStrings.targetsCancelTitle),
+        content: const Text(AppStrings.targetsCancelBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(AppStrings.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              AppStrings.targetsCancelConfirm,
+              style: TextStyle(color: AppColors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed ?? false) {
+      bloc.add(RankingsTargetCancelled(target.challenge.id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.teal),
+      );
+    }
+
+    return TargetsTab(
+      targets: state.targets,
+      onCreate: () => _create(context),
+      onCancel: (target) => _confirmCancel(context, target),
+      metricLabelFor: (t) =>
+          '${_metricLabel(t.challenge.metric)} \u00b7 '
+          '${_periodLabel(t.challenge.period)}',
+      formatTarget: (t) {
+        final format = _MetricFormat.of(t.challenge.metric);
+        return '${format.value(t.targetValue)} ${format.unit(t.targetValue)}';
+      },
+      formatRemaining: (t) =>
+          _MetricFormat.of(t.challenge.metric).gap(t.remaining),
+      // A finished target's deadline is no longer the interesting date —
+      // when it was reached is.
+      windowLabelFor: (t) => t.completedAt != null
+          ? '${AppStrings.targetsCompletedOn} ${_formatDay(t.completedAt!)}'
+          : AppStrings.targetsEndsOn(
+              _formatDay(t.challenge.endAt.subtract(const Duration(days: 1))),
+            ),
+    );
   }
 }
 

@@ -10,6 +10,7 @@ import 'package:drive_rank/features/social/domain/entities/competition_update.da
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/entities/trophy.dart';
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
+import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
@@ -29,6 +30,7 @@ void main() {
     processor = LocalSocialTripProcessor(
       repo,
       const DefaultCompetitionMetricCalculator(),
+      RefreshTargetProgress(repo, const DefaultCompetitionMetricCalculator()),
     );
   });
 

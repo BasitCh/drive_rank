@@ -11,7 +11,10 @@ import 'package:drive_rank/features/social/data/repositories/social_repository_i
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
+import 'package:drive_rank/features/social/domain/usecases/create_target.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart';
+import 'package:drive_rank/features/social/domain/usecases/get_targets.dart';
+import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart';
 import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
@@ -35,13 +38,15 @@ void main() {
       _MockFreeTripCounterService(),
     );
     trips = TripRepository(db, GeocodingService());
+    final repo = SocialRepositoryImpl(SocialLocalDataSource(db));
+    const calculator = DefaultCompetitionMetricCalculator();
     bloc = RankingsBloc(
       settings,
       trips,
-      GetGlobalLeaderboard(
-        SocialRepositoryImpl(SocialLocalDataSource(db)),
-        const DefaultCompetitionMetricCalculator(),
-      ),
+      GetGlobalLeaderboard(repo, calculator),
+      GetTargets(repo, calculator),
+      CreateTarget(repo, RefreshTargetProgress(repo, calculator)),
+      repo,
     );
   });
 

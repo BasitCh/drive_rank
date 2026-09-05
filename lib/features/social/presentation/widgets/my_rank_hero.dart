@@ -3,6 +3,7 @@ import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
+import 'package:drive_rank/features/social/presentation/widgets/competition_progress_bar.dart';
 import 'package:flutter/material.dart';
 
 /// The viewer's own standing — the emotional centre of the screen.
@@ -107,7 +108,7 @@ class MyRankHero extends StatelessWidget {
           ),
           if (chasing) ...[
             const SizedBox(height: AppSpacing.md),
-            _GapBar(
+            CompetitionProgressBar(
               progress: _progressToNext(
                 mine: me.entry.value,
                 target: above.entry.value,
@@ -156,63 +157,5 @@ class MyRankHero extends StatelessWidget {
       );
     }
     return AppStrings.rankingsLeadingAlone;
-  }
-}
-
-/// The "how close am I" bar. Deliberately not a percentage label — the
-/// number that matters is the gap in kilometres or days, stated in
-/// words underneath; the bar is just the shape of it.
-class _GapBar extends StatelessWidget {
-  const _GapBar({required this.progress});
-
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        return SizedBox(
-          height: 8,
-          child: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.bg2,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                  border: Border.all(color: AppColors.border),
-                ),
-              ),
-              FractionallySizedBox(
-                widthFactor: progress,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.teal,
-                    borderRadius: BorderRadius.circular(
-                      AppSpacing.radiusFull,
-                    ),
-                  ),
-                ),
-              ),
-              // The head of the bar, so a small gap still reads as
-              // "nearly there" rather than as an empty track.
-              Positioned(
-                left: (width * progress) - 5,
-                top: -1,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.teal,
-                    border: Border.all(color: AppColors.bg, width: 2),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 }

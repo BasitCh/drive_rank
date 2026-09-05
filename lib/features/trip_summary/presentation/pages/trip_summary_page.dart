@@ -6,6 +6,7 @@ import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/card_kind.dart';
 import 'package:drive_rank/features/trip_insights/domain/entities/insights_bundle.dart';
 import 'package:drive_rank/features/trip_insights/presentation/bloc/insights_bloc.dart';
@@ -16,11 +17,13 @@ import 'package:drive_rank/features/trip_insights/presentation/widgets/hero_stat
 import 'package:drive_rank/features/trip_insights/presentation/widgets/journey_map.dart';
 import 'package:drive_rank/features/trip_insights/presentation/widgets/performance_chart.dart';
 import 'package:drive_rank/features/trip_insights/presentation/widgets/speed_breakdown_bar.dart';
+import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_social_bloc.dart';
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_bloc.dart';
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_event.dart';
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_state.dart';
 import 'package:drive_rank/features/trip_summary/presentation/widgets/analytics_grid.dart';
 import 'package:drive_rank/features/trip_summary/presentation/widgets/stat_card.dart';
+import 'package:drive_rank/features/trip_summary/presentation/widgets/trip_competition_card.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +55,14 @@ class TripSummaryPage extends StatelessWidget {
         BlocProvider<InsightsBloc>(
           create: (_) => getIt<InsightsBloc>()
             ..add(InsightsLoaded(tripId: tripId, kind: CardKind.performance)),
+        ),
+        // The competition side of the trip. A third bloc rather than
+        // extra fields on TripSummaryBloc, for the same reason
+        // InsightsBloc was added alongside it — the one-shot loader
+        // stays a one-shot loader, and this feature's failures can't
+        // stop the page rendering.
+        BlocProvider<TripSocialBloc>(
+          create: (_) => getIt<TripSocialBloc>()..add(TripSocialLoaded(tripId)),
         ),
       ],
       child: const _TripSummaryBody(),
@@ -216,6 +227,7 @@ class _ScrollBody extends StatelessWidget {
                     child: ElevationChart(bundle: bundle, locale: locale),
                   ),
                 ],
+                const _TripCompetition(),
                 if ((state.speedGoalKmh ?? 0) > 0 ||
                     (state.distanceGoalKm ?? 0) > 0) ...[
                   const SizedBox(height: AppSpacing.md),
@@ -723,6 +735,48 @@ class _ShareCtaButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The competition card, wired to `TripSocialBloc`.
+///
+/// Occupies zero height until it has something to say, so the page
+/// doesn't reflow around an empty box while the social read is in
+/// flight — the same `if (bundle != null)` discipline the charts use.
+class _TripCompetition extends StatelessWidget {
+  const _TripCompetition();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<TripSocialBloc, TripSocialState>(
+      builder: (context, state) {
+        if (state.isLoading || !state.hasContent) {
+          return const SizedBox.shrink();
+        }
+        final locale = getIt<LocaleService>();
+        return Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.md),
+          child: TripCompetitionCard(
+            rankChange: state.rankChange,
+            completedTargets: state.completedTargets,
+            activeTargets: state.activeTargets,
+            unlockedTrophies: state.unlockedTrophies,
+            isIneligible: state.isIneligible,
+            formatTargetRemaining: (target) {
+              if (target.challenge.metric == CompetitionMetric.consistency) {
+                final days = target.remaining.ceil();
+                return '$days ${days == 1 ? AppStrings.rankingsUnitDay.toLowerCase() : AppStrings.rankingsUnitDays.toLowerCase()}';
+              }
+              return locale.formatDistance(
+                target.remaining,
+                fractionDigits: target.remaining >= 10 ? 0 : 1,
+              );
+            },
+            onViewRankings: () => context.go(RouteNames.rankings),
+          ),
+        );
+      },
     );
   }
 }

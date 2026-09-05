@@ -401,6 +401,104 @@ class AppStrings {
       'Global rankings are switched off right now. Your trips, targets '
       'and trophies are unaffected.';
 
+  // Rankings — tabs.
+  static const String rankingsTabBoard = 'Board';
+  static const String rankingsTabTargets = 'Targets';
+  static const String rankingsTabTrophies = 'Trophies';
+
+  // Targets. Deliberately "target", never "goal" — Goal is the
+  // speed/distance personal-best mechanic RecordGoalEvaluator drives,
+  // and the two must not read as the same feature.
+  static const String targetsTitle = 'Your targets';
+  static const String targetsEmptyTitle = 'No targets yet';
+  static const String targetsEmptyBody =
+      'Set yourself something to chase. A target is just for you — no '
+      'friends needed.';
+  static const String targetsCreateCta = 'Set a target';
+  static const String targetsActiveLabel = 'ACTIVE';
+  static const String targetsCompletedLabel = 'COMPLETED';
+  static const String targetsCompletedOn = 'Completed';
+
+  /// "58 km to go" / "3 days to go".
+  static String targetsRemaining(String amount) => '$amount to go';
+
+  static const String targetsDone = 'Target reached';
+
+  /// The window a target is scoped to, shown so the deadline it
+  /// inherits is never a surprise: "Ends Sunday".
+  static String targetsEndsOn(String weekdayOrDate) =>
+      'Ends $weekdayOrDate';
+
+  // Create-target sheet.
+  static const String createTargetTitle = 'Set a target';
+  static const String createTargetMetricLabel = 'What to track';
+  static const String createTargetPeriodLabel = 'Over what window';
+  static const String createTargetValueLabel = 'Target';
+  static const String createTargetValueHintDistance = 'e.g. 250';
+  static const String createTargetValueHintDays = 'e.g. 5';
+  static const String createTargetSave = 'Create target';
+  static const String createTargetInvalid = 'Enter a number above zero';
+
+  static const String targetsCancelTitle = 'Give up on this target?';
+  static const String targetsCancelBody =
+      "It stops tracking and won't appear in your list. Your trips and "
+      'trophies are unaffected.';
+  static const String targetsCancelConfirm = 'Give up';
+
+  // Trophies.
+  static const String trophiesTitle = 'Trophies';
+  static const String trophiesEarnedLabel = 'EARNED';
+  static const String trophiesLockedLabel = 'NOT YET';
+  static const String trophyNeedsFriends = 'Needs friends';
+  static const String trophyNeedsRivals = 'Needs more drivers';
+
+  static const String trophyFirstTargetTitle = 'First Target';
+  static const String trophyFirstTargetBody = 'Complete your first target.';
+  static const String trophyFirstChallengeTitle = 'First Challenge';
+  static const String trophyFirstChallengeBody =
+      'Finish a head-to-head challenge.';
+  static const String trophyFirstWinTitle = 'First Win';
+  static const String trophyFirstWinBody = 'Win a head-to-head challenge.';
+  static const String trophyRankClimberTitle = 'Rank Climber';
+  static const String trophyRankClimberBody = 'Climb 10 places overall.';
+  static const String trophyRoadWarriorTitle = 'Road Warrior';
+  static const String trophyRoadWarriorBody = 'Drive 500 km in one week.';
+  static const String trophyConsistentTitle = 'Consistent';
+  static const String trophyConsistentBody = 'Drive on all 7 days of a week.';
+  static const String trophyRivalHunterTitle = 'Rival Hunter';
+  static const String trophyRivalHunterBody = 'Beat the same friend 3 times.';
+
+  // Trip Summary — competition card.
+  static const String tripCompetitionTitle = 'COMPETITION';
+
+  /// "#24 → #18"
+  static String tripRankMoved(int from, int to) => '#$from → #$to';
+
+  static String tripRankPlaces(int places) =>
+      places == 1 ? '+1 place' : '+$places places';
+
+  /// "You passed Road Regular" / "You passed Road Regular and 2 others".
+  static String tripPassed(String name) => 'You passed $name';
+  static String tripPassedMore(String name, int others) =>
+      others == 1
+      ? 'You passed $name and 1 other'
+      : 'You passed $name and $others others';
+
+  static const String tripRankHeld = 'Position held';
+  static const String tripTargetCompleted = 'Target reached';
+
+  /// The supporting line under [tripTargetCompleted]. Says something the
+  /// headline doesn't — the completions this card lists are filtered to
+  /// ones stamped at or after this trip started, so crediting the drive
+  /// is accurate, not flattery.
+  static const String tripTargetCompletedBody = 'This drive finished it off.';
+  static const String tripTrophyUnlocked = 'Trophy unlocked';
+  static const String tripNotEligibleTitle = "This trip didn't count";
+  static const String tripNotEligibleBody =
+      "It's saved in your history, but something about the GPS data kept "
+      'it out of the rankings.';
+  static const String tripViewRankingsCta = 'View rankings';
+
   // Benchmark identities. Descriptive on purpose — never plausible
   // personal names, so a benchmark can't read as a real rival.
   static const String benchmarkRoadWarrior = 'Road Warrior';

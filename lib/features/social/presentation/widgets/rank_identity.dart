@@ -1,5 +1,6 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
-import 'package:drive_rank/core/database/app_database.dart' show UserSettingsRow;
+import 'package:drive_rank/core/database/app_database.dart'
+    show UserSettingsRow;
 import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
