@@ -85,7 +85,7 @@ service cloud.firestore {
                    && request.auth.uid == uid
                    && request.resource.data.keys().hasOnly([
                         'username', 'usernameLower', 'carMake', 'carModel',
-                        'countryCode', 'updatedAt',
+                        'countryCode', 'inviteCode', 'updatedAt',
                         'distance_weekly', 'distance_monthly',
                         'distance_allTime',
                         'longestTrip_weekly', 'longestTrip_monthly',
@@ -118,6 +118,116 @@ service cloud.firestore {
       // re-claimed by a different person, who would inherit that
       // history.
       allow update, delete: if false;
+    }
+
+    // Friend requests, at a deterministic path: `{fromUid}_{toUid}`.
+    //
+    // The id is derived rather than random because the friendship rule
+    // below has to *name* the request that authorises it. A rule's
+    // get() takes a concrete path — rules have no query, so "is there
+    // an accepted request between these two people" is not a question
+    // that can be asked unless the answer lives at a computable
+    // address. It also makes "one live request per direction"
+    // structural instead of a convention application code has to
+    // remember.
+    match /friend_requests/{requestId} {
+      function request_() { return request.resource.data; }
+      function existing() { return resource.data; }
+      function isParty() {
+        return request.auth != null
+               && (request.auth.uid == existing().fromUid
+                   || request.auth.uid == existing().toUid);
+      }
+      // fromUid, toUid and createdAt may never change. The friendship
+      // rule reads exactly those fields to decide, so a mutable toUid
+      // would let a request be redirected at a third party after the
+      // fact.
+      function identityUnchanged() {
+        return request_().fromUid == existing().fromUid
+               && request_().toUid == existing().toUid
+               && request_().createdAt == existing().createdAt;
+      }
+
+      allow read: if isParty();
+
+      allow create: if request.auth != null
+                    && request.auth.uid == request_().fromUid
+                    && request_().fromUid != request_().toUid
+                    && requestId == request_().fromUid + '_' + request_().toUid
+                    && request_().status == 'pending'
+                    && request_().keys().hasOnly(
+                         ['fromUid', 'toUid', 'status',
+                          'createdAt', 'updatedAt']);
+
+      // The recipient decides. accepted and declined are terminal —
+      // nothing un-declines, and nothing re-sends into a decline. The
+      // person who declined can still send their own request, which is
+      // the *other* document id: the decision to reconnect belongs to
+      // whoever said no.
+      allow update: if request.auth != null
+                    && identityUnchanged()
+                    && (
+                      (request.auth.uid == existing().toUid
+                       && existing().status == 'pending'
+                       && (request_().status == 'accepted'
+                           || request_().status == 'declined'))
+                      ||
+                      // The sender may withdraw, and may re-send after
+                      // withdrawing — cancelling by mistake must not
+                      // lock someone out permanently.
+                      (request.auth.uid == existing().fromUid
+                       && ((existing().status == 'pending'
+                            && request_().status == 'cancelled')
+                           || (existing().status == 'cancelled'
+                               && request_().status == 'pending')))
+                    );
+
+      // History survives. A deletable request would make a decline
+      // invisible and re-sendable.
+      allow delete: if false;
+    }
+
+    // One document per friendship, keyed on both uids sorted — so the
+    // same pair resolves to the same document from either side.
+    //
+    // Deliberately not mirrored per-user documents: mirroring means
+    // accepting writes into somebody else's subtree, and a failed
+    // second write would leave one side friends and the other not, with
+    // no server to reconcile it. One document either exists or doesn't.
+    match /friendships/{pairKey} {
+      function data() { return request.resource.data; }
+      function accepted(a, b) {
+        return exists(/databases/$(database)/documents/friend_requests/$(a + '_' + b))
+               && get(/databases/$(database)/documents/friend_requests/$(a + '_' + b))
+                    .data.status == 'accepted';
+      }
+
+      allow read: if request.auth != null
+                  && request.auth.uid in resource.data.uids;
+
+      // Either party may create it, but only on the strength of an
+      // accepted request between *exactly these two* — checked at both
+      // derived paths, since either of them may have been the sender.
+      // The key is forced to agree with the contents, so a well-formed
+      // document cannot describe a different pair than its address.
+      allow create: if request.auth != null
+                    && data().keys().hasOnly(['uids', 'createdAt'])
+                    && data().uids.size() == 2
+                    && data().uids[0] < data().uids[1]
+                    && pairKey == data().uids[0] + '_' + data().uids[1]
+                    && request.auth.uid in data().uids
+                    && (accepted(data().uids[0], data().uids[1])
+                        || accepted(data().uids[1], data().uids[0]));
+
+      // Immutable once created — there is nothing in it to change, and
+      // an updatable uids array would be a way to rewrite who is
+      // friends with whom.
+      allow update: if false;
+
+      // Unfriending is mutual by construction: one document, either
+      // party may remove it.
+      allow delete: if request.auth != null
+                    && request.auth.uid in resource.data.uids;
     }
 
     // Threat model and what these rules guarantee:

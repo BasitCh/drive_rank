@@ -41,30 +41,40 @@ class SocialRepositoryImpl implements SocialRepository {
         .map((rows) => rows.map(_friendFromRow).toList());
   }
 
+  /// Writes **both** directions.
+  ///
+  /// The table has documented "one row per direction" since Phase 1 and
+  /// the writer only ever wrote one, which left `areFriends` (which
+  /// checks both ways) agreeing that two people were friends while
+  /// `watchFriends` showed it on one side only. Both rows share the
+  /// [remoteId] of the single Firestore document they project from — so
+  /// a remote id identifies a *friendship*, not a row.
   @override
   Future<Friend> addFriend({
     required String ownerUid,
     required String friendUid,
+    String? remoteId,
   }) async {
     final now = DateTime.now();
-    final row = await _local.insertFriend(
-      FriendsCompanion.insert(
-        remoteId: const Uuid().v4(),
-        ownerUid: ownerUid,
-        friendUid: friendUid,
-        createdAt: now,
-        updatedAt: now,
-      ),
+    final id = remoteId ?? const Uuid().v4();
+    final rows = await _local.insertFriendship(
+      remoteId: id,
+      ownerUid: ownerUid,
+      friendUid: friendUid,
+      at: now,
     );
-    return _friendFromRow(row);
+    return _friendFromRow(rows.first);
   }
 
+  /// Removes both directions. Unfriending is mutual — remotely it is one
+  /// document, and locally it has to behave the same way or one side
+  /// keeps a friend the other has dropped.
   @override
   Future<void> removeFriend({
     required String ownerUid,
     required String friendUid,
   }) {
-    return _local.deleteFriend(ownerUid: ownerUid, friendUid: friendUid);
+    return _local.deleteFriendship(uidA: ownerUid, uidB: friendUid);
   }
 
   @override
@@ -89,13 +99,26 @@ class SocialRepositoryImpl implements SocialRepository {
   }
 
   @override
+  /// The duplicate guard is direction-agnostic.
+  ///
+  /// It used to check only `from → to`, so two people could each hold a
+  /// pending request to the other and neither would ever see a
+  /// friendship — the accept path would produce two half-answers. If
+  /// the other person has already asked, the caller is told to accept
+  /// theirs rather than creating a crossed pair.
+  @override
   Future<FriendRequest> sendFriendRequest({
     required String fromUid,
     required String toUid,
   }) async {
-    final hasPending = await _local.hasPendingRequest(fromUid, toUid);
-    if (hasPending) {
+    if (await _local.hasPendingRequest(toUid, fromUid)) {
+      throw StateError('They have already sent you a request — accept it.');
+    }
+    if (await _local.hasPendingRequest(fromUid, toUid)) {
       throw StateError('A pending friend request already exists.');
+    }
+    if (await areFriends(fromUid, toUid)) {
+      throw StateError('Already friends.');
     }
     final now = DateTime.now();
     final row = await _local.insertFriendRequest(
@@ -110,21 +133,59 @@ class SocialRepositoryImpl implements SocialRepository {
     return _friendRequestFromRow(row);
   }
 
+  /// Accepting a request **creates the friendship**.
+  ///
+  /// It used to flip a status and stop there, so accepting a friend
+  /// request made no friend — nothing in the codebase called
+  /// `addFriend` in response to anything. The two writes happen in one
+  /// transaction, so a request can never be marked accepted without the
+  /// friendship it entitles.
   @override
   Future<void> respondToFriendRequest({
     required String requestId,
     required FriendRequestStatus response,
-  }) {
-    return _local.updateRequestStatus(
+  }) async {
+    final request = await _local.getRequestByRemoteId(requestId);
+    if (request == null) {
+      throw StateError('No such friend request.');
+    }
+    if (FriendRequestStatus.fromName(request.status) !=
+        FriendRequestStatus.pending) {
+      // accepted and declined are terminal, matching the rules.
+      throw StateError('That request has already been answered.');
+    }
+
+    await _local.respondToRequest(
       remoteId: requestId,
       status: response.name,
-      updatedAt: DateTime.now(),
+      at: DateTime.now(),
+      // Only an acceptance creates a friendship; a decline is just a
+      // decline.
+      befriend: response == FriendRequestStatus.accepted
+          ? (ownerUid: request.fromUid, friendUid: request.toUid)
+          : null,
     );
   }
 
+  /// Only the sender may cancel, and only while it is still pending.
+  ///
+  /// Neither was checked before: anybody holding the id could cancel,
+  /// and an already-accepted request could be "cancelled" out from under
+  /// a friendship that already existed.
   @override
-  Future<void> cancelFriendRequest(String requestId) {
-    return _local.updateRequestStatus(
+  Future<void> cancelFriendRequest(String requestId, {String? byUid}) async {
+    final request = await _local.getRequestByRemoteId(requestId);
+    if (request == null) {
+      throw StateError('No such friend request.');
+    }
+    if (byUid != null && request.fromUid != byUid) {
+      throw StateError('Only the sender can cancel a request.');
+    }
+    if (FriendRequestStatus.fromName(request.status) !=
+        FriendRequestStatus.pending) {
+      throw StateError('Only a pending request can be cancelled.');
+    }
+    await _local.updateRequestStatus(
       remoteId: requestId,
       status: FriendRequestStatus.cancelled.name,
       updatedAt: DateTime.now(),

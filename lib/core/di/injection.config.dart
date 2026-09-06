@@ -67,6 +67,10 @@ import 'package:drive_rank/features/social/data/services/competition_mirror_sink
     as _i800;
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart'
     as _i1058;
+import 'package:drive_rank/features/social/data/services/friends_sync_service.dart'
+    as _i709;
+import 'package:drive_rank/features/social/data/services/social_directory.dart'
+    as _i408;
 import 'package:drive_rank/features/social/domain/repositories/social_repository.dart'
     as _i247;
 import 'package:drive_rank/features/social/domain/usecases/compare_with_benchmark.dart'
@@ -155,6 +159,9 @@ _i174.GetIt $initGetIt(
     () => _i207.OemBatteryAdvisor(gh<_i833.DeviceInfoPlugin>()),
   );
   gh.lazySingleton<_i488.PushService>(() => injectionModule.noopPush());
+  gh.lazySingleton<_i408.SocialDirectory>(
+    () => const _i408.NoopSocialDirectory(),
+  );
   gh.factory<_i486.BuildInsights>(
     () => _i486.BuildInsights(gh<_i447.LocaleService>()),
   );
@@ -265,6 +272,12 @@ _i174.GetIt $initGetIt(
       gh<_i425.AppDatabase>(),
       gh<_i634.TripRepository>(),
       gh<_i486.BuildInsights>(),
+    ),
+  );
+  gh.lazySingleton<_i709.FriendsSyncService>(
+    () => _i709.FriendsSyncService(
+      gh<_i866.SocialLocalDataSource>(),
+      gh<_i727.UserSettingsRepository>(),
     ),
   );
   gh.factory<_i314.PersonalBestsBloc>(

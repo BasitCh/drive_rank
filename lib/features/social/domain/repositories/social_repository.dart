@@ -19,7 +19,14 @@ abstract class SocialRepository {
   // Friends
   Future<List<Friend>> getFriends(String uid);
   Stream<List<Friend>> watchFriends(String uid);
-  Future<Friend> addFriend({required String ownerUid, required String friendUid});
+  /// Creates both directions of the friendship. [remoteId] ties them to
+  /// the single Firestore document they project from; omit it for a
+  /// purely local friendship.
+  Future<Friend> addFriend({
+    required String ownerUid,
+    required String friendUid,
+    String? remoteId,
+  });
   Future<void> removeFriend({required String ownerUid, required String friendUid});
   Future<bool> areFriends(String uidA, String uidB);
 
@@ -34,7 +41,9 @@ abstract class SocialRepository {
     required String requestId,
     required FriendRequestStatus response,
   });
-  Future<void> cancelFriendRequest(String requestId);
+  /// Cancels a request. Pass [byUid] to enforce that only the sender
+  /// can — the caller knows who is asking; this layer otherwise cannot.
+  Future<void> cancelFriendRequest(String requestId, {String? byUid});
 
   // Challenges
   Stream<List<Challenge>> watchChallenges(String uid); // creator OR opponent

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:injectable/injectable.dart';
+import 'package:uuid/uuid.dart';
 
 /// Thin Drift CRUD wrapper over the social tables (`friends`,
 /// `friend_requests`, `challenges`, `challenge_progress`, `trophies`).
@@ -34,6 +35,127 @@ class SocialLocalDataSource {
     final id = await _db.into(_db.friends).insert(companion);
     return (_db.select(_db.friends)..where((f) => f.id.equals(id)))
         .getSingle();
+  }
+
+  /// Inserts both directions of one friendship in a single transaction,
+  /// sharing the [remoteId] of the Firestore document they project
+  /// from. Re-running with the same pair is a no-op rather than a
+  /// duplicate — the table's `{ownerUid, friendUid}` unique key is what
+  /// makes that safe, and sync depends on it.
+  Future<List<FriendRow>> insertFriendship({
+    required String remoteId,
+    required String ownerUid,
+    required String friendUid,
+    required DateTime at,
+  }) {
+    return _db.transaction(() async {
+      for (final (owner, friend) in [
+        (ownerUid, friendUid),
+        (friendUid, ownerUid),
+      ]) {
+        final companion = FriendsCompanion.insert(
+          remoteId: remoteId,
+          ownerUid: owner,
+          friendUid: friend,
+          createdAt: at,
+          updatedAt: at,
+        );
+        // The conflict target has to be named. `insertOnConflictUpdate`
+        // targets the primary key — here an autoincrement `id` that a
+        // fresh insert never collides on — so the real constraint,
+        // UNIQUE(owner_uid, friend_uid), went unhandled and adding an
+        // existing friend threw instead of being a no-op.
+        await _db.into(_db.friends).insert(
+          companion,
+          onConflict: DoUpdate(
+            (_) => companion,
+            target: [_db.friends.ownerUid, _db.friends.friendUid],
+          ),
+        );
+      }
+      return (_db.select(_db.friends)..where(
+            (f) =>
+                (f.ownerUid.equals(ownerUid) & f.friendUid.equals(friendUid)) |
+                (f.ownerUid.equals(friendUid) & f.friendUid.equals(ownerUid)),
+          ))
+          .get();
+    });
+  }
+
+  /// Writes a request from the cloud into the local table, keyed on its
+  /// remote id. Upsert rather than insert so a status that changed on
+  /// somebody else's device lands here instead of duplicating the row.
+  Future<void> upsertFriendRequest({
+    required String remoteId,
+    required String fromUid,
+    required String toUid,
+    required String status,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+  }) async {
+    final existing = await getRequestByRemoteId(remoteId);
+    if (existing == null) {
+      await _db
+          .into(_db.friendRequests)
+          .insert(
+            FriendRequestsCompanion.insert(
+              remoteId: remoteId,
+              fromUid: fromUid,
+              toUid: toUid,
+              status: Value(status),
+              createdAt: createdAt,
+              updatedAt: updatedAt,
+            ),
+          );
+      return;
+    }
+    await (_db.update(_db.friendRequests)
+          ..where((r) => r.remoteId.equals(remoteId)))
+        .write(
+          FriendRequestsCompanion(
+            status: Value(status),
+            updatedAt: Value(updatedAt),
+          ),
+        );
+  }
+
+  /// Removes both directions.
+  Future<int> deleteFriendship({
+    required String uidA,
+    required String uidB,
+  }) {
+    return (_db.delete(_db.friends)..where(
+          (f) =>
+              (f.ownerUid.equals(uidA) & f.friendUid.equals(uidB)) |
+              (f.ownerUid.equals(uidB) & f.friendUid.equals(uidA)),
+        ))
+        .go();
+  }
+
+  /// Answers a request and, when it's an acceptance, creates the
+  /// friendship in the same transaction — so a request cannot end up
+  /// accepted without the friendship it entitles.
+  Future<void> respondToRequest({
+    required String remoteId,
+    required String status,
+    required DateTime at,
+    ({String ownerUid, String friendUid})? befriend,
+  }) {
+    return _db.transaction(() async {
+      await updateRequestStatus(
+        remoteId: remoteId,
+        status: status,
+        updatedAt: at,
+      );
+      if (befriend != null) {
+        await insertFriendship(
+          remoteId: const Uuid().v4(),
+          ownerUid: befriend.ownerUid,
+          friendUid: befriend.friendUid,
+          at: at,
+        );
+      }
+    });
   }
 
   Future<int> deleteFriend({

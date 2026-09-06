@@ -33,6 +33,7 @@ class CompetitionMirror {
     required this.carMake,
     required this.carModel,
     required this.countryCode,
+    required this.inviteCode,
     required this.totals,
   });
 
@@ -41,6 +42,11 @@ class CompetitionMirror {
   final String carMake;
   final String carModel;
   final String countryCode;
+
+  /// The short code this driver shares to be added as a friend, derived
+  /// from their uid. Published here because a lookup needs somewhere to
+  /// look — see `inviteCodeFor`.
+  final String inviteCode;
 
   /// One value per metric and period — nine in all. Keyed rather than
   /// nine named fields so adding a metric doesn't reshape the document.
@@ -61,6 +67,7 @@ class CompetitionMirror {
     'carMake',
     'carModel',
     'countryCode',
+    'inviteCode',
     'updatedAt',
     for (final metric in CompetitionMetric.values)
       for (final period in LeaderboardPeriod.values) fieldFor(metric, period),

@@ -57,12 +57,24 @@ void main() {
         );
       }
     }
-    // Identity plus updatedAt, plus one value per metric/period pair.
+    // The identity half, named rather than counted — a bare number here
+    // would silently absorb a field that was added by accident.
+    const identity = [
+      'username',
+      'usernameLower',
+      'carMake',
+      'carModel',
+      'countryCode',
+      'inviteCode',
+      'updatedAt',
+    ];
     expect(
       CompetitionMirror.allFields,
       hasLength(
-        6 + CompetitionMetric.values.length * LeaderboardPeriod.values.length,
+        identity.length +
+            CompetitionMetric.values.length * LeaderboardPeriod.values.length,
       ),
     );
+    expect(CompetitionMirror.allFields, containsAll(identity));
   });
 }

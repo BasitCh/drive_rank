@@ -50,11 +50,27 @@ void main() {
       expect(friends.single.friendUid, 'user-2');
     });
 
-    test('addFriend throws on a duplicate (ownerUid, friendUid) pair', () async {
+    // This used to assert that a duplicate pair *throws*. Phase 4b
+    // changed that deliberately: sync re-inserts every friendship on
+    // every pass, so adding one that already exists has to be a no-op
+    // rather than an error. "Already friends" is still refused, one
+    // level up, by `sendFriendRequest` — which is where a user can
+    // actually act on it.
+    test('adding the same pair twice is a no-op, not an error, because '
+        'sync re-asserts every friendship on every pass', () async {
+      await repo.addFriend(ownerUid: 'user-1', friendUid: 'user-2');
+      await repo.addFriend(ownerUid: 'user-1', friendUid: 'user-2');
+
+      expect(await repo.getFriends('user-1'), hasLength(1));
+      expect(await repo.getFriends('user-2'), hasLength(1));
+    });
+
+    test('a request to someone already a friend is refused at the level '
+        'where the user can do something about it', () async {
       await repo.addFriend(ownerUid: 'user-1', friendUid: 'user-2');
       await expectLater(
-        repo.addFriend(ownerUid: 'user-1', friendUid: 'user-2'),
-        throwsA(anything),
+        repo.sendFriendRequest(fromUid: 'user-1', toUid: 'user-2'),
+        throwsStateError,
       );
     });
 

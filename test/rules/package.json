@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Security-rules tests for firestore.rules, run against the Firestore emulator.",
   "scripts": {
-    "test": "mocha --timeout 20000 firestore.rules.test.js"
+    "test": "mocha --timeout 20000 firestore.rules.test.js friends.rules.test.js"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",

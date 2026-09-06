@@ -5,6 +5,7 @@ import 'package:drive_rank/features/social/data/services/competition_mirror_sink
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
+import 'package:drive_rank/features/social/domain/entities/invite_code.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/repositories/social_repository.dart';
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
@@ -89,6 +90,7 @@ class CompetitionValuePublisher {
           carMake: row.carMake,
           carModel: row.carModel,
           countryCode: row.country ?? '',
+          inviteCode: inviteCodeFor(uid),
           totals: totals,
         ),
       );

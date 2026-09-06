@@ -16,6 +16,8 @@ import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
 import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart';
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
+import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
+import 'package:drive_rank/features/social/data/services/social_directory.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/services/firestore_trip_sink.dart';
 import 'package:drive_rank/shared/services/public_profile_service.dart';
@@ -176,6 +178,8 @@ Future<void> _publishCompetitionValues() async {
     final claim = await settings.claimUsername();
     if (kDebugMode) debugPrint('[bootstrap] username claim: ${claim.name}');
     await getIt<CompetitionValuePublisher>().publishNow();
+    // Pulls friendships and requests other people's devices created.
+    await getIt<FriendsSyncService>().syncNow();
   } catch (e) {
     if (kDebugMode) {
       debugPrint('[bootstrap] competition publish failed: $e');
@@ -305,6 +309,9 @@ Future<void> _maybeInitFirebase() async {
     );
     await _replace<UsernameReservationService>(
       () => FirestoreUsernameReservationService(FirebaseFirestore.instance),
+    );
+    await _replace<SocialDirectory>(
+      () => FirestoreSocialDirectory(FirebaseFirestore.instance),
     );
     unawaited(getIt<SyncManager>().start());
 

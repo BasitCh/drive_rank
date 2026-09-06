@@ -56,6 +56,7 @@ class FirestoreCompetitionMirrorSink implements CompetitionMirrorSink {
       'carMake': mirror.carMake,
       'carModel': mirror.carModel,
       'countryCode': mirror.countryCode,
+      'inviteCode': mirror.inviteCode,
       'updatedAt': FieldValue.serverTimestamp(),
       for (final metric in CompetitionMetric.values)
         for (final period in LeaderboardPeriod.values)
