@@ -559,6 +559,35 @@ class AppStrings {
   static const String friendsRequestPrefix = '@';
   static const String friendsRequestSuffix = ' wants to be friends';
 
+  // Friends — invite and empty states (Phase 4b).
+  static const String friendsTitle = 'Friends';
+  static const String friendsEmptyTitle = 'No friends yet';
+  static const String friendsEmptyBody =
+      'Share your code, or search for someone by username. You compete '
+      'against whoever you add — nobody else sees your figures.';
+  static const String friendsYourCodeLabel = 'YOUR CODE';
+  static const String friendsShareCode = 'Share code';
+
+  /// The message that goes out with the code.
+  static String friendsShareMessage(String code) =>
+      'Add me on DriveRank — my code is $code';
+
+  static const String friendsEnterCodeHint = 'Enter a friend code';
+  static const String friendsCodeNotFound = "That code doesn't match anyone";
+  static const String friendsSearchByCode = 'Code';
+  static const String friendsSearchByUsername = 'Username';
+  static const String friendsRequestSent = 'Request sent';
+  static const String friendsAlreadyFriends = 'Already friends';
+  static const String friendsIncomingEmpty = 'No requests right now';
+  static const String friendsRemove = 'Remove friend';
+  static const String friendsRemoveConfirm =
+      'They stop appearing on your board, and you stop appearing on '
+      'theirs.';
+  static const String friendsUnsearchableNotice =
+      "Your username isn't reserved yet, so you can't be found by name — "
+      'share your code instead.';
+  static const String friendsSelfCode = "That's your own code";
+
   // Profile.
   static const String profileTitle = 'Profile';
   static const String profileGoPro = 'Go Pro';

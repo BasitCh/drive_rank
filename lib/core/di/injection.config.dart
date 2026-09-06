@@ -91,6 +91,8 @@ import 'package:drive_rank/features/social/domain/usecases/refresh_target_progre
     as _i717;
 import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart'
     as _i804;
+import 'package:drive_rank/features/social/presentation/bloc/friends_bloc.dart'
+    as _i593;
 import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart'
     as _i840;
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart'
@@ -361,6 +363,14 @@ _i174.GetIt $initGetIt(
     () => _i717.RefreshTargetProgress(
       gh<_i247.SocialRepository>(),
       gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.factory<_i593.FriendsBloc>(
+    () => _i593.FriendsBloc(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i247.SocialRepository>(),
+      gh<_i408.SocialDirectory>(),
+      gh<_i709.FriendsSyncService>(),
     ),
   );
   gh.lazySingleton<_i804.SocialTripProcessor>(

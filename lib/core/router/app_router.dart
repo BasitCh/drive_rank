@@ -10,6 +10,7 @@ import 'package:drive_rank/features/paywall/presentation/pages/paywall_page.dart
 import 'package:drive_rank/features/personal_bests/presentation/pages/personal_bests_page.dart';
 import 'package:drive_rank/features/profile/presentation/pages/profile_page.dart';
 import 'package:drive_rank/features/settings/presentation/pages/settings_page.dart';
+import 'package:drive_rank/features/social/presentation/pages/friends_page.dart';
 import 'package:drive_rank/features/social/presentation/pages/rankings_page.dart';
 import 'package:drive_rank/features/territory/presentation/pages/territory_page.dart';
 import 'package:drive_rank/features/tracking/presentation/pages/tracking_page.dart';
@@ -96,6 +97,14 @@ class AppRouter {
           path: RouteNames.territory,
           name: 'territory',
           builder: (_, __) => const TerritoryPage(),
+        ),
+        // Full-screen, outside the shell, and deliberately outside the
+        // rankings kill switch below: that switch hides global
+        // standings, while this page is about who you compete with.
+        GoRoute(
+          path: RouteNames.friends,
+          name: 'friends',
+          builder: (_, __) => const FriendsPage(),
         ),
         ShellRoute(
           builder: (context, state, child) =>
