@@ -125,6 +125,18 @@ class FriendsSyncService {
 
   Future<void> _syncRequests(String uid) async {
     final remote = await _directory.requestsFor(uid);
+
+    // Reconcile, like friendships: the cloud is the truth and the local
+    // table is a cache of it. This also clears the phantom rows an
+    // earlier bug left behind, where a locally-minted UUID meant the
+    // same request existed twice and the copy nobody updated stayed
+    // `pending` — which then blocked every future request to that
+    // person.
+    await _local.deleteRequestsNotIn(
+      uid: uid,
+      keepRemoteIds: remote.map((r) => r.id).toSet(),
+    );
+
     for (final request in remote) {
       await _local.upsertFriendRequest(
         remoteId: request.id,

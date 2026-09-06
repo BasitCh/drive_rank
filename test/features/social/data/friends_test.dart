@@ -544,6 +544,62 @@ void main() {
       expect(await db.select(db.friends).get(), isEmpty);
     });
 
+
+    test('a sent request has the derived id, so the copy sync pulls back '
+        'is the same row rather than a second one', () async {
+      final request = await repo.sendFriendRequest(fromUid: alice, toUid: bob);
+      expect(
+        request.id,
+        friendRequestKey(fromUid: alice, toUid: bob),
+        reason: 'a locally-minted UUID left the request in the table twice',
+      );
+
+      await directory.sendRequest(fromUid: alice, toUid: bob);
+      await sync.syncNow();
+
+      final rows = await db.select(db.friendRequests).get();
+      expect(rows, hasLength(1));
+    });
+
+    test('a phantom request row is cleared by a sync — this is the state '
+        'real device data was found in, and it blocked every future '
+        'request to that person', () async {
+      // A row under a random id, exactly as the old code wrote it.
+      await local.upsertFriendRequest(
+        remoteId: 'a-random-uuid',
+        fromUid: alice,
+        toUid: bob,
+        status: 'pending',
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      );
+      expect(await db.select(db.friendRequests).get(), hasLength(1));
+
+      // The cloud has no such request.
+      await sync.syncNow();
+
+      expect(await db.select(db.friendRequests).get(), isEmpty);
+      // And the pair is askable again, rather than permanently refused.
+      await repo.sendFriendRequest(fromUid: alice, toUid: bob);
+    });
+
+    test('a request answered remotely updates in place rather than '
+        'duplicating', () async {
+      await repo.sendFriendRequest(fromUid: alice, toUid: bob);
+      await directory.sendRequest(fromUid: alice, toUid: bob);
+      await directory.respondToRequest(
+        fromUid: alice,
+        toUid: bob,
+        response: FriendRequestStatus.accepted,
+      );
+
+      await sync.syncNow();
+
+      final rows = await db.select(db.friendRequests).get();
+      expect(rows, hasLength(1));
+      expect(rows.single.status, FriendRequestStatus.accepted.name);
+    });
+
     test('publishes nothing before there is a username — a nameless '
         'public profile renders as a raw uid to whoever finds it',
         () async {

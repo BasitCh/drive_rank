@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart';
+import 'package:drive_rank/features/social/data/services/social_directory.dart'
+    show friendRequestKey;
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge_progress.dart'
     as domain;
@@ -123,7 +125,13 @@ class SocialRepositoryImpl implements SocialRepository {
     final now = DateTime.now();
     final row = await _local.insertFriendRequest(
       FriendRequestsCompanion.insert(
-        remoteId: const Uuid().v4(),
+        // The *derived* id, not a fresh UUID. A random one left the same
+        // logical request in the local table twice — once under the UUID
+        // this side minted, once under the deterministic id sync pulled
+        // back — and the phantom stayed `pending` forever, which then
+        // made `hasPendingRequest` refuse every future request to that
+        // person. Seen in real device data.
+        remoteId: friendRequestKey(fromUid: fromUid, toUid: toUid),
         fromUid: fromUid,
         toUid: toUid,
         createdAt: now,

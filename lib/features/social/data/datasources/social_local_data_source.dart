@@ -119,6 +119,29 @@ class SocialLocalDataSource {
         );
   }
 
+  /// Drops local request rows for [uid] that the cloud no longer has.
+  ///
+  /// Requests are a cache of a remote truth, so they get reconciled like
+  /// friendships rather than accumulating. This is also what clears the
+  /// phantom rows left by the earlier random-id bug: their ids are not
+  /// in the remote set, so they go.
+  Future<int> deleteRequestsNotIn({
+    required String uid,
+    required Set<String> keepRemoteIds,
+  }) async {
+    final rows = await (_db.select(_db.friendRequests)
+          ..where((r) => r.fromUid.equals(uid) | r.toUid.equals(uid)))
+        .get();
+    var removed = 0;
+    for (final row in rows) {
+      if (keepRemoteIds.contains(row.remoteId)) continue;
+      removed += await (_db.delete(_db.friendRequests)
+            ..where((r) => r.remoteId.equals(row.remoteId)))
+          .go();
+    }
+    return removed;
+  }
+
   /// Removes both directions.
   Future<int> deleteFriendship({
     required String uidA,
