@@ -3,12 +3,12 @@ import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/di/injection.dart';
+import 'package:drive_rank/features/social/domain/entities/account_label.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/friend.dart';
 import 'package:drive_rank/features/social/domain/entities/friend_request.dart';
 import 'package:drive_rank/features/social/presentation/bloc/friends_bloc.dart';
 import 'package:drive_rank/features/social/presentation/widgets/add_friend_sheet.dart';
-import 'package:drive_rank/shared/models/country.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
@@ -332,15 +332,14 @@ class _FriendRow extends StatelessWidget {
     final name = profile?.username.isNotEmpty ?? false
         ? profile!.username
         : friend.friendUid;
-    final flag = countryFromCode(profile?.countryCode ?? '')?.flag;
-    final car = [
-      profile?.carMake ?? '',
-      profile?.carModel ?? '',
-    ].where((s) => s.isNotEmpty).join(' ');
-    final subtitle = [
-      if (flag != null) flag,
-      if (car.isNotEmpty) car,
-    ].join('  ·  ');
+    // Same detail line as a search result, so the person you added is
+    // recognisably the person you chose.
+    final subtitle = AccountLabel.describe(
+      countryCode: profile?.countryCode ?? '',
+      carMake: profile?.carMake ?? '',
+      carModel: profile?.carModel ?? '',
+      inviteCode: profile?.inviteCode ?? '',
+    );
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),

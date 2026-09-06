@@ -35,7 +35,7 @@ void main() {
     carMake: 'BMW',
     carModel: 'M3',
     countryCode: country,
-    inviteCode: 'ABCD1234',
+    inviteCode: 'BOBB5678',
     totals: const {(CompetitionMetric.distance, LeaderboardPeriod.weekly): 301},
   );
 
@@ -120,7 +120,11 @@ void main() {
       );
 
       expect(find.text('bob'), findsOneWidget);
+      // Country, car and code, so ten people called "bob" are
+      // distinguishable from each other.
+      expect(find.textContaining('Pakistan'), findsOneWidget);
       expect(find.textContaining('BMW M3'), findsOneWidget);
+      expect(find.textContaining('BOBB5678'), findsOneWidget);
       await tester.tap(find.text(AppStrings.friendsAddButton.toUpperCase()));
       // Captured rather than compared: the events are plain classes
       // without equality, so two instances of the same request are
@@ -292,7 +296,8 @@ void main() {
       );
 
       expect(find.text('bob'), findsOneWidget);
-      expect(find.textContaining('BMW M3'), findsOneWidget);
+      expect(find.textContaining('Pakistan'), findsOneWidget);
+      expect(find.textContaining('BOBB5678'), findsOneWidget);
       expect(find.text(AppStrings.friendsEmptyTitle), findsNothing);
     });
 

@@ -2,9 +2,9 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
+import 'package:drive_rank/features/social/domain/entities/account_label.dart';
 import 'package:drive_rank/features/social/presentation/bloc/friends_bloc.dart';
 import 'package:drive_rank/features/social/presentation/widgets/ranking_pills.dart';
-import 'package:drive_rank/shared/models/country.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -191,10 +191,15 @@ class _Result extends StatelessWidget {
         if (profile == null) return const SizedBox.shrink();
         final already = state.lookupStatus == LookupStatus.alreadyFriend;
         final sent = state.sentTo.contains(profile.uid);
-        final flag = countryFromCode(profile.countryCode)?.flag;
-        final car = [profile.carMake, profile.carModel]
-            .where((s) => s.isNotEmpty)
-            .join(' ');
+        // Country, car and the account's own code — because two people
+        // can legitimately share a name, and a list of identical names
+        // is worse than no search at all.
+        final detail = AccountLabel.describe(
+          countryCode: profile.countryCode,
+          carMake: profile.carMake,
+          carModel: profile.carModel,
+          inviteCode: profile.inviteCode,
+        );
 
         return Container(
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -220,13 +225,11 @@ class _Result extends StatelessWidget {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    if (flag != null || car.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                    if (detail.isNotEmpty) ...[
+                      const SizedBox(height: 3),
                       Text(
-                        [if (flag != null) flag, if (car.isNotEmpty) car]
-                            .join('  ·  '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        detail,
+                        maxLines: 2,
                         style: AppTextStyles.microLabel.copyWith(fontSize: 10),
                       ),
                     ],
