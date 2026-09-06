@@ -65,12 +65,16 @@ import 'package:drive_rank/features/social/data/repositories/social_repository_i
     as _i621;
 import 'package:drive_rank/features/social/domain/repositories/social_repository.dart'
     as _i247;
+import 'package:drive_rank/features/social/domain/usecases/compare_with_benchmark.dart'
+    as _i1018;
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart'
     as _i163;
 import 'package:drive_rank/features/social/domain/usecases/create_target.dart'
     as _i302;
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart'
     as _i932;
+import 'package:drive_rank/features/social/domain/usecases/get_qualifying_days.dart'
+    as _i218;
 import 'package:drive_rank/features/social/domain/usecases/get_targets.dart'
     as _i683;
 import 'package:drive_rank/features/social/domain/usecases/get_trip_rank_change.dart'
@@ -302,6 +306,12 @@ _i174.GetIt $initGetIt(
       gh<_i970.TerritoryStatsService>(),
     ),
   );
+  gh.factory<_i1018.CompareWithBenchmark>(
+    () => _i1018.CompareWithBenchmark(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
   gh.factory<_i932.GetGlobalLeaderboard>(
     () => _i932.GetGlobalLeaderboard(
       gh<_i247.SocialRepository>(),
@@ -326,6 +336,9 @@ _i174.GetIt $initGetIt(
       gh<_i163.CompetitionMetricCalculator>(),
       gh<_i717.RefreshTargetProgress>(),
     ),
+  );
+  gh.factory<_i218.GetQualifyingDays>(
+    () => _i218.GetQualifyingDays(gh<_i247.SocialRepository>()),
   );
   gh.factory<_i687.TrackingBloc>(
     () => _i687.TrackingBloc(
@@ -368,6 +381,7 @@ _i174.GetIt $initGetIt(
       gh<_i683.GetTargets>(),
       gh<_i302.CreateTarget>(),
       gh<_i247.SocialRepository>(),
+      gh<_i218.GetQualifyingDays>(),
     ),
   );
   return getIt;

@@ -3,6 +3,7 @@ import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsRow;
 import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
+import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,8 @@ class RankIdentity extends StatelessWidget {
     required this.entry,
     required this.diameter,
     this.viewer,
+    this.ringColor,
+    this.showFlag = false,
     super.key,
   });
 
@@ -34,21 +37,37 @@ class RankIdentity extends StatelessWidget {
   /// remote phase and will carry their own.
   final UserSettingsRow? viewer;
 
+  /// Overrides the default ring — the podium passes medal colours so
+  /// first, second and third read as places rather than as three
+  /// identical circles.
+  final Color? ringColor;
+
+  /// Whether to badge the circle with the viewer's country flag.
+  ///
+  /// Only ever true for the viewer, and only when they've set a country.
+  /// A benchmark is not from anywhere — giving one a flag would invent a
+  /// nationality for a constant, and the absence is itself the signal
+  /// that this entry isn't a person.
+  final bool showFlag;
+
   @override
   Widget build(BuildContext context) {
-    final ringColor = entry.isBenchmark
-        ? AppColors.border2
-        : (entry.isCurrentUser ? AppColors.teal : AppColors.border2);
+    final defaultRing = entry.isCurrentUser
+        ? AppColors.teal
+        : AppColors.border2;
+    final flag = showFlag && !entry.isBenchmark
+        ? countryFromCode(viewer?.country ?? '')?.flag
+        : null;
 
-    return Container(
+    final circle = Container(
       width: diameter,
       height: diameter,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: AppColors.card,
         border: Border.all(
-          color: ringColor,
-          width: entry.isCurrentUser ? 2 : 1,
+          color: ringColor ?? defaultRing,
+          width: entry.isCurrentUser || ringColor != null ? 2 : 1,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -61,6 +80,41 @@ class RankIdentity extends StatelessWidget {
               ),
             )
           : _CarArt(diameter: diameter, viewer: viewer),
+    );
+
+    if (flag == null) return circle;
+
+    return SizedBox(
+      width: diameter,
+      height: diameter,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          circle,
+          Positioned(
+            right: -3,
+            bottom: -3,
+            // Fixed square with the glyph centred inside it: an emoji's
+            // drawn width is wider than its font size, so sizing the
+            // badge from the text clipped the flag against the circle.
+            child: Container(
+              width: diameter * 0.42,
+              height: diameter * 0.42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.bg,
+                border: Border.all(color: AppColors.bg, width: 2),
+              ),
+              child: Text(
+                flag,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: diameter * 0.24, height: 1.1),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

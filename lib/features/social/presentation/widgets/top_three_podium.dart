@@ -3,6 +3,7 @@ import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsRow;
+import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
 import 'package:drive_rank/features/social/presentation/widgets/benchmark_badge.dart';
 import 'package:drive_rank/features/social/presentation/widgets/rank_identity.dart';
@@ -24,6 +25,7 @@ class TopThreePodium extends StatelessWidget {
     required this.formatValue,
     required this.unitFor,
     this.viewer,
+    this.onCompare,
     super.key,
   });
 
@@ -35,6 +37,11 @@ class TopThreePodium extends StatelessWidget {
   final String Function(double) unitFor;
   final UserSettingsRow? viewer;
 
+  /// Opens the head-to-head for a benchmark. Wired only for benchmark
+  /// tiles — the viewer's own tile stays inert, because comparing
+  /// yourself with yourself goes nowhere.
+  final void Function(LeaderboardEntry entry)? onCompare;
+
   /// Fixed heights for the block above each plinth.
   ///
   /// Without these the tiles are bottom-aligned by content, so a tile
@@ -45,6 +52,22 @@ class TopThreePodium extends StatelessWidget {
   /// plinth, which is exactly the effect a podium wants.
   static const double _leadHeadHeight = 186;
   static const double _sideHeadHeight = 150;
+
+  /// Medal colours, shared by each place's ring and its plinth.
+  ///
+  /// The plinths were already gold/silver/bronze while every head wore
+  /// the same grey ring, which is what made the podium read flat: the
+  /// places were distinguishable only by height. One colour per place,
+  /// carried by both parts of the tile.
+  static const Color _gold = AppColors.yellow;
+  static const Color _silver = Color(0xFFC7CBD4);
+  static const Color _bronze = AppColors.orange;
+
+  VoidCallback? _tapFor(LeaderboardPosition position) {
+    final compare = onCompare;
+    if (compare == null || !position.entry.isBenchmark) return null;
+    return () => compare(position.entry);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,30 +86,34 @@ class TopThreePodium extends StatelessWidget {
                 ? const SizedBox.shrink()
                 : _PodiumTile(
                     position: second,
+                    onTap: _tapFor(second),
                     formatValue: formatValue,
                     unitFor: unitFor,
                     viewer: viewer,
                     diameter: 60,
                     headHeight: _sideHeadHeight,
                     plinthHeight: 58,
-                    plinthColor: AppColors.card2,
-                    plinthBorder: AppColors.border2,
-                    rankColor: AppColors.textSecondary,
+                    plinthColor: _silver.withValues(alpha: 0.07),
+                    plinthBorder: _silver.withValues(alpha: 0.28),
+                    rankColor: _silver,
+                    medal: _silver,
                   ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: _PodiumTile(
               position: first,
+              onTap: _tapFor(first),
               formatValue: formatValue,
               unitFor: unitFor,
               viewer: viewer,
               diameter: 78,
               headHeight: _leadHeadHeight,
               plinthHeight: 84,
-              plinthColor: AppColors.yellow.withValues(alpha: 0.08),
-              plinthBorder: AppColors.yellow.withValues(alpha: 0.25),
-              rankColor: AppColors.yellow,
+              plinthColor: _gold.withValues(alpha: 0.08),
+              plinthBorder: _gold.withValues(alpha: 0.25),
+              rankColor: _gold,
+              medal: _gold,
               showTrophy: true,
             ),
           ),
@@ -96,15 +123,17 @@ class TopThreePodium extends StatelessWidget {
                 ? const SizedBox.shrink()
                 : _PodiumTile(
                     position: third,
+                    onTap: _tapFor(third),
                     formatValue: formatValue,
                     unitFor: unitFor,
                     viewer: viewer,
                     diameter: 60,
                     headHeight: _sideHeadHeight,
                     plinthHeight: 40,
-                    plinthColor: AppColors.orange.withValues(alpha: 0.08),
-                    plinthBorder: AppColors.orange.withValues(alpha: 0.25),
-                    rankColor: AppColors.orange,
+                    plinthColor: _bronze.withValues(alpha: 0.08),
+                    plinthBorder: _bronze.withValues(alpha: 0.25),
+                    rankColor: _bronze,
+                    medal: _bronze,
                   ),
           ),
         ],
@@ -124,7 +153,9 @@ class _PodiumTile extends StatelessWidget {
     required this.plinthColor,
     required this.plinthBorder,
     required this.rankColor,
+    required this.medal,
     this.viewer,
+    this.onTap,
     this.showTrophy = false,
   });
 
@@ -137,13 +168,18 @@ class _PodiumTile extends StatelessWidget {
   final Color plinthColor;
   final Color plinthBorder;
   final Color rankColor;
+  final Color medal;
   final UserSettingsRow? viewer;
+
+  /// Opens the compare sheet. Null for the viewer's own tile — there is
+  /// nothing to compare yourself against on it.
+  final VoidCallback? onTap;
   final bool showTrophy;
 
   @override
   Widget build(BuildContext context) {
     final entry = position.entry;
-    return Column(
+    final tile = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
@@ -165,7 +201,13 @@ class _PodiumTile extends StatelessWidget {
                         : AppColors.yellow,
                   ),
                 ),
-              RankIdentity(entry: entry, diameter: diameter, viewer: viewer),
+              RankIdentity(
+                entry: entry,
+                diameter: diameter,
+                viewer: viewer,
+                ringColor: medal,
+                showFlag: entry.isCurrentUser,
+              ),
               const SizedBox(height: 6),
               Text(
                 entry.isCurrentUser ? 'YOU' : entry.displayName,
@@ -248,6 +290,17 @@ class _PodiumTile extends StatelessWidget {
           ),
         ),
       ],
+    );
+
+    final tap = onTap;
+    if (tap == null) return tile;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: tap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: tile,
+      ),
     );
   }
 }

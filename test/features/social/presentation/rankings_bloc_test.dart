@@ -13,6 +13,7 @@ import 'package:drive_rank/features/social/domain/entities/leaderboard_period.da
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
 import 'package:drive_rank/features/social/domain/usecases/create_target.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart';
+import 'package:drive_rank/features/social/domain/usecases/get_qualifying_days.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_targets.dart';
 import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart';
 import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart';
@@ -47,6 +48,7 @@ void main() {
       GetTargets(repo, calculator),
       CreateTarget(repo, RefreshTargetProgress(repo, calculator)),
       repo,
+      GetQualifyingDays(repo),
     );
   });
 

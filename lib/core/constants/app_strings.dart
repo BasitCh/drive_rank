@@ -365,6 +365,40 @@ class AppStrings {
 
   static const String rankingsLeadingAlone = "You're setting the pace";
 
+  // Rankings — game feel. All three are readings of data the engine
+  // already produces; none of them is a second progression system.
+
+  /// "TIER 4 / 6" — how much of the benchmark ladder is cleared.
+  static String rankingsTier(int cleared, int total) =>
+      'TIER $cleared / $total';
+
+  static const String rankingsTierTopped = 'LADDER CLEARED';
+
+  /// "Ends Sunday · 2 days left". The day label is formatted by the
+  /// caller from the window the domain returned.
+  static String rankingsEndsIn(String day, int daysLeft) => daysLeft == 0
+      ? 'Ends $day · last day'
+      : daysLeft == 1
+      ? 'Ends $day · 1 day left'
+      : 'Ends $day · $daysLeft days left';
+
+  /// Says what the dots are rather than repeating the period chip
+  /// sitting directly above them — the board read "THIS WEEK" twice.
+  static const String rankingsStreakLabel = 'DRIVING DAYS';
+
+  /// "4 of 7 days" under the streak dots.
+  static String rankingsStreakDays(int driven) =>
+      driven == 1 ? '1 day driven' : '$driven days driven';
+
+  // Compare sheet.
+  static const String compareTitle = 'Head to head';
+  static const String compareYou = 'YOU';
+
+  /// "You lead 2 of 3".
+  static String compareScore(int led, int total) => 'You lead $led of $total';
+  static const String compareScoreNone = 'No metric led yet';
+  static const String compareAllLed = 'You lead every metric';
+
   /// Subtitle on a benchmark row — says what the thing *is*, in the slot
   /// where a real driver's car and country go.
   static const String rankingsPaceReference = 'Pace reference';

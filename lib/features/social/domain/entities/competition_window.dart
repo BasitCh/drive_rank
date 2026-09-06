@@ -1,6 +1,22 @@
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:flutter/foundation.dart';
 
+/// What is left of a finite competition window.
+///
+/// [daysLeft] counts whole local days including today, so the final day
+/// of a window reads as `0` — "ends today" — rather than going negative
+/// once the clock passes midday.
+@immutable
+class WindowCountdown {
+  const WindowCountdown({required this.endsAfter, required this.daysLeft});
+
+  /// The last day the window still counts drives on — the day before its
+  /// exclusive end.
+  final DateTime endsAfter;
+
+  final int daysLeft;
+}
+
 /// A half-open `[start, end)` time range a competition metric is
 /// aggregated over.
 ///
@@ -60,6 +76,29 @@ class CompetitionWindow {
     if (local.isBefore(start)) return false;
     final upper = end;
     return upper == null || local.isBefore(upper);
+  }
+
+  /// How much of this window is left, or null when it never ends.
+  ///
+  /// Lives here rather than in the UI for the same reason
+  /// `CompetitionWindow.forPeriod` does: subtracting two dates in a
+  /// widget is how a screen ends up disagreeing with the engine about
+  /// when a week closes. An all-time
+  /// window returns null — there is nothing to count down to, and a
+  /// screen showing "0 days left" on it would be inventing a deadline.
+  WindowCountdown? countdownAt(DateTime nowLocal) {
+    final upper = end;
+    if (upper == null) return null;
+    final today = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
+    // The window's last *day* is the day before its exclusive end, so a
+    // window closing at midnight tonight still has today in it and reads
+    // as the final day rather than as already over.
+    final lastDay = DateTime(upper.year, upper.month, upper.day - 1);
+    final daysLeft = lastDay.difference(today).inDays;
+    return WindowCountdown(
+      endsAfter: lastDay,
+      daysLeft: daysLeft < 0 ? 0 : daysLeft,
+    );
   }
 
   /// ISO-8601 week key for the window's start (e.g. `2026-W36`), used to

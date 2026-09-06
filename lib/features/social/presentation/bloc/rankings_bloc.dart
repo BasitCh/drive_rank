@@ -4,6 +4,7 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/database/app_database.dart'
     show TripRow, UserSettingsRow;
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
+import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
 import 'package:drive_rank/features/social/domain/entities/target.dart';
@@ -11,6 +12,7 @@ import 'package:drive_rank/features/social/domain/entities/trophy.dart';
 import 'package:drive_rank/features/social/domain/repositories/social_repository.dart';
 import 'package:drive_rank/features/social/domain/usecases/create_target.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart';
+import 'package:drive_rank/features/social/domain/usecases/get_qualifying_days.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_targets.dart';
 import 'package:drive_rank/features/social/presentation/widgets/rankings_tab_bar.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
@@ -83,6 +85,7 @@ class RankingsState {
     this.viewer,
     this.targets = const [],
     this.trophies = const [],
+    this.qualifyingDayKeys = const {},
   });
 
   factory RankingsState.initial() => const RankingsState(
@@ -122,6 +125,12 @@ class RankingsState {
   /// against `TrophyType.values` so unearned ones still show.
   final List<Trophy> trophies;
 
+  /// Which days of the *current week* had a qualifying drive, keyed the
+  /// way `CompetitionTrip.localDayKey` keys them. Always the week, never
+  /// the selected period: the streak strip is a week's worth of dots and
+  /// only renders on a weekly board.
+  final Set<int> qualifyingDayKeys;
+
   RankingsState copyWith({
     bool? isLoading,
     CompetitionMetric? metric,
@@ -132,6 +141,7 @@ class RankingsState {
     RankingsTab? tab,
     List<Target>? targets,
     List<Trophy>? trophies,
+    Set<int>? qualifyingDayKeys,
   }) => RankingsState(
     isLoading: isLoading ?? this.isLoading,
     metric: metric ?? this.metric,
@@ -142,6 +152,7 @@ class RankingsState {
     tab: tab ?? this.tab,
     targets: targets ?? this.targets,
     trophies: trophies ?? this.trophies,
+    qualifyingDayKeys: qualifyingDayKeys ?? this.qualifyingDayKeys,
   );
 }
 
@@ -165,6 +176,7 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     this._getTargets,
     this._createTarget,
     this._social,
+    this._getQualifyingDays,
   ) : super(RankingsState.initial()) {
     on<RankingsStarted>(_onStarted);
     on<RankingsMetricChanged>(_onMetricChanged);
@@ -182,6 +194,7 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
   final GetTargets _getTargets;
   final CreateTarget _createTarget;
   final SocialRepository _social;
+  final GetQualifyingDays _getQualifyingDays;
 
   StreamSubscription<UserSettingsRow>? _settingsSub;
   StreamSubscription<List<TripRow>>? _tripsSub;
@@ -315,6 +328,15 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     );
     final targets = await _getTargets(uid: uid);
     final trophies = await _social.getTrophies(uid);
+    // Always this week's, whatever period the board is showing — the
+    // strip describes a week by construction.
+    final days = await _getQualifyingDays(
+      uid: uid,
+      window: CompetitionWindow.forPeriod(
+        LeaderboardPeriod.weekly,
+        DateTime.now(),
+      ),
+    );
     if (isClosed) return;
     emit(
       state.copyWith(
@@ -324,6 +346,7 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
         board: board,
         targets: targets,
         trophies: trophies,
+        qualifyingDayKeys: days,
       ),
     );
   }

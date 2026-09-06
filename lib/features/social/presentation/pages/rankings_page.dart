@@ -6,20 +6,25 @@ import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsRow;
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/features/social/domain/entities/benchmark_tier.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
+import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
 import 'package:drive_rank/features/social/domain/entities/target.dart';
+import 'package:drive_rank/features/social/domain/usecases/compare_with_benchmark.dart';
 import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart';
+import 'package:drive_rank/features/social/presentation/widgets/compare_sheet.dart';
 import 'package:drive_rank/features/social/presentation/widgets/create_target_sheet.dart';
 import 'package:drive_rank/features/social/presentation/widgets/leaderboard_row.dart';
 import 'package:drive_rank/features/social/presentation/widgets/my_rank_hero.dart';
-import 'package:drive_rank/features/social/presentation/widgets/ranking_pills.dart';
 import 'package:drive_rank/features/social/presentation/widgets/rankings_tab_bar.dart';
+import 'package:drive_rank/features/social/presentation/widgets/selector_chip.dart';
 import 'package:drive_rank/features/social/presentation/widgets/targets_tab.dart';
 import 'package:drive_rank/features/social/presentation/widgets/top_three_podium.dart';
 import 'package:drive_rank/features/social/presentation/widgets/trophies_tab.dart';
+import 'package:drive_rank/shared/models/country.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -93,21 +98,7 @@ class _RankingsBody extends StatelessWidget {
                 // only the board — above Targets or Trophies they'd be
                 // two rows of chrome that filter nothing.
                 if (isBoard) ...[
-                  RankingPills<CompetitionMetric>(
-                    items: _metrics,
-                    active: state.metric,
-                    onChanged: (m) => context.read<RankingsBloc>().add(
-                      RankingsMetricChanged(m),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  RankingPills<LeaderboardPeriod>(
-                    items: _periods,
-                    active: state.period,
-                    onChanged: (p) => context.read<RankingsBloc>().add(
-                      RankingsPeriodChanged(p),
-                    ),
-                  ),
+                  _BoardSelectors(state: state),
                   const SizedBox(height: AppSpacing.md),
                   // Your standing stays pinned rather than scrolling
                   // with the board: it's the answer the screen exists
@@ -140,6 +131,122 @@ class _RankingsBody extends StatelessWidget {
   }
 }
 
+/// The board's two selectors, as chips rather than two rows of pills.
+class _BoardSelectors extends StatelessWidget {
+  const _BoardSelectors({required this.state});
+
+  final RankingsState state;
+
+  static String _metricLabel(CompetitionMetric metric) => switch (metric) {
+    CompetitionMetric.distance => AppStrings.rankingsMetricDistance,
+    CompetitionMetric.longestTrip => AppStrings.rankingsMetricLongestTrip,
+    CompetitionMetric.consistency => AppStrings.rankingsMetricConsistency,
+  };
+
+  static String _periodLabel(LeaderboardPeriod period) => switch (period) {
+    LeaderboardPeriod.weekly => AppStrings.rankingsPeriodWeek,
+    LeaderboardPeriod.monthly => AppStrings.rankingsPeriodMonth,
+    LeaderboardPeriod.allTime => AppStrings.rankingsPeriodAllTime,
+  };
+
+  Future<T?> _pick<T>(
+    BuildContext context, {
+    required String title,
+    required List<(T, String)> options,
+    required T active,
+  }) {
+    return showModalBottomSheet<T>(
+      context: context,
+      backgroundColor: AppColors.bg2,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) =>
+          SelectorSheet<T>(title: title, options: options, active: active),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.read<RankingsBloc>();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: [
+          Flexible(
+            child: SelectorChip(
+              icon: Icons.flag_rounded,
+              label: _metricLabel(state.metric),
+              onTap: () async {
+                final picked = await _pick<CompetitionMetric>(
+                  context,
+                  title: AppStrings.createTargetMetricLabel,
+                  options: _RankingsBody._metrics,
+                  active: state.metric,
+                );
+                if (picked != null) bloc.add(RankingsMetricChanged(picked));
+              },
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: SelectorChip(
+              icon: Icons.calendar_today_rounded,
+              label: _periodLabel(state.period),
+              onTap: () async {
+                final picked = await _pick<LeaderboardPeriod>(
+                  context,
+                  title: AppStrings.createTargetPeriodLabel,
+                  options: _RankingsBody._periods,
+                  active: state.period,
+                );
+                if (picked != null) bloc.add(RankingsPeriodChanged(picked));
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Opens the head-to-head for a benchmark.
+///
+/// Resolved through `getIt` rather than the bloc: this is a one-shot
+/// read for a modal, and putting it in `RankingsState` would mean the
+/// bloc had to model whether a sheet is open.
+Future<void> _openCompare(
+  BuildContext context,
+  RankingsState state,
+  LeaderboardEntry entry,
+) async {
+  final comparison = await getIt<CompareWithBenchmark>()(
+    uid: state.viewer?.uid ?? '',
+    benchmarkId: entry.id,
+    period: state.period,
+  );
+  if (comparison == null || !context.mounted) return;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.bg2,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => CompareSheet(
+      comparison: comparison,
+      periodLabel: _BoardSelectors._periodLabel(state.period),
+      metricLabel: _BoardSelectors._metricLabel,
+      formatValue: (metric, value) {
+        final format = _MetricFormat.of(metric);
+        return '${format.value(value)} ${format.unit(value)}';
+      },
+      viewer: state.viewer,
+    ),
+  );
+}
+
 class _MyRank extends StatelessWidget {
   const _MyRank({required this.state});
 
@@ -149,13 +256,49 @@ class _MyRank extends StatelessWidget {
   Widget build(BuildContext context) {
     final board = state.board!;
     final format = _MetricFormat.of(state.metric);
+    final window = CompetitionWindow.forPeriod(state.period, DateTime.now());
+    final countdown = window.countdownAt(DateTime.now());
+
     return MyRankHero(
       board: board,
       formattedValue: format.value(board.me!.entry.value),
       unitLabel: format.unit(board.me!.entry.value),
       formatGap: format.gap,
+      tier: BenchmarkTier.forValue(
+        value: board.me!.entry.value,
+        metric: state.metric,
+        period: state.period,
+      ),
+      countdownLabel: countdown == null
+          ? null
+          : AppStrings.rankingsEndsIn(
+              _formatDay(countdown.endsAfter),
+              countdown.daysLeft,
+            ),
+      // Seven dots describe a week. On a monthly or all-time board they
+      // would be answering a question nobody asked.
+      weekDays: state.period == LeaderboardPeriod.weekly
+          ? _weekDays(window, state.qualifyingDayKeys)
+          : null,
     );
   }
+
+  /// Monday-first booleans for the window's seven days.
+  static List<bool> _weekDays(CompetitionWindow window, Set<int> driven) {
+    return [
+      for (var i = 0; i < 7; i++)
+        driven.contains(
+          _dayKey(
+            DateTime(window.start.year, window.start.month, window.start.day + i),
+          ),
+        ),
+    ];
+  }
+
+  /// The same key `CompetitionTrip.localDayKey` builds, so the strip and
+  /// the consistency metric agree on what a day is.
+  static int _dayKey(DateTime day) =>
+      day.year * 10000 + day.month * 100 + day.day;
 }
 
 /// Formats one metric's numbers.
@@ -181,6 +324,12 @@ class _MetricFormat {
 
   String unit(double v) =>
       isDays ? _daysUnit(v) : _locale.distanceUnitLabel.toUpperCase();
+
+  /// The shortened form for the podium and rows, where six figures have
+  /// to be comparable at a glance. Day counts are already short enough
+  /// to leave alone.
+  String compact(double v) =>
+      isDays ? v.round().toString() : _locale.formatDistanceCompact(v);
 
   String gap(double delta) {
     final magnitude = delta.abs();
@@ -396,9 +545,10 @@ class _Board extends StatelessWidget {
       children: [
         TopThreePodium(
           positions: podium,
-          formatValue: format.value,
+          formatValue: format.compact,
           unitFor: format.unit,
           viewer: state.viewer,
+          onCompare: (entry) => _openCompare(context, state, entry),
         ),
         if (board.isSparse) ...[
           const SizedBox(height: AppSpacing.md),
@@ -417,10 +567,15 @@ class _Board extends StatelessWidget {
                 for (final position in rest) ...[
                   LeaderboardRow(
                     position: position,
-                    formattedValue: format.value(position.entry.value),
+                    formattedValue: format.compact(position.entry.value),
                     unitLabel: format.unit(position.entry.value),
                     subtitle: _subtitleFor(position, state.viewer),
                     viewer: state.viewer,
+                    // Only a benchmark is a compare target. Tapping
+                    // yourself would open you against yourself.
+                    onTap: position.entry.isBenchmark
+                        ? () => _openCompare(context, state, position.entry)
+                        : null,
                   ),
                   const SizedBox(height: 5),
                 ],
@@ -450,7 +605,12 @@ class _Board extends StatelessWidget {
       viewer.carMake,
       viewer.carModel,
     ].where((part) => part.isNotEmpty).join(' ');
-    return car.isEmpty ? null : car;
+    final country = countryFromCode(viewer.country ?? '');
+    final parts = [
+      if (country != null) '${country.flag} ${country.name}',
+      if (car.isNotEmpty) car,
+    ];
+    return parts.isEmpty ? null : parts.join('  ·  ');
   }
 }
 

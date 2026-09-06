@@ -103,6 +103,27 @@ class LocaleService {
     return value.toStringAsFixed(fractionDigits);
   }
 
+  /// A distance shortened for tight layouts: `9743` becomes `9.7k`.
+  ///
+  /// For the leaderboard's podium tiles and rows, where the exact metre
+  /// matters far less than being able to compare six numbers at a
+  /// glance — a column of `9743 / 5820 / 412` reads like a spreadsheet.
+  /// Anything under a thousand is left exact, because that's where the
+  /// precision is still meaningful; above it, one decimal and a `k`,
+  /// with a trailing `.0` dropped so `12000` is `12k`, not `12.0k`.
+  ///
+  /// Number only — the unit label is placed separately, as with
+  /// [formatDistanceValue].
+  String formatDistanceCompact(double km) {
+    final value = unitSystem == UnitSystem.imperial
+        ? km * AppConstants.kmToMiles
+        : km;
+    if (value.abs() < 1000) return value.toStringAsFixed(0);
+    final thousands = value / 1000;
+    final text = thousands.toStringAsFixed(1);
+    return '${text.endsWith('.0') ? text.substring(0, text.length - 2) : text}k';
+  }
+
   /// Format an elevation for display. Input is always metres (canonical
   /// storage).
   String formatElevation(double metres, {int fractionDigits = 0}) {

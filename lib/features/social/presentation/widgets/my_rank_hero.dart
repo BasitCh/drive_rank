@@ -2,8 +2,10 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
+import 'package:drive_rank/features/social/domain/entities/benchmark_tier.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
 import 'package:drive_rank/features/social/presentation/widgets/competition_progress_bar.dart';
+import 'package:drive_rank/features/social/presentation/widgets/week_streak_dots.dart';
 import 'package:flutter/material.dart';
 
 /// The viewer's own standing — the emotional centre of the screen.
@@ -22,6 +24,9 @@ class MyRankHero extends StatelessWidget {
     required this.formattedValue,
     required this.unitLabel,
     required this.formatGap,
+    this.tier,
+    this.countdownLabel,
+    this.weekDays,
     super.key,
   });
 
@@ -29,6 +34,19 @@ class MyRankHero extends StatelessWidget {
   final String formattedValue;
   final String unitLabel;
   final String Function(double) formatGap;
+
+  /// Where the viewer sits on the benchmark ladder. Named on screen so
+  /// the six published paces read as a ladder to climb rather than as
+  /// six rows that happen to be sorted.
+  final BenchmarkTier? tier;
+
+  /// "Ends Sunday · 2 days left", already formatted by the caller from
+  /// the window the domain produced. Null for all-time, which has no
+  /// end — a countdown there would be inventing a deadline.
+  final String? countdownLabel;
+
+  /// Seven Monday-first booleans for the weekly board, null otherwise.
+  final List<bool>? weekDays;
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +142,29 @@ class MyRankHero extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (tier != null || countdownLabel != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                if (tier != null) _TierChip(tier: tier!),
+                if (tier != null && countdownLabel != null)
+                  const SizedBox(width: 10),
+                if (countdownLabel != null)
+                  Flexible(
+                    child: Text(
+                      countdownLabel!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.microLabel.copyWith(fontSize: 10),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          if (weekDays != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            WeekStreakDots(days: weekDays!),
+          ],
         ],
       ),
     );
@@ -157,5 +198,41 @@ class MyRankHero extends StatelessWidget {
       );
     }
     return AppStrings.rankingsLeadingAlone;
+  }
+}
+
+/// "TIER 4 / 6", or the cleared state once the whole ladder is behind
+/// you — at which point a fraction reading "6 / 6" forever would be
+/// less informative than saying so.
+class _TierChip extends StatelessWidget {
+  const _TierChip({required this.tier});
+
+  final BenchmarkTier tier;
+
+  @override
+  Widget build(BuildContext context) {
+    final topped = tier.isTopped;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: topped
+            ? AppColors.yellow.withValues(alpha: 0.12)
+            : AppColors.teal.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+        border: Border.all(
+          color: (topped ? AppColors.yellow : AppColors.teal)
+              .withValues(alpha: 0.35),
+        ),
+      ),
+      child: Text(
+        topped
+            ? AppStrings.rankingsTierTopped
+            : AppStrings.rankingsTier(tier.cleared, tier.total),
+        style: AppTextStyles.label.copyWith(
+          fontSize: 9,
+          color: topped ? AppColors.yellow : AppColors.teal,
+        ),
+      ),
+    );
   }
 }

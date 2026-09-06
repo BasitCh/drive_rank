@@ -21,6 +21,10 @@ import 'package:flutter/material.dart';
 /// (teal fill, teal 1.5px border), the same treatment the paywall uses
 /// for the chosen plan — so "this is me" survives even if both labels
 /// are missed.
+///
+/// A benchmark row is tappable and opens the head-to-head; the viewer's
+/// own row is not, and shows no affordance, because there is nothing to
+/// compare yourself against on it.
 class LeaderboardRow extends StatelessWidget {
   const LeaderboardRow({
     required this.position,
@@ -28,6 +32,7 @@ class LeaderboardRow extends StatelessWidget {
     required this.unitLabel,
     this.subtitle,
     this.viewer,
+    this.onTap,
     super.key,
   });
 
@@ -38,12 +43,14 @@ class LeaderboardRow extends StatelessWidget {
   final String formattedValue;
   final String unitLabel;
 
-  /// The second line — a real driver's car and country, or the
+  /// The second line — a real driver's flag, country and car, or the
   /// benchmark's "Pace reference". Omitted when unknown rather than
   /// filled with a placeholder.
   final String? subtitle;
 
   final UserSettingsRow? viewer;
+
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -51,8 +58,8 @@ class LeaderboardRow extends StatelessWidget {
     final isMe = entry.isCurrentUser;
     final isBenchmark = entry.isBenchmark;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 14, 10),
+    final row = Container(
+      padding: const EdgeInsets.fromLTRB(8, 9, 14, 9),
       decoration: BoxDecoration(
         color: isMe ? AppColors.teal.withValues(alpha: 0.06) : AppColors.card,
         border: Border.all(
@@ -63,21 +70,37 @@ class LeaderboardRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(
+          // The rank sits in its own slab rather than floating in the
+          // padding — it's the row's index, not another one of its
+          // numbers, and the block keeps a two-digit rank from shoving
+          // the identity sideways.
+          Container(
             width: 30,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isMe
+                  ? AppColors.teal.withValues(alpha: 0.14)
+                  : AppColors.bg2,
+              borderRadius: BorderRadius.circular(6),
+            ),
             child: Text(
               '${position.rank}',
-              textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'BebasNeue',
-                fontSize: 22,
+                fontSize: 20,
                 height: 1,
-                color: isMe ? AppColors.teal : AppColors.textTertiary,
+                color: isMe ? AppColors.teal : AppColors.textSecondary,
               ),
             ),
           ),
-          const SizedBox(width: 4),
-          RankIdentity(entry: entry, diameter: 40, viewer: viewer),
+          const SizedBox(width: 10),
+          RankIdentity(
+            entry: entry,
+            diameter: 40,
+            viewer: viewer,
+            showFlag: isMe,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -138,7 +161,26 @@ class LeaderboardRow extends StatelessWidget {
               ),
             ],
           ),
+          if (onTap != null) ...[
+            const SizedBox(width: 2),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: AppColors.textTertiary,
+            ),
+          ],
         ],
+      ),
+    );
+
+    final tap = onTap;
+    if (tap == null) return row;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: tap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: row,
       ),
     );
   }
