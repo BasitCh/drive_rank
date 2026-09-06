@@ -74,6 +74,25 @@ class UserSettings extends Table {
   BoolColumn get onboardingComplete =>
       boolean().withDefault(const Constant(false))();
 
+  /// Whether this account actually holds its username in the shared
+  /// namespace (`usernames/{usernameLower}` in Firestore).
+  ///
+  /// Usernames were local-only and never checked for uniqueness, so two
+  /// existing accounts can already be `basit`. Friend search turns a
+  /// username into an address, and an address has to resolve to one
+  /// person — but an upgrade must not silently rename anybody or lock
+  /// them out either. So the claim is attempted, and this records
+  /// whether it succeeded.
+  ///
+  /// False means "everything works, but you are not findable by name" —
+  /// an unclaimed account still competes, still uses every existing
+  /// feature, and can still be added by invite. It also means the claim
+  /// is worth retrying: false can be because the name is genuinely
+  /// somebody else's, or merely because the device was offline when it
+  /// tried.
+  BoolColumn get usernameClaimed =>
+      boolean().withDefault(const Constant(false))();
+
   /// Set to true once we've shown the user the OEM battery-killer
   /// bottom sheet (Xiaomi / Oppo / Huawei / Vivo / etc). Persisted so
   /// the prompt fires at most once per install — repeatedly nagging a

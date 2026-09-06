@@ -4,6 +4,7 @@ import 'package:drive_rank/features/onboarding/domain/entities/car_make.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
+import 'package:drive_rank/shared/services/username_reservation_service.dart';
 import 'package:flutter/foundation.dart';
 
 @immutable
@@ -71,8 +72,16 @@ class OnboardingUsernameChanged extends OnboardingEvent {
   final String value;
 }
 
-// (OnboardingUsernameCheckResolved + UsernameCheckOutcome removed —
-// MVP username step does local sync validation only, no async resolve.)
+/// The reservation lookup came back for [username].
+///
+/// Carries the name it answered *about*, not just the verdict, so a
+/// reply that arrives after the user has kept typing can be recognised
+/// as stale and dropped rather than labelling the current input.
+class OnboardingUsernameChecked extends OnboardingEvent {
+  const OnboardingUsernameChecked(this.username, this.result);
+  final String username;
+  final UsernameClaim result;
+}
 
 class OnboardingMapThemeSelected extends OnboardingEvent {
   const OnboardingMapThemeSelected(this.theme);

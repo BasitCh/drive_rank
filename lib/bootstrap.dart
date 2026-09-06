@@ -14,11 +14,14 @@ import 'package:drive_rank/core/services/push_service.dart';
 import 'package:drive_rank/core/services/retention_notification_service.dart';
 import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
+import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart';
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/services/firestore_trip_sink.dart';
 import 'package:drive_rank/shared/services/public_profile_service.dart';
 import 'package:drive_rank/shared/services/remote_trip_sink.dart';
 import 'package:drive_rank/shared/services/sync_manager.dart';
+import 'package:drive_rank/shared/services/username_reservation_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_core/firebase_core.dart';
@@ -136,6 +139,7 @@ Future<void> _initDeferredServices() async {
     _maybeInitRevenueCat(),
     _maybeSyncFreeTripCounter(),
     _initRetentionNotifications(),
+    _publishCompetitionValues(),
   ]);
 }
 
@@ -153,6 +157,28 @@ Future<void> _initRetentionNotifications() async {
   } catch (e) {
     if (kDebugMode) {
       debugPrint('[bootstrap] retention notifications init failed: $e');
+    }
+  }
+}
+
+/// Claims this account's username and republishes its competitive
+/// totals.
+///
+/// Both run every launch, and both are cheap and idempotent. The claim
+/// matters on a launch because a failure can mean "offline" rather than
+/// "taken", so an account that couldn't reach the reservation last time
+/// gets another chance. The publish matters because a window may have
+/// rolled over while the app was closed — last week's totals are not
+/// this week's, and nothing else would notice until the next drive.
+Future<void> _publishCompetitionValues() async {
+  try {
+    final settings = getIt<UserSettingsRepository>();
+    final claim = await settings.claimUsername();
+    if (kDebugMode) debugPrint('[bootstrap] username claim: ${claim.name}');
+    await getIt<CompetitionValuePublisher>().publishNow();
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('[bootstrap] competition publish failed: $e');
     }
   }
 }
@@ -269,6 +295,16 @@ Future<void> _maybeInitFirebase() async {
     );
     await _replace<PublicProfileService>(
       () => FirestorePublicProfileService(FirebaseFirestore.instance),
+    );
+    // The public competition mirror and the username namespace — the
+    // two Phase 4 surfaces other people read. Same reasoning as the
+    // sink above: they exist only once Firebase has initialised, and
+    // fall back to no-ops that keep the app fully usable without it.
+    await _replace<CompetitionMirrorSink>(
+      () => FirestoreCompetitionMirrorSink(FirebaseFirestore.instance),
+    );
+    await _replace<UsernameReservationService>(
+      () => FirestoreUsernameReservationService(FirebaseFirestore.instance),
     );
     unawaited(getIt<SyncManager>().start());
 

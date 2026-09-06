@@ -25,6 +25,7 @@ void main() {
     isPro: false,
     rankingsEnabled: true,
     onboardingComplete: true,
+    usernameClaimed: true,
     oemAdviceShown: false,
     bgLocationDisclosureAcked: true,
     createdAt: DateTime(2026),

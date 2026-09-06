@@ -7,9 +7,11 @@ import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/free_trip_counter_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/core/services/paywall_service.dart' show ProEntitlementCheck;
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/services/public_profile_service.dart';
+import 'package:drive_rank/shared/services/username_reservation_service.dart';
 import 'package:injectable/injectable.dart';
 
 /// Single source of truth for the *one* user-settings row.
@@ -211,6 +213,39 @@ class UserSettingsRepository {
         countryCode: row.country ?? '',
       ),
     );
+    // The public competition mirror carries the same identity fields as
+    // this private profile does, and other people read it. Without this,
+    // changing cars after your last drive would show the old car on
+    // every friend's board until you next drove.
+    await getIt<CompetitionValuePublisher>().publishNow();
+  }
+
+  /// Attempts to hold this account's username in the shared namespace.
+  ///
+  /// Safe and cheap to call on every launch: a name already held by this
+  /// account is a no-op, and one held by somebody else simply stays
+  /// unclaimed. Retrying matters because a failure can mean "offline"
+  /// rather than "taken" — the two are indistinguishable to the caller
+  /// and only one of them is permanent.
+  ///
+  /// Never renames anyone and never blocks anyone. An unclaimed account
+  /// keeps its local name and every feature; it just isn't findable by
+  /// name until the user picks a free one.
+  Future<UsernameClaim> claimUsername() async {
+    final row = await read();
+    if (row.username.isEmpty) return UsernameClaim.unknown;
+    if (row.uid.isEmpty || row.uid == _initialUid) return UsernameClaim.unknown;
+
+    final result = await getIt<UsernameReservationService>().claim(
+      uid: row.uid,
+      username: row.username,
+    );
+    final held =
+        result == UsernameClaim.claimed || result == UsernameClaim.alreadyMine;
+    if (held != row.usernameClaimed) {
+      await patch(UserSettingsCompanion(usernameClaimed: Value(held)));
+    }
+    return result;
   }
 
   // ---- Cloud-sync identity ----

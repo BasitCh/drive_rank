@@ -63,6 +63,10 @@ import 'package:drive_rank/features/social/data/processors/local_social_trip_pro
     as _i319;
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart'
     as _i621;
+import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart'
+    as _i800;
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart'
+    as _i1058;
 import 'package:drive_rank/features/social/domain/repositories/social_repository.dart'
     as _i247;
 import 'package:drive_rank/features/social/domain/usecases/compare_with_benchmark.dart'
@@ -110,6 +114,8 @@ import 'package:drive_rank/shared/services/sync_manager.dart' as _i830;
 import 'package:drive_rank/shared/services/territory_stats_service.dart'
     as _i970;
 import 'package:drive_rank/shared/services/trip_stats_service.dart' as _i67;
+import 'package:drive_rank/shared/services/username_reservation_service.dart'
+    as _i343;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 
@@ -158,6 +164,9 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i495.PaywallService>(
     () => _i495.PreviewPaywallService(gh<_i447.LocaleService>()),
   );
+  gh.lazySingleton<_i800.CompetitionMirrorSink>(
+    () => const _i800.NoopCompetitionMirrorSink(),
+  );
   gh.lazySingleton<_i88.RemoteTripSink>(() => const _i88.NoopRemoteTripSink());
   gh.lazySingleton<_i163.CompetitionMetricCalculator>(
     () => const _i163.DefaultCompetitionMetricCalculator(),
@@ -169,6 +178,9 @@ _i174.GetIt $initGetIt(
     () => _i1058.FreeTripCounterService(gh<_i529.DeviceIdentityService>()),
   );
   gh.lazySingleton<_i1009.AuthService>(() => injectionModule.anonymousAuth());
+  gh.lazySingleton<_i343.UsernameReservationService>(
+    () => const _i343.NoopUsernameReservationService(),
+  );
   gh.lazySingleton<_i727.UserSettingsRepository>(
     () => _i727.UserSettingsRepository(
       gh<_i425.AppDatabase>(),
@@ -258,6 +270,17 @@ _i174.GetIt $initGetIt(
   gh.factory<_i314.PersonalBestsBloc>(
     () => _i314.PersonalBestsBloc(gh<_i244.PersonalBestsRepository>()),
   );
+  gh.factory<_i162.OnboardingBloc>(
+    () => _i162.OnboardingBloc(
+      gh<_i972.CarRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i447.LocaleService>(),
+      gh<_i576.PermissionService>(),
+      gh<_i46.TelemetryService>(),
+      gh<_i488.PushService>(),
+      gh<_i343.UsernameReservationService>(),
+    ),
+  );
   gh.lazySingleton<_i183.RetentionNotificationService>(
     () => _i183.RetentionNotificationService(
       gh<_i750.LocalNotificationsGateway>(),
@@ -272,16 +295,6 @@ _i174.GetIt $initGetIt(
       gh<_i634.TripRepository>(),
       gh<_i727.UserSettingsRepository>(),
       gh<_i261.CardExportService>(),
-    ),
-  );
-  gh.factory<_i162.OnboardingBloc>(
-    () => _i162.OnboardingBloc(
-      gh<_i972.CarRepository>(),
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i447.LocaleService>(),
-      gh<_i576.PermissionService>(),
-      gh<_i46.TelemetryService>(),
-      gh<_i488.PushService>(),
     ),
   );
   gh.lazySingleton<_i970.TerritoryStatsService>(
@@ -304,6 +317,13 @@ _i174.GetIt $initGetIt(
       gh<_i727.UserSettingsRepository>(),
       gh<_i67.TripStatsService>(),
       gh<_i970.TerritoryStatsService>(),
+    ),
+  );
+  gh.lazySingleton<_i1058.CompetitionValuePublisher>(
+    () => _i1058.CompetitionValuePublisher(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
     ),
   );
   gh.factory<_i1018.CompareWithBenchmark>(

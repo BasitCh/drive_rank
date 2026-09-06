@@ -13,6 +13,7 @@ import 'legacy_app_database_v10.dart' as v10;
 import 'legacy_app_database_v11.dart' as v11;
 import 'legacy_app_database_v12.dart' as v12;
 import 'legacy_app_database_v13.dart' as v13;
+import 'legacy_app_database_v14.dart' as v14;
 
 void main() {
   late Directory tempDir;
@@ -362,8 +363,8 @@ void main() {
       final columns = await db
           .customSelect('PRAGMA table_info(user_settings)')
           .get();
-      // 26 at v12, plus rankings_enabled.
-      expect(columns, hasLength(27));
+      // 26 at v12, plus rankings_enabled (v13) and username_claimed (v15).
+      expect(columns, hasLength(28));
     });
   });
 
@@ -445,6 +446,59 @@ void main() {
           .customSelect('PRAGMA table_info(deleted_trips)')
           .get();
       expect(columns, hasLength(3));
+    });
+  });
+
+  group('v14 -> v15 — a username you actually hold', () {
+    test('adds username_claimed defaulting to false, because nobody holds '
+        'a name yet — usernames were never checked for uniqueness',
+        () async {
+      final legacyDb = v14.LegacyAppDatabaseV14(NativeDatabase(dbFile));
+      await legacyDb
+          .into(legacyDb.legacyUserSettingsPreV15)
+          .insert(
+            v14.LegacyUserSettingsPreV15Companion.insert(
+              uid: 'user-1',
+              username: const Value('basit'),
+              createdAt: DateTime(2026),
+            ),
+          );
+      await legacyDb.close();
+
+      final db = openMigrated();
+      final settings = await db.select(db.userSettings).getSingle();
+      expect(settings.username, 'basit');
+      expect(settings.usernameClaimed, isFalse);
+    });
+
+    test('leaves every other setting untouched — an upgrade must not '
+        'rename anyone or reset what they chose', () async {
+      final legacyDb = v14.LegacyAppDatabaseV14(NativeDatabase(dbFile));
+      await legacyDb
+          .into(legacyDb.legacyUserSettingsPreV15)
+          .insert(
+            v14.LegacyUserSettingsPreV15Companion.insert(
+              uid: 'user-1',
+              username: const Value('basit'),
+              carMake: const Value('BMW'),
+              carModel: const Value('M3'),
+              country: const Value('PK'),
+              unitSystem: const Value('imperial'),
+              rankingsEnabled: const Value(false),
+              onboardingComplete: const Value(true),
+              createdAt: DateTime(2026),
+            ),
+          );
+      await legacyDb.close();
+
+      final db = openMigrated();
+      final settings = await db.select(db.userSettings).getSingle();
+      expect(settings.carMake, 'BMW');
+      expect(settings.carModel, 'M3');
+      expect(settings.country, 'PK');
+      expect(settings.unitSystem, 'imperial');
+      expect(settings.rankingsEnabled, isFalse);
+      expect(settings.onboardingComplete, isTrue);
     });
   });
 }

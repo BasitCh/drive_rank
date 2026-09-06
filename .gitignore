@@ -61,3 +61,6 @@ app.*.map.json
 .env.local
 .env.production
 .vscode/launch.json
+
+# Node dependencies for the Firestore rules test suite (test/rules).
+node_modules/

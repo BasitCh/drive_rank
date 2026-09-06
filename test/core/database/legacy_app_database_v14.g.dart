@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'app_database.dart';
+part of 'legacy_app_database_v14.dart';
 
 // ignore_for_file: type=lint
 class $TripsTable extends Trips with TableInfo<$TripsTable, TripRow> {
@@ -2474,12 +2474,13 @@ class WaypointsCompanion extends UpdateCompanion<WaypointRow> {
   }
 }
 
-class $UserSettingsTable extends UserSettings
-    with TableInfo<$UserSettingsTable, UserSettingsRow> {
+class $LegacyUserSettingsPreV15Table extends LegacyUserSettingsPreV15
+    with
+        TableInfo<$LegacyUserSettingsPreV15Table, LegacyUserSettingsPreV15Row> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $UserSettingsTable(this.attachedDatabase, [this._alias]);
+  $LegacyUserSettingsPreV15Table(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -2739,21 +2740,6 @@ class $UserSettingsTable extends UserSettings
     ),
     defaultValue: const Constant(false),
   );
-  static const VerificationMeta _usernameClaimedMeta = const VerificationMeta(
-    'usernameClaimed',
-  );
-  @override
-  late final GeneratedColumn<bool> usernameClaimed = GeneratedColumn<bool>(
-    'username_claimed',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("username_claimed" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
   static const VerificationMeta _oemAdviceShownMeta = const VerificationMeta(
     'oemAdviceShown',
   );
@@ -2841,7 +2827,6 @@ class $UserSettingsTable extends UserSettings
     isPro,
     rankingsEnabled,
     onboardingComplete,
-    usernameClaimed,
     oemAdviceShown,
     bgLocationDisclosureAcked,
     speedGoalKmh,
@@ -2855,7 +2840,7 @@ class $UserSettingsTable extends UserSettings
   static const String $name = 'user_settings';
   @override
   VerificationContext validateIntegrity(
-    Insertable<UserSettingsRow> instance, {
+    Insertable<LegacyUserSettingsPreV15Row> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -3024,15 +3009,6 @@ class $UserSettingsTable extends UserSettings
         ),
       );
     }
-    if (data.containsKey('username_claimed')) {
-      context.handle(
-        _usernameClaimedMeta,
-        usernameClaimed.isAcceptableOrUnknown(
-          data['username_claimed']!,
-          _usernameClaimedMeta,
-        ),
-      );
-    }
     if (data.containsKey('oem_advice_shown')) {
       context.handle(
         _oemAdviceShownMeta,
@@ -3083,9 +3059,12 @@ class $UserSettingsTable extends UserSettings
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  UserSettingsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  LegacyUserSettingsPreV15Row map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return UserSettingsRow(
+    return LegacyUserSettingsPreV15Row(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -3174,10 +3153,6 @@ class $UserSettingsTable extends UserSettings
         DriftSqlType.bool,
         data['${effectivePrefix}onboarding_complete'],
       )!,
-      usernameClaimed: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}username_claimed'],
-      )!,
       oemAdviceShown: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}oem_advice_shown'],
@@ -3202,12 +3177,13 @@ class $UserSettingsTable extends UserSettings
   }
 
   @override
-  $UserSettingsTable createAlias(String alias) {
-    return $UserSettingsTable(attachedDatabase, alias);
+  $LegacyUserSettingsPreV15Table createAlias(String alias) {
+    return $LegacyUserSettingsPreV15Table(attachedDatabase, alias);
   }
 }
 
-class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
+class LegacyUserSettingsPreV15Row extends DataClass
+    implements Insertable<LegacyUserSettingsPreV15Row> {
   final int id;
   final String uid;
   final String username;
@@ -3224,79 +3200,18 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   final double? fuelPricePerUnit;
   final String? currencyCode;
   final String selectedMapTheme;
-
-  /// Trips shorter than this (metres) are discarded on End, not saved.
-  /// Default 500 m filters out accidental Start→End taps without
-  /// eating a real short drive.
   final double minTripLengthMeters;
   final int freeTripsUsed;
-
-  /// The free-trip allowance actually granted to THIS user, persisted at
-  /// creation time rather than read from a global constant — so a later
-  /// change to the default (3 → 1) can't retroactively cut an existing
-  /// user's already-granted allowance. Null on rows created before this
-  /// column existed; the migration backfills those to the old default
-  /// (3) so nobody already using the app loses trips they were promised.
-  /// New rows get the new default (1) explicitly at insert time.
   final int? freeTripLimit;
   final bool isPro;
-
-  /// Whether the public rankings surfaces are available to this user.
-  ///
-  /// Defaults on. Persisted rather than held in memory so the last known
-  /// answer survives a cold, offline launch, and so every consumer — the
-  /// router redirect, the nav bar, the rankings screen itself — reads one
-  /// reactive source instead of each deciding for itself. Read only via
-  /// `UserSettingsRepository.watchRankingsEnabled()` /
-  /// `isRankingsEnabled()`.
-  ///
-  /// Turning it off hides global rankings only; friends, challenges,
-  /// personal targets, trophies and trip statistics all keep working.
-  /// A later phase adds the remote channel that patches this column.
   final bool rankingsEnabled;
   final bool onboardingComplete;
-
-  /// Whether this account actually holds its username in the shared
-  /// namespace (`usernames/{usernameLower}` in Firestore).
-  ///
-  /// Usernames were local-only and never checked for uniqueness, so two
-  /// existing accounts can already be `basit`. Friend search turns a
-  /// username into an address, and an address has to resolve to one
-  /// person — but an upgrade must not silently rename anybody or lock
-  /// them out either. So the claim is attempted, and this records
-  /// whether it succeeded.
-  ///
-  /// False means "everything works, but you are not findable by name" —
-  /// an unclaimed account still competes, still uses every existing
-  /// feature, and can still be added by invite. It also means the claim
-  /// is worth retrying: false can be because the name is genuinely
-  /// somebody else's, or merely because the device was offline when it
-  /// tried.
-  final bool usernameClaimed;
-
-  /// Set to true once we've shown the user the OEM battery-killer
-  /// bottom sheet (Xiaomi / Oppo / Huawei / Vivo / etc). Persisted so
-  /// the prompt fires at most once per install — repeatedly nagging a
-  /// user who already saw it is worse UX than letting them figure out
-  /// they need to whitelist DriveRank.
   final bool oemAdviceShown;
-
-  /// Set once the user has been shown the in-app Prominent Disclosure
-  /// for background location and either accepted or skipped it. Drives
-  /// the gate in TrackingBloc that blocks Start until the disclosure
-  /// has been surfaced at least once — Google Play policy compliance.
   final bool bgLocationDisclosureAcked;
-
-  /// The user's current "beat this" targets, recomputed by
-  /// `TrackingBloc` after every trip (see `GoalCalculator`). Null until
-  /// the first trip completes. Only two fields, not a table, because
-  /// there is exactly one active goal per metric at a time — no
-  /// history of past goals is needed, `Trips` already has the record
-  /// of what was actually driven.
   final double? speedGoalKmh;
   final double? distanceGoalKm;
   final DateTime createdAt;
-  const UserSettingsRow({
+  const LegacyUserSettingsPreV15Row({
     required this.id,
     required this.uid,
     required this.username,
@@ -3319,7 +3234,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     required this.isPro,
     required this.rankingsEnabled,
     required this.onboardingComplete,
-    required this.usernameClaimed,
     required this.oemAdviceShown,
     required this.bgLocationDisclosureAcked,
     this.speedGoalKmh,
@@ -3369,7 +3283,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     map['is_pro'] = Variable<bool>(isPro);
     map['rankings_enabled'] = Variable<bool>(rankingsEnabled);
     map['onboarding_complete'] = Variable<bool>(onboardingComplete);
-    map['username_claimed'] = Variable<bool>(usernameClaimed);
     map['oem_advice_shown'] = Variable<bool>(oemAdviceShown);
     map['bg_location_disclosure_acked'] = Variable<bool>(
       bgLocationDisclosureAcked,
@@ -3384,8 +3297,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     return map;
   }
 
-  UserSettingsCompanion toCompanion(bool nullToAbsent) {
-    return UserSettingsCompanion(
+  LegacyUserSettingsPreV15Companion toCompanion(bool nullToAbsent) {
+    return LegacyUserSettingsPreV15Companion(
       id: Value(id),
       uid: Value(uid),
       username: Value(username),
@@ -3426,7 +3339,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       isPro: Value(isPro),
       rankingsEnabled: Value(rankingsEnabled),
       onboardingComplete: Value(onboardingComplete),
-      usernameClaimed: Value(usernameClaimed),
       oemAdviceShown: Value(oemAdviceShown),
       bgLocationDisclosureAcked: Value(bgLocationDisclosureAcked),
       speedGoalKmh: speedGoalKmh == null && nullToAbsent
@@ -3439,12 +3351,12 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     );
   }
 
-  factory UserSettingsRow.fromJson(
+  factory LegacyUserSettingsPreV15Row.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return UserSettingsRow(
+    return LegacyUserSettingsPreV15Row(
       id: serializer.fromJson<int>(json['id']),
       uid: serializer.fromJson<String>(json['uid']),
       username: serializer.fromJson<String>(json['username']),
@@ -3469,7 +3381,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       isPro: serializer.fromJson<bool>(json['isPro']),
       rankingsEnabled: serializer.fromJson<bool>(json['rankingsEnabled']),
       onboardingComplete: serializer.fromJson<bool>(json['onboardingComplete']),
-      usernameClaimed: serializer.fromJson<bool>(json['usernameClaimed']),
       oemAdviceShown: serializer.fromJson<bool>(json['oemAdviceShown']),
       bgLocationDisclosureAcked: serializer.fromJson<bool>(
         json['bgLocationDisclosureAcked'],
@@ -3505,7 +3416,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       'isPro': serializer.toJson<bool>(isPro),
       'rankingsEnabled': serializer.toJson<bool>(rankingsEnabled),
       'onboardingComplete': serializer.toJson<bool>(onboardingComplete),
-      'usernameClaimed': serializer.toJson<bool>(usernameClaimed),
       'oemAdviceShown': serializer.toJson<bool>(oemAdviceShown),
       'bgLocationDisclosureAcked': serializer.toJson<bool>(
         bgLocationDisclosureAcked,
@@ -3516,7 +3426,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     };
   }
 
-  UserSettingsRow copyWith({
+  LegacyUserSettingsPreV15Row copyWith({
     int? id,
     String? uid,
     String? username,
@@ -3539,13 +3449,12 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     bool? isPro,
     bool? rankingsEnabled,
     bool? onboardingComplete,
-    bool? usernameClaimed,
     bool? oemAdviceShown,
     bool? bgLocationDisclosureAcked,
     Value<double?> speedGoalKmh = const Value.absent(),
     Value<double?> distanceGoalKm = const Value.absent(),
     DateTime? createdAt,
-  }) => UserSettingsRow(
+  }) => LegacyUserSettingsPreV15Row(
     id: id ?? this.id,
     uid: uid ?? this.uid,
     username: username ?? this.username,
@@ -3574,7 +3483,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     isPro: isPro ?? this.isPro,
     rankingsEnabled: rankingsEnabled ?? this.rankingsEnabled,
     onboardingComplete: onboardingComplete ?? this.onboardingComplete,
-    usernameClaimed: usernameClaimed ?? this.usernameClaimed,
     oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
     bgLocationDisclosureAcked:
         bgLocationDisclosureAcked ?? this.bgLocationDisclosureAcked,
@@ -3584,8 +3492,10 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
         : this.distanceGoalKm,
     createdAt: createdAt ?? this.createdAt,
   );
-  UserSettingsRow copyWithCompanion(UserSettingsCompanion data) {
-    return UserSettingsRow(
+  LegacyUserSettingsPreV15Row copyWithCompanion(
+    LegacyUserSettingsPreV15Companion data,
+  ) {
+    return LegacyUserSettingsPreV15Row(
       id: data.id.present ? data.id.value : this.id,
       uid: data.uid.present ? data.uid.value : this.uid,
       username: data.username.present ? data.username.value : this.username,
@@ -3632,9 +3542,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       onboardingComplete: data.onboardingComplete.present
           ? data.onboardingComplete.value
           : this.onboardingComplete,
-      usernameClaimed: data.usernameClaimed.present
-          ? data.usernameClaimed.value
-          : this.usernameClaimed,
       oemAdviceShown: data.oemAdviceShown.present
           ? data.oemAdviceShown.value
           : this.oemAdviceShown,
@@ -3653,7 +3560,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
 
   @override
   String toString() {
-    return (StringBuffer('UserSettingsRow(')
+    return (StringBuffer('LegacyUserSettingsPreV15Row(')
           ..write('id: $id, ')
           ..write('uid: $uid, ')
           ..write('username: $username, ')
@@ -3676,7 +3583,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           ..write('isPro: $isPro, ')
           ..write('rankingsEnabled: $rankingsEnabled, ')
           ..write('onboardingComplete: $onboardingComplete, ')
-          ..write('usernameClaimed: $usernameClaimed, ')
           ..write('oemAdviceShown: $oemAdviceShown, ')
           ..write('bgLocationDisclosureAcked: $bgLocationDisclosureAcked, ')
           ..write('speedGoalKmh: $speedGoalKmh, ')
@@ -3710,7 +3616,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     isPro,
     rankingsEnabled,
     onboardingComplete,
-    usernameClaimed,
     oemAdviceShown,
     bgLocationDisclosureAcked,
     speedGoalKmh,
@@ -3720,7 +3625,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is UserSettingsRow &&
+      (other is LegacyUserSettingsPreV15Row &&
           other.id == this.id &&
           other.uid == this.uid &&
           other.username == this.username &&
@@ -3743,7 +3648,6 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           other.isPro == this.isPro &&
           other.rankingsEnabled == this.rankingsEnabled &&
           other.onboardingComplete == this.onboardingComplete &&
-          other.usernameClaimed == this.usernameClaimed &&
           other.oemAdviceShown == this.oemAdviceShown &&
           other.bgLocationDisclosureAcked == this.bgLocationDisclosureAcked &&
           other.speedGoalKmh == this.speedGoalKmh &&
@@ -3751,7 +3655,8 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           other.createdAt == this.createdAt);
 }
 
-class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
+class LegacyUserSettingsPreV15Companion
+    extends UpdateCompanion<LegacyUserSettingsPreV15Row> {
   final Value<int> id;
   final Value<String> uid;
   final Value<String> username;
@@ -3774,13 +3679,12 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
   final Value<bool> isPro;
   final Value<bool> rankingsEnabled;
   final Value<bool> onboardingComplete;
-  final Value<bool> usernameClaimed;
   final Value<bool> oemAdviceShown;
   final Value<bool> bgLocationDisclosureAcked;
   final Value<double?> speedGoalKmh;
   final Value<double?> distanceGoalKm;
   final Value<DateTime> createdAt;
-  const UserSettingsCompanion({
+  const LegacyUserSettingsPreV15Companion({
     this.id = const Value.absent(),
     this.uid = const Value.absent(),
     this.username = const Value.absent(),
@@ -3803,14 +3707,13 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.isPro = const Value.absent(),
     this.rankingsEnabled = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
-    this.usernameClaimed = const Value.absent(),
     this.oemAdviceShown = const Value.absent(),
     this.bgLocationDisclosureAcked = const Value.absent(),
     this.speedGoalKmh = const Value.absent(),
     this.distanceGoalKm = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
-  UserSettingsCompanion.insert({
+  LegacyUserSettingsPreV15Companion.insert({
     this.id = const Value.absent(),
     required String uid,
     this.username = const Value.absent(),
@@ -3833,7 +3736,6 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.isPro = const Value.absent(),
     this.rankingsEnabled = const Value.absent(),
     this.onboardingComplete = const Value.absent(),
-    this.usernameClaimed = const Value.absent(),
     this.oemAdviceShown = const Value.absent(),
     this.bgLocationDisclosureAcked = const Value.absent(),
     this.speedGoalKmh = const Value.absent(),
@@ -3841,7 +3743,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     required DateTime createdAt,
   }) : uid = Value(uid),
        createdAt = Value(createdAt);
-  static Insertable<UserSettingsRow> custom({
+  static Insertable<LegacyUserSettingsPreV15Row> custom({
     Expression<int>? id,
     Expression<String>? uid,
     Expression<String>? username,
@@ -3864,7 +3766,6 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Expression<bool>? isPro,
     Expression<bool>? rankingsEnabled,
     Expression<bool>? onboardingComplete,
-    Expression<bool>? usernameClaimed,
     Expression<bool>? oemAdviceShown,
     Expression<bool>? bgLocationDisclosureAcked,
     Expression<double>? speedGoalKmh,
@@ -3895,7 +3796,6 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       if (isPro != null) 'is_pro': isPro,
       if (rankingsEnabled != null) 'rankings_enabled': rankingsEnabled,
       if (onboardingComplete != null) 'onboarding_complete': onboardingComplete,
-      if (usernameClaimed != null) 'username_claimed': usernameClaimed,
       if (oemAdviceShown != null) 'oem_advice_shown': oemAdviceShown,
       if (bgLocationDisclosureAcked != null)
         'bg_location_disclosure_acked': bgLocationDisclosureAcked,
@@ -3905,7 +3805,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     });
   }
 
-  UserSettingsCompanion copyWith({
+  LegacyUserSettingsPreV15Companion copyWith({
     Value<int>? id,
     Value<String>? uid,
     Value<String>? username,
@@ -3928,14 +3828,13 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Value<bool>? isPro,
     Value<bool>? rankingsEnabled,
     Value<bool>? onboardingComplete,
-    Value<bool>? usernameClaimed,
     Value<bool>? oemAdviceShown,
     Value<bool>? bgLocationDisclosureAcked,
     Value<double?>? speedGoalKmh,
     Value<double?>? distanceGoalKm,
     Value<DateTime>? createdAt,
   }) {
-    return UserSettingsCompanion(
+    return LegacyUserSettingsPreV15Companion(
       id: id ?? this.id,
       uid: uid ?? this.uid,
       username: username ?? this.username,
@@ -3958,7 +3857,6 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
       isPro: isPro ?? this.isPro,
       rankingsEnabled: rankingsEnabled ?? this.rankingsEnabled,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
-      usernameClaimed: usernameClaimed ?? this.usernameClaimed,
       oemAdviceShown: oemAdviceShown ?? this.oemAdviceShown,
       bgLocationDisclosureAcked:
           bgLocationDisclosureAcked ?? this.bgLocationDisclosureAcked,
@@ -4039,9 +3937,6 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     if (onboardingComplete.present) {
       map['onboarding_complete'] = Variable<bool>(onboardingComplete.value);
     }
-    if (usernameClaimed.present) {
-      map['username_claimed'] = Variable<bool>(usernameClaimed.value);
-    }
     if (oemAdviceShown.present) {
       map['oem_advice_shown'] = Variable<bool>(oemAdviceShown.value);
     }
@@ -4064,7 +3959,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
 
   @override
   String toString() {
-    return (StringBuffer('UserSettingsCompanion(')
+    return (StringBuffer('LegacyUserSettingsPreV15Companion(')
           ..write('id: $id, ')
           ..write('uid: $uid, ')
           ..write('username: $username, ')
@@ -4087,7 +3982,6 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
           ..write('isPro: $isPro, ')
           ..write('rankingsEnabled: $rankingsEnabled, ')
           ..write('onboardingComplete: $onboardingComplete, ')
-          ..write('usernameClaimed: $usernameClaimed, ')
           ..write('oemAdviceShown: $oemAdviceShown, ')
           ..write('bgLocationDisclosureAcked: $bgLocationDisclosureAcked, ')
           ..write('speedGoalKmh: $speedGoalKmh, ')
@@ -8674,12 +8568,14 @@ class DeletedTripsCompanion extends UpdateCompanion<DeletedTripRow> {
   }
 }
 
-abstract class _$AppDatabase extends GeneratedDatabase {
-  _$AppDatabase(QueryExecutor e) : super(e);
-  $AppDatabaseManager get managers => $AppDatabaseManager(this);
+abstract class _$LegacyAppDatabaseV14 extends GeneratedDatabase {
+  _$LegacyAppDatabaseV14(QueryExecutor e) : super(e);
+  $LegacyAppDatabaseV14Manager get managers =>
+      $LegacyAppDatabaseV14Manager(this);
   late final $TripsTable trips = $TripsTable(this);
   late final $WaypointsTable waypoints = $WaypointsTable(this);
-  late final $UserSettingsTable userSettings = $UserSettingsTable(this);
+  late final $LegacyUserSettingsPreV15Table legacyUserSettingsPreV15 =
+      $LegacyUserSettingsPreV15Table(this);
   late final $LiveTripsTable liveTrips = $LiveTripsTable(this);
   late final $LiveWaypointsTable liveWaypoints = $LiveWaypointsTable(this);
   late final $FriendsTable friends = $FriendsTable(this);
@@ -8703,7 +8599,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     trips,
     waypoints,
-    userSettings,
+    legacyUserSettingsPreV15,
     liveTrips,
     liveWaypoints,
     friends,
@@ -8815,14 +8711,15 @@ typedef $$TripsTableUpdateCompanionBuilder =
     });
 
 final class $$TripsTableReferences
-    extends BaseReferences<_$AppDatabase, $TripsTable, TripRow> {
+    extends BaseReferences<_$LegacyAppDatabaseV14, $TripsTable, TripRow> {
   $$TripsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<$WaypointsTable, List<WaypointRow>>
-  _waypointsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.waypoints,
-    aliasName: $_aliasNameGenerator(db.trips.id, db.waypoints.tripId),
-  );
+  _waypointsRefsTable(_$LegacyAppDatabaseV14 db) =>
+      MultiTypedResultKey.fromTable(
+        db.waypoints,
+        aliasName: $_aliasNameGenerator(db.trips.id, db.waypoints.tripId),
+      );
 
   $$WaypointsTableProcessedTableManager get waypointsRefs {
     final manager = $$WaypointsTableTableManager(
@@ -8837,10 +8734,11 @@ final class $$TripsTableReferences
   }
 
   static MultiTypedResultKey<$TripEligibilityTable, List<TripEligibilityRow>>
-  _tripEligibilityRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.tripEligibility,
-    aliasName: $_aliasNameGenerator(db.trips.id, db.tripEligibility.tripId),
-  );
+  _tripEligibilityRefsTable(_$LegacyAppDatabaseV14 db) =>
+      MultiTypedResultKey.fromTable(
+        db.tripEligibility,
+        aliasName: $_aliasNameGenerator(db.trips.id, db.tripEligibility.tripId),
+      );
 
   $$TripEligibilityTableProcessedTableManager get tripEligibilityRefs {
     final manager = $$TripEligibilityTableTableManager(
@@ -8857,7 +8755,8 @@ final class $$TripsTableReferences
   }
 }
 
-class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
+class $$TripsTableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV14, $TripsTable> {
   $$TripsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -9082,7 +8981,7 @@ class $$TripsTableFilterComposer extends Composer<_$AppDatabase, $TripsTable> {
 }
 
 class $$TripsTableOrderingComposer
-    extends Composer<_$AppDatabase, $TripsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $TripsTable> {
   $$TripsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -9257,7 +9156,7 @@ class $$TripsTableOrderingComposer
 }
 
 class $$TripsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TripsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $TripsTable> {
   $$TripsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -9464,7 +9363,7 @@ class $$TripsTableAnnotationComposer
 class $$TripsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $TripsTable,
           TripRow,
           $$TripsTableFilterComposer,
@@ -9476,7 +9375,7 @@ class $$TripsTableTableManager
           TripRow,
           PrefetchHooks Function({bool waypointsRefs, bool tripEligibilityRefs})
         > {
-  $$TripsTableTableManager(_$AppDatabase db, $TripsTable table)
+  $$TripsTableTableManager(_$LegacyAppDatabaseV14 db, $TripsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -9696,7 +9595,7 @@ class $$TripsTableTableManager
 
 typedef $$TripsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $TripsTable,
       TripRow,
       $$TripsTableFilterComposer,
@@ -9734,12 +9633,12 @@ typedef $$WaypointsTableUpdateCompanionBuilder =
     });
 
 final class $$WaypointsTableReferences
-    extends BaseReferences<_$AppDatabase, $WaypointsTable, WaypointRow> {
+    extends
+        BaseReferences<_$LegacyAppDatabaseV14, $WaypointsTable, WaypointRow> {
   $$WaypointsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $TripsTable _tripIdTable(_$AppDatabase db) => db.trips.createAlias(
-    $_aliasNameGenerator(db.waypoints.tripId, db.trips.id),
-  );
+  static $TripsTable _tripIdTable(_$LegacyAppDatabaseV14 db) => db.trips
+      .createAlias($_aliasNameGenerator(db.waypoints.tripId, db.trips.id));
 
   $$TripsTableProcessedTableManager get tripId {
     final $_column = $_itemColumn<int>('trip_id')!;
@@ -9757,7 +9656,7 @@ final class $$WaypointsTableReferences
 }
 
 class $$WaypointsTableFilterComposer
-    extends Composer<_$AppDatabase, $WaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $WaypointsTable> {
   $$WaypointsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -9830,7 +9729,7 @@ class $$WaypointsTableFilterComposer
 }
 
 class $$WaypointsTableOrderingComposer
-    extends Composer<_$AppDatabase, $WaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $WaypointsTable> {
   $$WaypointsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -9903,7 +9802,7 @@ class $$WaypointsTableOrderingComposer
 }
 
 class $$WaypointsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $WaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $WaypointsTable> {
   $$WaypointsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -9966,7 +9865,7 @@ class $$WaypointsTableAnnotationComposer
 class $$WaypointsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $WaypointsTable,
           WaypointRow,
           $$WaypointsTableFilterComposer,
@@ -9978,7 +9877,7 @@ class $$WaypointsTableTableManager
           WaypointRow,
           PrefetchHooks Function({bool tripId})
         > {
-  $$WaypointsTableTableManager(_$AppDatabase db, $WaypointsTable table)
+  $$WaypointsTableTableManager(_$LegacyAppDatabaseV14 db, $WaypointsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -10088,7 +9987,7 @@ class $$WaypointsTableTableManager
 
 typedef $$WaypointsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $WaypointsTable,
       WaypointRow,
       $$WaypointsTableFilterComposer,
@@ -10100,8 +9999,8 @@ typedef $$WaypointsTableProcessedTableManager =
       WaypointRow,
       PrefetchHooks Function({bool tripId})
     >;
-typedef $$UserSettingsTableCreateCompanionBuilder =
-    UserSettingsCompanion Function({
+typedef $$LegacyUserSettingsPreV15TableCreateCompanionBuilder =
+    LegacyUserSettingsPreV15Companion Function({
       Value<int> id,
       required String uid,
       Value<String> username,
@@ -10124,15 +10023,14 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<bool> isPro,
       Value<bool> rankingsEnabled,
       Value<bool> onboardingComplete,
-      Value<bool> usernameClaimed,
       Value<bool> oemAdviceShown,
       Value<bool> bgLocationDisclosureAcked,
       Value<double?> speedGoalKmh,
       Value<double?> distanceGoalKm,
       required DateTime createdAt,
     });
-typedef $$UserSettingsTableUpdateCompanionBuilder =
-    UserSettingsCompanion Function({
+typedef $$LegacyUserSettingsPreV15TableUpdateCompanionBuilder =
+    LegacyUserSettingsPreV15Companion Function({
       Value<int> id,
       Value<String> uid,
       Value<String> username,
@@ -10155,7 +10053,6 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<bool> isPro,
       Value<bool> rankingsEnabled,
       Value<bool> onboardingComplete,
-      Value<bool> usernameClaimed,
       Value<bool> oemAdviceShown,
       Value<bool> bgLocationDisclosureAcked,
       Value<double?> speedGoalKmh,
@@ -10163,9 +10060,9 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
     });
 
-class $$UserSettingsTableFilterComposer
-    extends Composer<_$AppDatabase, $UserSettingsTable> {
-  $$UserSettingsTableFilterComposer({
+class $$LegacyUserSettingsPreV15TableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV14, $LegacyUserSettingsPreV15Table> {
+  $$LegacyUserSettingsPreV15TableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -10282,11 +10179,6 @@ class $$UserSettingsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<bool> get usernameClaimed => $composableBuilder(
-    column: $table.usernameClaimed,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<bool> get oemAdviceShown => $composableBuilder(
     column: $table.oemAdviceShown,
     builder: (column) => ColumnFilters(column),
@@ -10313,9 +10205,9 @@ class $$UserSettingsTableFilterComposer
   );
 }
 
-class $$UserSettingsTableOrderingComposer
-    extends Composer<_$AppDatabase, $UserSettingsTable> {
-  $$UserSettingsTableOrderingComposer({
+class $$LegacyUserSettingsPreV15TableOrderingComposer
+    extends Composer<_$LegacyAppDatabaseV14, $LegacyUserSettingsPreV15Table> {
+  $$LegacyUserSettingsPreV15TableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -10432,11 +10324,6 @@ class $$UserSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<bool> get usernameClaimed => $composableBuilder(
-    column: $table.usernameClaimed,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<bool> get oemAdviceShown => $composableBuilder(
     column: $table.oemAdviceShown,
     builder: (column) => ColumnOrderings(column),
@@ -10463,9 +10350,9 @@ class $$UserSettingsTableOrderingComposer
   );
 }
 
-class $$UserSettingsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $UserSettingsTable> {
-  $$UserSettingsTableAnnotationComposer({
+class $$LegacyUserSettingsPreV15TableAnnotationComposer
+    extends Composer<_$LegacyAppDatabaseV14, $LegacyUserSettingsPreV15Table> {
+  $$LegacyUserSettingsPreV15TableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -10562,11 +10449,6 @@ class $$UserSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<bool> get usernameClaimed => $composableBuilder(
-    column: $table.usernameClaimed,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<bool> get oemAdviceShown => $composableBuilder(
     column: $table.oemAdviceShown,
     builder: (column) => column,
@@ -10591,35 +10473,50 @@ class $$UserSettingsTableAnnotationComposer
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
 
-class $$UserSettingsTableTableManager
+class $$LegacyUserSettingsPreV15TableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
-          $UserSettingsTable,
-          UserSettingsRow,
-          $$UserSettingsTableFilterComposer,
-          $$UserSettingsTableOrderingComposer,
-          $$UserSettingsTableAnnotationComposer,
-          $$UserSettingsTableCreateCompanionBuilder,
-          $$UserSettingsTableUpdateCompanionBuilder,
+          _$LegacyAppDatabaseV14,
+          $LegacyUserSettingsPreV15Table,
+          LegacyUserSettingsPreV15Row,
+          $$LegacyUserSettingsPreV15TableFilterComposer,
+          $$LegacyUserSettingsPreV15TableOrderingComposer,
+          $$LegacyUserSettingsPreV15TableAnnotationComposer,
+          $$LegacyUserSettingsPreV15TableCreateCompanionBuilder,
+          $$LegacyUserSettingsPreV15TableUpdateCompanionBuilder,
           (
-            UserSettingsRow,
-            BaseReferences<_$AppDatabase, $UserSettingsTable, UserSettingsRow>,
+            LegacyUserSettingsPreV15Row,
+            BaseReferences<
+              _$LegacyAppDatabaseV14,
+              $LegacyUserSettingsPreV15Table,
+              LegacyUserSettingsPreV15Row
+            >,
           ),
-          UserSettingsRow,
+          LegacyUserSettingsPreV15Row,
           PrefetchHooks Function()
         > {
-  $$UserSettingsTableTableManager(_$AppDatabase db, $UserSettingsTable table)
-    : super(
+  $$LegacyUserSettingsPreV15TableTableManager(
+    _$LegacyAppDatabaseV14 db,
+    $LegacyUserSettingsPreV15Table table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$UserSettingsTableFilterComposer($db: db, $table: table),
+              $$LegacyUserSettingsPreV15TableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
           createOrderingComposer: () =>
-              $$UserSettingsTableOrderingComposer($db: db, $table: table),
+              $$LegacyUserSettingsPreV15TableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
           createComputedFieldComposer: () =>
-              $$UserSettingsTableAnnotationComposer($db: db, $table: table),
+              $$LegacyUserSettingsPreV15TableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -10644,13 +10541,12 @@ class $$UserSettingsTableTableManager
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> rankingsEnabled = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
-                Value<bool> usernameClaimed = const Value.absent(),
                 Value<bool> oemAdviceShown = const Value.absent(),
                 Value<bool> bgLocationDisclosureAcked = const Value.absent(),
                 Value<double?> speedGoalKmh = const Value.absent(),
                 Value<double?> distanceGoalKm = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
-              }) => UserSettingsCompanion(
+              }) => LegacyUserSettingsPreV15Companion(
                 id: id,
                 uid: uid,
                 username: username,
@@ -10673,7 +10569,6 @@ class $$UserSettingsTableTableManager
                 isPro: isPro,
                 rankingsEnabled: rankingsEnabled,
                 onboardingComplete: onboardingComplete,
-                usernameClaimed: usernameClaimed,
                 oemAdviceShown: oemAdviceShown,
                 bgLocationDisclosureAcked: bgLocationDisclosureAcked,
                 speedGoalKmh: speedGoalKmh,
@@ -10704,13 +10599,12 @@ class $$UserSettingsTableTableManager
                 Value<bool> isPro = const Value.absent(),
                 Value<bool> rankingsEnabled = const Value.absent(),
                 Value<bool> onboardingComplete = const Value.absent(),
-                Value<bool> usernameClaimed = const Value.absent(),
                 Value<bool> oemAdviceShown = const Value.absent(),
                 Value<bool> bgLocationDisclosureAcked = const Value.absent(),
                 Value<double?> speedGoalKmh = const Value.absent(),
                 Value<double?> distanceGoalKm = const Value.absent(),
                 required DateTime createdAt,
-              }) => UserSettingsCompanion.insert(
+              }) => LegacyUserSettingsPreV15Companion.insert(
                 id: id,
                 uid: uid,
                 username: username,
@@ -10733,7 +10627,6 @@ class $$UserSettingsTableTableManager
                 isPro: isPro,
                 rankingsEnabled: rankingsEnabled,
                 onboardingComplete: onboardingComplete,
-                usernameClaimed: usernameClaimed,
                 oemAdviceShown: oemAdviceShown,
                 bgLocationDisclosureAcked: bgLocationDisclosureAcked,
                 speedGoalKmh: speedGoalKmh,
@@ -10748,21 +10641,25 @@ class $$UserSettingsTableTableManager
       );
 }
 
-typedef $$UserSettingsTableProcessedTableManager =
+typedef $$LegacyUserSettingsPreV15TableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
-      $UserSettingsTable,
-      UserSettingsRow,
-      $$UserSettingsTableFilterComposer,
-      $$UserSettingsTableOrderingComposer,
-      $$UserSettingsTableAnnotationComposer,
-      $$UserSettingsTableCreateCompanionBuilder,
-      $$UserSettingsTableUpdateCompanionBuilder,
+      _$LegacyAppDatabaseV14,
+      $LegacyUserSettingsPreV15Table,
+      LegacyUserSettingsPreV15Row,
+      $$LegacyUserSettingsPreV15TableFilterComposer,
+      $$LegacyUserSettingsPreV15TableOrderingComposer,
+      $$LegacyUserSettingsPreV15TableAnnotationComposer,
+      $$LegacyUserSettingsPreV15TableCreateCompanionBuilder,
+      $$LegacyUserSettingsPreV15TableUpdateCompanionBuilder,
       (
-        UserSettingsRow,
-        BaseReferences<_$AppDatabase, $UserSettingsTable, UserSettingsRow>,
+        LegacyUserSettingsPreV15Row,
+        BaseReferences<
+          _$LegacyAppDatabaseV14,
+          $LegacyUserSettingsPreV15Table,
+          LegacyUserSettingsPreV15Row
+        >,
       ),
-      UserSettingsRow,
+      LegacyUserSettingsPreV15Row,
       PrefetchHooks Function()
     >;
 typedef $$LiveTripsTableCreateCompanionBuilder =
@@ -10801,7 +10698,7 @@ typedef $$LiveTripsTableUpdateCompanionBuilder =
     });
 
 class $$LiveTripsTableFilterComposer
-    extends Composer<_$AppDatabase, $LiveTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $LiveTripsTable> {
   $$LiveTripsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -10881,7 +10778,7 @@ class $$LiveTripsTableFilterComposer
 }
 
 class $$LiveTripsTableOrderingComposer
-    extends Composer<_$AppDatabase, $LiveTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $LiveTripsTable> {
   $$LiveTripsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -10961,7 +10858,7 @@ class $$LiveTripsTableOrderingComposer
 }
 
 class $$LiveTripsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $LiveTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $LiveTripsTable> {
   $$LiveTripsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11029,7 +10926,7 @@ class $$LiveTripsTableAnnotationComposer
 class $$LiveTripsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $LiveTripsTable,
           LiveTripRow,
           $$LiveTripsTableFilterComposer,
@@ -11039,12 +10936,16 @@ class $$LiveTripsTableTableManager
           $$LiveTripsTableUpdateCompanionBuilder,
           (
             LiveTripRow,
-            BaseReferences<_$AppDatabase, $LiveTripsTable, LiveTripRow>,
+            BaseReferences<
+              _$LegacyAppDatabaseV14,
+              $LiveTripsTable,
+              LiveTripRow
+            >,
           ),
           LiveTripRow,
           PrefetchHooks Function()
         > {
-  $$LiveTripsTableTableManager(_$AppDatabase db, $LiveTripsTable table)
+  $$LiveTripsTableTableManager(_$LegacyAppDatabaseV14 db, $LiveTripsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -11129,7 +11030,7 @@ class $$LiveTripsTableTableManager
 
 typedef $$LiveTripsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $LiveTripsTable,
       LiveTripRow,
       $$LiveTripsTableFilterComposer,
@@ -11139,7 +11040,7 @@ typedef $$LiveTripsTableProcessedTableManager =
       $$LiveTripsTableUpdateCompanionBuilder,
       (
         LiveTripRow,
-        BaseReferences<_$AppDatabase, $LiveTripsTable, LiveTripRow>,
+        BaseReferences<_$LegacyAppDatabaseV14, $LiveTripsTable, LiveTripRow>,
       ),
       LiveTripRow,
       PrefetchHooks Function()
@@ -11168,7 +11069,7 @@ typedef $$LiveWaypointsTableUpdateCompanionBuilder =
     });
 
 class $$LiveWaypointsTableFilterComposer
-    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $LiveWaypointsTable> {
   $$LiveWaypointsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11218,7 +11119,7 @@ class $$LiveWaypointsTableFilterComposer
 }
 
 class $$LiveWaypointsTableOrderingComposer
-    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $LiveWaypointsTable> {
   $$LiveWaypointsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -11268,7 +11169,7 @@ class $$LiveWaypointsTableOrderingComposer
 }
 
 class $$LiveWaypointsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $LiveWaypointsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $LiveWaypointsTable> {
   $$LiveWaypointsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11308,7 +11209,7 @@ class $$LiveWaypointsTableAnnotationComposer
 class $$LiveWaypointsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $LiveWaypointsTable,
           LiveWaypointRow,
           $$LiveWaypointsTableFilterComposer,
@@ -11318,13 +11219,19 @@ class $$LiveWaypointsTableTableManager
           $$LiveWaypointsTableUpdateCompanionBuilder,
           (
             LiveWaypointRow,
-            BaseReferences<_$AppDatabase, $LiveWaypointsTable, LiveWaypointRow>,
+            BaseReferences<
+              _$LegacyAppDatabaseV14,
+              $LiveWaypointsTable,
+              LiveWaypointRow
+            >,
           ),
           LiveWaypointRow,
           PrefetchHooks Function()
         > {
-  $$LiveWaypointsTableTableManager(_$AppDatabase db, $LiveWaypointsTable table)
-    : super(
+  $$LiveWaypointsTableTableManager(
+    _$LegacyAppDatabaseV14 db,
+    $LiveWaypointsTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
@@ -11384,7 +11291,7 @@ class $$LiveWaypointsTableTableManager
 
 typedef $$LiveWaypointsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $LiveWaypointsTable,
       LiveWaypointRow,
       $$LiveWaypointsTableFilterComposer,
@@ -11394,7 +11301,11 @@ typedef $$LiveWaypointsTableProcessedTableManager =
       $$LiveWaypointsTableUpdateCompanionBuilder,
       (
         LiveWaypointRow,
-        BaseReferences<_$AppDatabase, $LiveWaypointsTable, LiveWaypointRow>,
+        BaseReferences<
+          _$LegacyAppDatabaseV14,
+          $LiveWaypointsTable,
+          LiveWaypointRow
+        >,
       ),
       LiveWaypointRow,
       PrefetchHooks Function()
@@ -11421,7 +11332,7 @@ typedef $$FriendsTableUpdateCompanionBuilder =
     });
 
 class $$FriendsTableFilterComposer
-    extends Composer<_$AppDatabase, $FriendsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $FriendsTable> {
   $$FriendsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11466,7 +11377,7 @@ class $$FriendsTableFilterComposer
 }
 
 class $$FriendsTableOrderingComposer
-    extends Composer<_$AppDatabase, $FriendsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $FriendsTable> {
   $$FriendsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -11511,7 +11422,7 @@ class $$FriendsTableOrderingComposer
 }
 
 class $$FriendsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $FriendsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $FriendsTable> {
   $$FriendsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11544,7 +11455,7 @@ class $$FriendsTableAnnotationComposer
 class $$FriendsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $FriendsTable,
           FriendRow,
           $$FriendsTableFilterComposer,
@@ -11552,11 +11463,14 @@ class $$FriendsTableTableManager
           $$FriendsTableAnnotationComposer,
           $$FriendsTableCreateCompanionBuilder,
           $$FriendsTableUpdateCompanionBuilder,
-          (FriendRow, BaseReferences<_$AppDatabase, $FriendsTable, FriendRow>),
+          (
+            FriendRow,
+            BaseReferences<_$LegacyAppDatabaseV14, $FriendsTable, FriendRow>,
+          ),
           FriendRow,
           PrefetchHooks Function()
         > {
-  $$FriendsTableTableManager(_$AppDatabase db, $FriendsTable table)
+  $$FriendsTableTableManager(_$LegacyAppDatabaseV14 db, $FriendsTable table)
     : super(
         TableManagerState(
           db: db,
@@ -11613,7 +11527,7 @@ class $$FriendsTableTableManager
 
 typedef $$FriendsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $FriendsTable,
       FriendRow,
       $$FriendsTableFilterComposer,
@@ -11621,7 +11535,10 @@ typedef $$FriendsTableProcessedTableManager =
       $$FriendsTableAnnotationComposer,
       $$FriendsTableCreateCompanionBuilder,
       $$FriendsTableUpdateCompanionBuilder,
-      (FriendRow, BaseReferences<_$AppDatabase, $FriendsTable, FriendRow>),
+      (
+        FriendRow,
+        BaseReferences<_$LegacyAppDatabaseV14, $FriendsTable, FriendRow>,
+      ),
       FriendRow,
       PrefetchHooks Function()
     >;
@@ -11647,7 +11564,7 @@ typedef $$FriendRequestsTableUpdateCompanionBuilder =
     });
 
 class $$FriendRequestsTableFilterComposer
-    extends Composer<_$AppDatabase, $FriendRequestsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $FriendRequestsTable> {
   $$FriendRequestsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -11692,7 +11609,7 @@ class $$FriendRequestsTableFilterComposer
 }
 
 class $$FriendRequestsTableOrderingComposer
-    extends Composer<_$AppDatabase, $FriendRequestsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $FriendRequestsTable> {
   $$FriendRequestsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -11737,7 +11654,7 @@ class $$FriendRequestsTableOrderingComposer
 }
 
 class $$FriendRequestsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $FriendRequestsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $FriendRequestsTable> {
   $$FriendRequestsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -11770,7 +11687,7 @@ class $$FriendRequestsTableAnnotationComposer
 class $$FriendRequestsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $FriendRequestsTable,
           FriendRequestRow,
           $$FriendRequestsTableFilterComposer,
@@ -11781,7 +11698,7 @@ class $$FriendRequestsTableTableManager
           (
             FriendRequestRow,
             BaseReferences<
-              _$AppDatabase,
+              _$LegacyAppDatabaseV14,
               $FriendRequestsTable,
               FriendRequestRow
             >,
@@ -11790,7 +11707,7 @@ class $$FriendRequestsTableTableManager
           PrefetchHooks Function()
         > {
   $$FriendRequestsTableTableManager(
-    _$AppDatabase db,
+    _$LegacyAppDatabaseV14 db,
     $FriendRequestsTable table,
   ) : super(
         TableManagerState(
@@ -11848,7 +11765,7 @@ class $$FriendRequestsTableTableManager
 
 typedef $$FriendRequestsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $FriendRequestsTable,
       FriendRequestRow,
       $$FriendRequestsTableFilterComposer,
@@ -11858,7 +11775,11 @@ typedef $$FriendRequestsTableProcessedTableManager =
       $$FriendRequestsTableUpdateCompanionBuilder,
       (
         FriendRequestRow,
-        BaseReferences<_$AppDatabase, $FriendRequestsTable, FriendRequestRow>,
+        BaseReferences<
+          _$LegacyAppDatabaseV14,
+          $FriendRequestsTable,
+          FriendRequestRow
+        >,
       ),
       FriendRequestRow,
       PrefetchHooks Function()
@@ -11895,14 +11816,15 @@ typedef $$ChallengesTableUpdateCompanionBuilder =
     });
 
 final class $$ChallengesTableReferences
-    extends BaseReferences<_$AppDatabase, $ChallengesTable, ChallengeRow> {
+    extends
+        BaseReferences<_$LegacyAppDatabaseV14, $ChallengesTable, ChallengeRow> {
   $$ChallengesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<
     $ChallengeProgressTable,
     List<ChallengeProgressRow>
   >
-  _challengeProgressRefsTable(_$AppDatabase db) =>
+  _challengeProgressRefsTable(_$LegacyAppDatabaseV14 db) =>
       MultiTypedResultKey.fromTable(
         db.challengeProgress,
         aliasName: $_aliasNameGenerator(
@@ -11927,7 +11849,7 @@ final class $$ChallengesTableReferences
 }
 
 class $$ChallengesTableFilterComposer
-    extends Composer<_$AppDatabase, $ChallengesTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $ChallengesTable> {
   $$ChallengesTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -12022,7 +11944,7 @@ class $$ChallengesTableFilterComposer
 }
 
 class $$ChallengesTableOrderingComposer
-    extends Composer<_$AppDatabase, $ChallengesTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $ChallengesTable> {
   $$ChallengesTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -12092,7 +12014,7 @@ class $$ChallengesTableOrderingComposer
 }
 
 class $$ChallengesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ChallengesTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $ChallengesTable> {
   $$ChallengesTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -12172,7 +12094,7 @@ class $$ChallengesTableAnnotationComposer
 class $$ChallengesTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $ChallengesTable,
           ChallengeRow,
           $$ChallengesTableFilterComposer,
@@ -12184,8 +12106,10 @@ class $$ChallengesTableTableManager
           ChallengeRow,
           PrefetchHooks Function({bool challengeProgressRefs})
         > {
-  $$ChallengesTableTableManager(_$AppDatabase db, $ChallengesTable table)
-    : super(
+  $$ChallengesTableTableManager(
+    _$LegacyAppDatabaseV14 db,
+    $ChallengesTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
@@ -12299,7 +12223,7 @@ class $$ChallengesTableTableManager
 
 typedef $$ChallengesTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $ChallengesTable,
       ChallengeRow,
       $$ChallengesTableFilterComposer,
@@ -12335,7 +12259,7 @@ typedef $$ChallengeProgressTableUpdateCompanionBuilder =
 final class $$ChallengeProgressTableReferences
     extends
         BaseReferences<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $ChallengeProgressTable,
           ChallengeProgressRow
         > {
@@ -12345,7 +12269,7 @@ final class $$ChallengeProgressTableReferences
     super.$_typedResult,
   );
 
-  static $ChallengesTable _challengeIdTable(_$AppDatabase db) =>
+  static $ChallengesTable _challengeIdTable(_$LegacyAppDatabaseV14 db) =>
       db.challenges.createAlias(
         $_aliasNameGenerator(
           db.challengeProgress.challengeId,
@@ -12369,7 +12293,7 @@ final class $$ChallengeProgressTableReferences
 }
 
 class $$ChallengeProgressTableFilterComposer
-    extends Composer<_$AppDatabase, $ChallengeProgressTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $ChallengeProgressTable> {
   $$ChallengeProgressTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -12427,7 +12351,7 @@ class $$ChallengeProgressTableFilterComposer
 }
 
 class $$ChallengeProgressTableOrderingComposer
-    extends Composer<_$AppDatabase, $ChallengeProgressTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $ChallengeProgressTable> {
   $$ChallengeProgressTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -12485,7 +12409,7 @@ class $$ChallengeProgressTableOrderingComposer
 }
 
 class $$ChallengeProgressTableAnnotationComposer
-    extends Composer<_$AppDatabase, $ChallengeProgressTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $ChallengeProgressTable> {
   $$ChallengeProgressTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -12543,7 +12467,7 @@ class $$ChallengeProgressTableAnnotationComposer
 class $$ChallengeProgressTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $ChallengeProgressTable,
           ChallengeProgressRow,
           $$ChallengeProgressTableFilterComposer,
@@ -12556,7 +12480,7 @@ class $$ChallengeProgressTableTableManager
           PrefetchHooks Function({bool challengeId})
         > {
   $$ChallengeProgressTableTableManager(
-    _$AppDatabase db,
+    _$LegacyAppDatabaseV14 db,
     $ChallengeProgressTable table,
   ) : super(
         TableManagerState(
@@ -12664,7 +12588,7 @@ class $$ChallengeProgressTableTableManager
 
 typedef $$ChallengeProgressTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $ChallengeProgressTable,
       ChallengeProgressRow,
       $$ChallengeProgressTableFilterComposer,
@@ -12696,7 +12620,7 @@ typedef $$TrophiesTableUpdateCompanionBuilder =
     });
 
 class $$TrophiesTableFilterComposer
-    extends Composer<_$AppDatabase, $TrophiesTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $TrophiesTable> {
   $$TrophiesTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -12736,7 +12660,7 @@ class $$TrophiesTableFilterComposer
 }
 
 class $$TrophiesTableOrderingComposer
-    extends Composer<_$AppDatabase, $TrophiesTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $TrophiesTable> {
   $$TrophiesTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -12776,7 +12700,7 @@ class $$TrophiesTableOrderingComposer
 }
 
 class $$TrophiesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TrophiesTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $TrophiesTable> {
   $$TrophiesTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -12810,7 +12734,7 @@ class $$TrophiesTableAnnotationComposer
 class $$TrophiesTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $TrophiesTable,
           TrophyRow,
           $$TrophiesTableFilterComposer,
@@ -12818,11 +12742,14 @@ class $$TrophiesTableTableManager
           $$TrophiesTableAnnotationComposer,
           $$TrophiesTableCreateCompanionBuilder,
           $$TrophiesTableUpdateCompanionBuilder,
-          (TrophyRow, BaseReferences<_$AppDatabase, $TrophiesTable, TrophyRow>),
+          (
+            TrophyRow,
+            BaseReferences<_$LegacyAppDatabaseV14, $TrophiesTable, TrophyRow>,
+          ),
           TrophyRow,
           PrefetchHooks Function()
         > {
-  $$TrophiesTableTableManager(_$AppDatabase db, $TrophiesTable table)
+  $$TrophiesTableTableManager(_$LegacyAppDatabaseV14 db, $TrophiesTable table)
     : super(
         TableManagerState(
           db: db,
@@ -12875,7 +12802,7 @@ class $$TrophiesTableTableManager
 
 typedef $$TrophiesTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $TrophiesTable,
       TrophyRow,
       $$TrophiesTableFilterComposer,
@@ -12883,7 +12810,10 @@ typedef $$TrophiesTableProcessedTableManager =
       $$TrophiesTableAnnotationComposer,
       $$TrophiesTableCreateCompanionBuilder,
       $$TrophiesTableUpdateCompanionBuilder,
-      (TrophyRow, BaseReferences<_$AppDatabase, $TrophiesTable, TrophyRow>),
+      (
+        TrophyRow,
+        BaseReferences<_$LegacyAppDatabaseV14, $TrophiesTable, TrophyRow>,
+      ),
       TrophyRow,
       PrefetchHooks Function()
     >;
@@ -12911,7 +12841,7 @@ typedef $$TripEligibilityTableUpdateCompanionBuilder =
 final class $$TripEligibilityTableReferences
     extends
         BaseReferences<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $TripEligibilityTable,
           TripEligibilityRow
         > {
@@ -12921,9 +12851,10 @@ final class $$TripEligibilityTableReferences
     super.$_typedResult,
   );
 
-  static $TripsTable _tripIdTable(_$AppDatabase db) => db.trips.createAlias(
-    $_aliasNameGenerator(db.tripEligibility.tripId, db.trips.id),
-  );
+  static $TripsTable _tripIdTable(_$LegacyAppDatabaseV14 db) =>
+      db.trips.createAlias(
+        $_aliasNameGenerator(db.tripEligibility.tripId, db.trips.id),
+      );
 
   $$TripsTableProcessedTableManager get tripId {
     final $_column = $_itemColumn<int>('trip_id')!;
@@ -12941,7 +12872,7 @@ final class $$TripEligibilityTableReferences
 }
 
 class $$TripEligibilityTableFilterComposer
-    extends Composer<_$AppDatabase, $TripEligibilityTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $TripEligibilityTable> {
   $$TripEligibilityTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -13004,7 +12935,7 @@ class $$TripEligibilityTableFilterComposer
 }
 
 class $$TripEligibilityTableOrderingComposer
-    extends Composer<_$AppDatabase, $TripEligibilityTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $TripEligibilityTable> {
   $$TripEligibilityTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -13067,7 +12998,7 @@ class $$TripEligibilityTableOrderingComposer
 }
 
 class $$TripEligibilityTableAnnotationComposer
-    extends Composer<_$AppDatabase, $TripEligibilityTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $TripEligibilityTable> {
   $$TripEligibilityTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -13130,7 +13061,7 @@ class $$TripEligibilityTableAnnotationComposer
 class $$TripEligibilityTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $TripEligibilityTable,
           TripEligibilityRow,
           $$TripEligibilityTableFilterComposer,
@@ -13143,7 +13074,7 @@ class $$TripEligibilityTableTableManager
           PrefetchHooks Function({bool tripId})
         > {
   $$TripEligibilityTableTableManager(
-    _$AppDatabase db,
+    _$LegacyAppDatabaseV14 db,
     $TripEligibilityTable table,
   ) : super(
         TableManagerState(
@@ -13248,7 +13179,7 @@ class $$TripEligibilityTableTableManager
 
 typedef $$TripEligibilityTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $TripEligibilityTable,
       TripEligibilityRow,
       $$TripEligibilityTableFilterComposer,
@@ -13276,7 +13207,7 @@ typedef $$DeletedTripsTableUpdateCompanionBuilder =
     });
 
 class $$DeletedTripsTableFilterComposer
-    extends Composer<_$AppDatabase, $DeletedTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $DeletedTripsTable> {
   $$DeletedTripsTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -13301,7 +13232,7 @@ class $$DeletedTripsTableFilterComposer
 }
 
 class $$DeletedTripsTableOrderingComposer
-    extends Composer<_$AppDatabase, $DeletedTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $DeletedTripsTable> {
   $$DeletedTripsTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -13326,7 +13257,7 @@ class $$DeletedTripsTableOrderingComposer
 }
 
 class $$DeletedTripsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $DeletedTripsTable> {
+    extends Composer<_$LegacyAppDatabaseV14, $DeletedTripsTable> {
   $$DeletedTripsTableAnnotationComposer({
     required super.$db,
     required super.$table,
@@ -13347,7 +13278,7 @@ class $$DeletedTripsTableAnnotationComposer
 class $$DeletedTripsTableTableManager
     extends
         RootTableManager<
-          _$AppDatabase,
+          _$LegacyAppDatabaseV14,
           $DeletedTripsTable,
           DeletedTripRow,
           $$DeletedTripsTableFilterComposer,
@@ -13357,13 +13288,19 @@ class $$DeletedTripsTableTableManager
           $$DeletedTripsTableUpdateCompanionBuilder,
           (
             DeletedTripRow,
-            BaseReferences<_$AppDatabase, $DeletedTripsTable, DeletedTripRow>,
+            BaseReferences<
+              _$LegacyAppDatabaseV14,
+              $DeletedTripsTable,
+              DeletedTripRow
+            >,
           ),
           DeletedTripRow,
           PrefetchHooks Function()
         > {
-  $$DeletedTripsTableTableManager(_$AppDatabase db, $DeletedTripsTable table)
-    : super(
+  $$DeletedTripsTableTableManager(
+    _$LegacyAppDatabaseV14 db,
+    $DeletedTripsTable table,
+  ) : super(
         TableManagerState(
           db: db,
           table: table,
@@ -13407,7 +13344,7 @@ class $$DeletedTripsTableTableManager
 
 typedef $$DeletedTripsTableProcessedTableManager =
     ProcessedTableManager<
-      _$AppDatabase,
+      _$LegacyAppDatabaseV14,
       $DeletedTripsTable,
       DeletedTripRow,
       $$DeletedTripsTableFilterComposer,
@@ -13417,21 +13354,28 @@ typedef $$DeletedTripsTableProcessedTableManager =
       $$DeletedTripsTableUpdateCompanionBuilder,
       (
         DeletedTripRow,
-        BaseReferences<_$AppDatabase, $DeletedTripsTable, DeletedTripRow>,
+        BaseReferences<
+          _$LegacyAppDatabaseV14,
+          $DeletedTripsTable,
+          DeletedTripRow
+        >,
       ),
       DeletedTripRow,
       PrefetchHooks Function()
     >;
 
-class $AppDatabaseManager {
-  final _$AppDatabase _db;
-  $AppDatabaseManager(this._db);
+class $LegacyAppDatabaseV14Manager {
+  final _$LegacyAppDatabaseV14 _db;
+  $LegacyAppDatabaseV14Manager(this._db);
   $$TripsTableTableManager get trips =>
       $$TripsTableTableManager(_db, _db.trips);
   $$WaypointsTableTableManager get waypoints =>
       $$WaypointsTableTableManager(_db, _db.waypoints);
-  $$UserSettingsTableTableManager get userSettings =>
-      $$UserSettingsTableTableManager(_db, _db.userSettings);
+  $$LegacyUserSettingsPreV15TableTableManager get legacyUserSettingsPreV15 =>
+      $$LegacyUserSettingsPreV15TableTableManager(
+        _db,
+        _db.legacyUserSettingsPreV15,
+      );
   $$LiveTripsTableTableManager get liveTrips =>
       $$LiveTripsTableTableManager(_db, _db.liveTrips);
   $$LiveWaypointsTableTableManager get liveWaypoints =>

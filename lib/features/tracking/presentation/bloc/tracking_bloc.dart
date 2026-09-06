@@ -13,6 +13,7 @@ import 'package:drive_rank/core/services/retention_notification_copy.dart';
 import 'package:drive_rank/core/services/retention_notification_service.dart';
 import 'package:drive_rank/core/services/sensor_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
@@ -593,6 +594,14 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       // configured — its `RemoteTripSink` falls back to a no-op impl).
       if (getIt.isRegistered<SyncManager>()) {
         unawaited(getIt<SyncManager>().syncNow());
+      }
+      // Republish this driver's own competitive totals — the trip just
+      // changed them, and friends rank against what's published. Same
+      // fire-and-forget contract as the sync above: the trip is already
+      // saved locally, and the publisher recomputes from scratch next
+      // time if this attempt fails.
+      if (getIt.isRegistered<CompetitionValuePublisher>()) {
+        unawaited(getIt<CompetitionValuePublisher>().publishNow());
       }
 
       final after = await _settings.read();

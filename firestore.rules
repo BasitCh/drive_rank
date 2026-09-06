@@ -8,6 +8,29 @@ rules_version = '2';
 //   - `device_trials/{hash}` — the anti-abuse free-trip counter, keyed by
 //     a sha256 hash of the device's ANDROID_ID (Android) or
 //     identifierForVendor (iOS). No PII, doc ids are unguessable.
+//   - `public_profiles/{uid}` — the deliberately-public mirror the
+//     friend features read: identity plus competitive totals, and
+//     nothing else. Owner-writes-only with a closed field whitelist;
+//     readable by any signed-in user.
+//
+//     **MVP trust model: these values are self-reported.** They are
+//     computed and written by the owner's own client, so these rules
+//     guarantee *who wrote them* — nobody can inflate another user's
+//     figures, delete them, or post under their name — but not that the
+//     numbers are true. That is acceptable for friends-scale
+//     competition, where the worst available cheat is overstating your
+//     own driving to people who invited you.
+//
+//     **Do not widen the read rule to build a public leaderboard of
+//     strangers.** That is the point at which validation has to move to
+//     a server-authoritative path, not the point at which this surface
+//     gets shared more widely. Same for prizes or paid competition.
+//
+//   - `usernames/{usernameLower}` — one document per claimed name, the
+//     lock that makes a username resolve to exactly one account.
+//     Create-only: reservations are permanent by decision, so a name is
+//     never released or transferred (see UsernameReservationService).
+//
 //   - `users/{uid}` — public profile (username, car, country, photo URL,
 //     lifetime top speed) + `users/{uid}/trips/{remoteId}` — full trip
 //     detail including waypoints (inline or chunked). Owner-only:
@@ -48,6 +71,53 @@ service cloud.firestore {
                                       && request.auth.uid == uid;
         }
       }
+    }
+
+    // The public competition mirror. Note the asymmetry with
+    // `users/{uid}` above: that document is owner-read because it holds
+    // PII; this one exists precisely to be read by other people, which
+    // is why it is a separate document holding a deliberately narrow
+    // field set rather than a widened rule on the private one.
+    match /public_profiles/{uid} {
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.data.keys().hasOnly([
+                        'username', 'usernameLower', 'carMake', 'carModel',
+                        'countryCode', 'updatedAt',
+                        'distance_weekly', 'distance_monthly',
+                        'distance_allTime',
+                        'longestTrip_weekly', 'longestTrip_monthly',
+                        'longestTrip_allTime',
+                        'consistency_weekly', 'consistency_monthly',
+                        'consistency_allTime'
+                      ]);
+
+      // Account deletion removes this through the same explicit client
+      // path that clears `users/{uid}` — see CloudSyncService.
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Username reservations. The document *is* the lock: a create is
+    // only valid when the name is free, so two clients racing for the
+    // same name resolve here with exactly one winner rather than in
+    // application code that can't be trusted to be atomic.
+    match /usernames/{usernameLower} {
+      // Readable so the app can answer "is this taken" before a claim.
+      // A reservation holds only a uid and a timestamp — no PII.
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(
+                         ['uid', 'claimedAt']);
+
+      // Never updated, never deleted, never transferred. Releasing a
+      // name would let a handle that appears in someone's friend list be
+      // re-claimed by a different person, who would inherit that
+      // history.
+      allow update, delete: if false;
     }
 
     // Threat model and what these rules guarantee:
@@ -100,3 +170,20 @@ service cloud.firestore {
     }
   }
 }
+
+// -----------------------------------------------------------------------------
+// Deploying this file
+// -----------------------------------------------------------------------------
+// Nothing deploys these rules automatically — `codemagic.yaml` has no
+// Firestore step. Until they are deployed, every path added for the
+// social features is denied by the catch-all at the bottom, so the
+// feature fails closed: it looks broken rather than becoming insecure.
+//
+//   firebase login                       # once
+//   firebase deploy --only firestore:rules --project drive-rank
+//
+// Verify locally first — the suite covers the allow *and* deny side of
+// every rule here:
+//
+//   cd test/rules && npm install         # once
+//   firebase emulators:exec --only firestore "npm --prefix test/rules test"

@@ -47,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -248,6 +248,21 @@ class AppDatabase extends _$AppDatabase {
         // possible or wanted — trips already deleted under the old
         // behaviour left no record of ever having existed.
         await m.createTable(deletedTrips);
+      }
+      if (from < 15) {
+        // v15 — username_claimed: whether this account holds its
+        // username in the shared Firestore namespace.
+        //
+        // Defaults false, which is the truthful starting point for
+        // every existing install: usernames were never checked for
+        // uniqueness, so nobody holds theirs yet. The next launch
+        // attempts a claim and flips this when it succeeds. Nobody is
+        // renamed and nobody is blocked in the meantime — an unclaimed
+        // account simply isn't findable by name.
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN username_claimed '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
       }
     },
     beforeOpen: (details) async {
