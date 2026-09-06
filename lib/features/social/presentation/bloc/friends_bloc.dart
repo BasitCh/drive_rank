@@ -22,9 +22,16 @@ class FriendsStarted extends FriendsEvent {
   const FriendsStarted();
 }
 
-/// Pull-to-refresh, and the post-action refresh.
+/// Re-reads what the page shows.
+///
+/// [fromCloud] distinguishes the two callers: a pull-to-refresh must
+/// actually reach Firestore, while the many internal refreshes that
+/// follow a local write only need to re-read Drift — the write is
+/// already there, and a network round-trip per action would make every
+/// tap feel slow.
 class FriendsRefreshed extends FriendsEvent {
-  const FriendsRefreshed();
+  const FriendsRefreshed({this.fromCloud = false});
+  final bool fromCloud;
 }
 
 class FriendsLookupRequested extends FriendsEvent {
@@ -189,6 +196,9 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
     // closed, then show whatever is local either way — a failed sync
     // must not leave the page empty when Drift already has friends.
     await _sync.syncNow();
+    // …and keep listening, so a request that arrives while this page is
+    // open shows up without closing and reopening it.
+    await _sync.start();
     add(const FriendsRefreshed());
   }
 
@@ -196,6 +206,10 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
     FriendsRefreshed event,
     Emitter<FriendsState> emit,
   ) async {
+    // A pull-to-refresh that only re-read Drift looked like a refresh
+    // and fetched nothing — the gesture has to reach the cloud, which
+    // is the whole reason someone reaches for it.
+    if (event.fromCloud) await _sync.syncNow();
     final uid = state.uid.isEmpty ? (await _settings.read()).uid : state.uid;
     final friends = await _social.getFriends(uid);
     final requests = await _social.watchIncomingRequests(uid).first;
@@ -353,6 +367,10 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
   Future<void> close() async {
     await _friendsSub?.cancel();
     await _requestsSub?.cancel();
+    // The live listeners belong to the page's lifetime — a Firestore
+    // subscription left running behind a closed screen is a bill and a
+    // leak.
+    await _sync.stop();
     return super.close();
   }
 }

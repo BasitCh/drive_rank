@@ -86,8 +86,9 @@ class _FriendsBody extends StatelessWidget {
           return RefreshIndicator(
             color: AppColors.teal,
             backgroundColor: AppColors.card,
-            onRefresh: () async =>
-                context.read<FriendsBloc>().add(const FriendsRefreshed()),
+            onRefresh: () async => context.read<FriendsBloc>().add(
+              const FriendsRefreshed(fromCloud: true),
+            ),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 24),
               children: [

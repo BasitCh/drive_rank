@@ -180,6 +180,18 @@ service cloud.firestore {
                             && request_().status == 'cancelled')
                            || (existing().status == 'cancelled'
                                && request_().status == 'pending')))
+                      ||
+                      // Either party may end an accepted request when
+                      // they unfriend. Without this, "accepted request
+                      // with no friendship" stays indistinguishable
+                      // from "the friendship write never landed", and
+                      // the sync's self-healing pass recreates a
+                      // friendship that was deliberately ended.
+                      // `ended` is terminal: re-friending starts a new
+                      // request, it does not revive an old one.
+                      (isParty()
+                       && existing().status == 'accepted'
+                       && request_().status == 'ended')
                     );
 
       // History survives. A deletable request would make a decline

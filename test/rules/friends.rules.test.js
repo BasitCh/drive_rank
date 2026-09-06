@@ -202,6 +202,47 @@ describe('friend requests', () => {
       );
     });
 
+    it('lets either party end an accepted request, which is how an '
+      + 'unfriend records itself', async () => {
+      await assertSucceeds(
+        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+      );
+      await assertSucceeds(
+        updateDoc(asUser(A), { status: 'ended', updatedAt: new Date() }),
+      );
+    });
+
+    it('refuses ending a request that was never accepted', async () => {
+      await assertFails(
+        updateDoc(asUser(A), { status: 'ended', updatedAt: new Date() }),
+      );
+    });
+
+    it('refuses ending somebody else\'s friendship', async () => {
+      await assertSucceeds(
+        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+      );
+      await assertFails(
+        updateDoc(asUser(C), { status: 'ended', updatedAt: new Date() }),
+      );
+    });
+
+    it('treats ended as terminal — re-friending starts a new request '
+      + 'rather than reviving an old one', async () => {
+      await assertSucceeds(
+        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+      );
+      await assertSucceeds(
+        updateDoc(asUser(A), { status: 'ended', updatedAt: new Date() }),
+      );
+      await assertFails(
+        updateDoc(asUser(A), { status: 'pending', updatedAt: new Date() }),
+      );
+      await assertFails(
+        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+      );
+    });
+
     it('never allows a delete, so a decline cannot be made invisible',
       async () => {
         await assertFails(deleteDoc(asUser(A)));
@@ -241,6 +282,22 @@ describe('friendships', () => {
       await setDoc(
         doc(ctx.firestore(), 'friend_requests', requestId(A, B)),
         requestDoc(A, B),
+      );
+    });
+    const db = testEnv.authenticatedContext(B).firestore();
+    await assertFails(
+      setDoc(doc(db, 'friendships', pairKey(A, B)), friendshipDoc(A, B)),
+    );
+  });
+
+  it('cannot be created off an ended request — this is the resurrection '
+    + 'the two-account walkthrough caught: an unfriend leaves an '
+    + 'accepted-looking request behind unless it is ended too',
+  async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), 'friend_requests', requestId(A, B)),
+        requestDoc(A, B, 'ended'),
       );
     });
     const db = testEnv.authenticatedContext(B).firestore();

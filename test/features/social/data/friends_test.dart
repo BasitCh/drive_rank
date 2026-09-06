@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:drift/drift.dart' show Value;
@@ -8,17 +9,28 @@ import 'package:drive_rank/core/services/free_trip_counter_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart';
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart';
+import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart';
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/friend_request.dart';
 import 'package:drive_rank/features/social/domain/entities/invite_code.dart';
+import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 class _MockFreeTripCounterService extends Mock
     implements FreeTripCounterService {}
+
+/// Records what would have been published.
+class _RecordingSink implements CompetitionMirrorSink {
+  final List<CompetitionMirror> written = [];
+
+  @override
+  Future<void> write(CompetitionMirror mirror) async => written.add(mirror);
+}
 
 /// An in-memory stand-in for the shared collections.
 class _FakeDirectory implements SocialDirectory {
@@ -112,11 +124,46 @@ class _FakeDirectory implements SocialDirectory {
     required String b,
   }) async {
     friendships.remove(friendshipKey(a, b));
+    // Mirrors the real batch: an unfriend ends the accepted requests
+    // behind it, or the healing pass would recreate the friendship.
+    for (final (from, to) in [(a, b), (b, a)]) {
+      final id = friendRequestKey(fromUid: from, toUid: to);
+      final existing = requests[id];
+      if (existing?.status == FriendRequestStatus.accepted) {
+        requests[id] = FriendRequest(
+          id: id,
+          fromUid: existing!.fromUid,
+          toUid: existing.toUid,
+          status: FriendRequestStatus.ended,
+          createdAt: existing.createdAt,
+          updatedAt: DateTime(2026, 3),
+        );
+      }
+    }
   }
 
   @override
   Future<List<RemoteFriendship>> friendshipsFor(String uid) async =>
       friendships.values.where((f) => f.uids.contains(uid)).toList();
+
+  /// Broadcast so a test can push a change the way Firestore would.
+  final friendshipEvents =
+      StreamController<List<RemoteFriendship>>.broadcast();
+  final requestEvents = StreamController<List<FriendRequest>>.broadcast();
+
+  @override
+  Stream<List<RemoteFriendship>> watchFriendships(String uid) =>
+      friendshipEvents.stream;
+
+  @override
+  Stream<List<FriendRequest>> watchIncomingRequests(String uid) =>
+      requestEvents.stream;
+
+  /// Mimics a remote change arriving: mutate, then notify.
+  void notify() {
+    friendshipEvents.add(friendships.values.toList());
+    requestEvents.add(requests.values.toList());
+  }
 }
 
 void main() {
@@ -126,6 +173,7 @@ void main() {
   late UserSettingsRepository settings;
   late _FakeDirectory directory;
   late FriendsSyncService sync;
+  late _RecordingSink sink;
 
   const alice = 'alice-uid';
   const bob = 'bob-uid';
@@ -140,6 +188,7 @@ void main() {
       _MockFreeTripCounterService(),
     );
     directory = _FakeDirectory();
+    sink = _RecordingSink();
     sync = FriendsSyncService(local, settings);
     getIt.registerSingleton<SocialDirectory>(directory);
     await settings.syncUid(alice);
@@ -385,6 +434,136 @@ void main() {
       await sync.syncNow();
 
       expect(directory.createFriendshipCalls, callsAfterFirst);
+    });
+
+
+    test('an unfriend is not undone by the self-healing pass — the '
+        'two-account walkthrough caught this resurrecting a friendship '
+        'somebody had deliberately ended', () async {
+      // The full shape: a request accepted, a friendship, then an
+      // unfriend, then a device syncing from nothing.
+      await directory.sendRequest(fromUid: bob, toUid: alice);
+      await directory.respondToRequest(
+        fromUid: bob,
+        toUid: alice,
+        response: FriendRequestStatus.accepted,
+      );
+      await sync.syncNow();
+      expect(await repo.areFriends(alice, bob), isTrue);
+
+      await repo.removeFriend(ownerUid: alice, friendUid: bob);
+      await directory.deleteFriendship(a: alice, b: bob);
+
+      // The wipe-and-rebuild the walkthrough used: whatever comes back
+      // can only have come from the cloud.
+      await db.delete(db.friends).go();
+      await sync.syncNow();
+      await sync.syncNow();
+
+      expect(
+        await repo.areFriends(alice, bob),
+        isFalse,
+        reason: 'healing must not revive an ended friendship',
+      );
+      expect(directory.friendships, isEmpty);
+    });
+
+    test('ending the request is what distinguishes the two cases — a '
+        'genuinely dropped friendship write still heals', () async {
+      await directory.sendRequest(fromUid: bob, toUid: alice);
+      await directory.respondToRequest(
+        fromUid: bob,
+        toUid: alice,
+        response: FriendRequestStatus.accepted,
+      );
+      // Accepted, and no friendship: the write that never landed.
+      expect(directory.friendships, isEmpty);
+
+      await sync.syncNow();
+
+      expect(await repo.areFriends(alice, bob), isTrue);
+    });
+
+
+    test('a friendship created on another device lands here without '
+        'anything asking — the bug was that the cloud was only read '
+        'when the page was constructed', () async {
+      await sync.start();
+      addTearDown(sync.stop);
+
+      // Somebody else's device acts.
+      await directory.createFriendship(a: alice, b: bob);
+      directory.notify();
+      // Let the listener's reconcile run.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(await repo.areFriends(alice, bob), isTrue);
+    });
+
+    test('an unfriend elsewhere also lands live', () async {
+      await directory.createFriendship(a: alice, b: bob);
+      await sync.syncNow();
+      expect(await repo.areFriends(alice, bob), isTrue);
+
+      await sync.start();
+      addTearDown(sync.stop);
+      await directory.deleteFriendship(a: alice, b: bob);
+      directory.notify();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(await repo.areFriends(alice, bob), isFalse);
+    });
+
+    test('starting twice replaces the listeners rather than stacking a '
+        'second pair', () async {
+      await sync.start();
+      await sync.start();
+      addTearDown(sync.stop);
+
+      await directory.createFriendship(a: alice, b: bob);
+      directory.notify();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // One friendship, one pair of local rows — a stacked listener
+      // would reconcile twice, which is harmless here only because the
+      // reconcile is idempotent. Asserted so it stays that way.
+      expect(await db.select(db.friends).get(), hasLength(2));
+    });
+
+    test('never listens under a placeholder uid', () async {
+      await db
+          .update(db.userSettings)
+          .write(const UserSettingsCompanion(uid: Value('pending')));
+
+      await sync.start();
+      addTearDown(sync.stop);
+      await directory.createFriendship(a: 'pending', b: bob);
+      directory.notify();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(await db.select(db.friends).get(), isEmpty);
+    });
+
+    test('publishes nothing before there is a username — a nameless '
+        'public profile renders as a raw uid to whoever finds it',
+        () async {
+      final publisher = CompetitionValuePublisher(
+        settings,
+        repo,
+        const DefaultCompetitionMetricCalculator(),
+      );
+      getIt.registerSingleton<CompetitionMirrorSink>(sink);
+
+      await settings.patch(const UserSettingsCompanion(username: Value('')));
+      await publisher.publishNow();
+      expect(sink.written, isEmpty);
+
+      await settings.patch(
+        const UserSettingsCompanion(username: Value('basit')),
+      );
+      await publisher.publishNow();
+      expect(sink.written, hasLength(1));
+      expect(sink.written.single.username, 'basit');
     });
 
     test('publishes nothing under a placeholder uid', () async {

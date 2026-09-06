@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
@@ -32,10 +34,54 @@ class FriendsSyncService {
   /// no-op permanently, and every write silently goes nowhere.
   SocialDirectory get _directory => getIt<SocialDirectory>();
 
+  StreamSubscription<void>? _friendshipsSub;
+  StreamSubscription<void>? _requestsSub;
+
+  /// Starts reconciling live, instead of only when something asks.
+  ///
+  /// Everything else in this app can poll, because everything else is
+  /// changed by the person holding the phone. A friend request is not:
+  /// it arrives because somebody else acted, and until this existed the
+  /// only way to see one was to close and reopen the page — the cloud
+  /// was consulted once, at page construction.
+  ///
+  /// Idempotent: calling it again replaces the subscriptions rather than
+  /// stacking a second pair.
+  Future<void> start() async {
+    final uid = (await _settings.read()).uid;
+    if (_isPlaceholder(uid)) return;
+
+    await stop();
+    // Each snapshot is reconciled the same way a manual pass is, so
+    // live and manual can't drift apart in behaviour.
+    _friendshipsSub = _directory.watchFriendships(uid).listen(
+      (_) => _syncFriendships(uid),
+      onError: (Object e) {
+        if (kDebugMode) debugPrint('[FriendsSync] friendships stream: $e');
+      },
+    );
+    _requestsSub = _directory.watchIncomingRequests(uid).listen(
+      (_) => _syncRequests(uid),
+      onError: (Object e) {
+        if (kDebugMode) debugPrint('[FriendsSync] requests stream: $e');
+      },
+    );
+  }
+
+  Future<void> stop() async {
+    await _friendshipsSub?.cancel();
+    await _requestsSub?.cancel();
+    _friendshipsSub = null;
+    _requestsSub = null;
+  }
+
+  static bool _isPlaceholder(String uid) =>
+      uid.isEmpty || uid == 'local' || uid == 'pending';
+
   Future<void> syncNow() async {
     try {
       final uid = (await _settings.read()).uid;
-      if (uid.isEmpty || uid == 'local' || uid == 'pending') return;
+      if (_isPlaceholder(uid)) return;
 
       await _syncFriendships(uid);
       await _syncRequests(uid);
@@ -95,6 +141,11 @@ class FriendsSyncService {
       // instead of leaving two people who both agreed and neither of
       // whom is a friend. Both sides can do this; the pair-keyed
       // document means they converge rather than collide.
+      //
+      // Only `accepted` heals. An unfriend moves the request to
+      // `ended` in the same batch that deletes the friendship, because
+      // otherwise the two situations are the same shape and this pass
+      // would resurrect a friendship somebody deliberately ended.
       if (request.status == FriendRequestStatus.accepted) {
         final other = request.fromUid == uid ? request.toUid : request.fromUid;
         final alreadyFriends = await _local.friendshipExists(uid, other);

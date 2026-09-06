@@ -69,6 +69,18 @@ abstract class SocialDirectory {
   Future<void> deleteFriendship({required String a, required String b});
 
   Future<List<RemoteFriendship>> friendshipsFor(String uid);
+
+  /// Live view of the friendships this account is part of.
+  ///
+  /// The friends feature is the first thing in this app whose state is
+  /// changed by *somebody else's* device, so it is the first that needs
+  /// a listener rather than a poll: without one, a request only appears
+  /// when the page is re-created, which is exactly the staleness that
+  /// showed up on device.
+  Stream<List<RemoteFriendship>> watchFriendships(String uid);
+
+  /// Live view of the requests waiting on this account's answer.
+  Stream<List<FriendRequest>> watchIncomingRequests(String uid);
 }
 
 /// The pair key both sides compute identically.
@@ -132,6 +144,14 @@ class NoopSocialDirectory implements SocialDirectory {
 
   @override
   Future<List<RemoteFriendship>> friendshipsFor(String uid) async => const [];
+
+  @override
+  Stream<List<RemoteFriendship>> watchFriendships(String uid) =>
+      const Stream.empty();
+
+  @override
+  Stream<List<FriendRequest>> watchIncomingRequests(String uid) =>
+      const Stream.empty();
 }
 
 class FirestoreSocialDirectory implements SocialDirectory {
@@ -239,11 +259,37 @@ class FirestoreSocialDirectory implements SocialDirectory {
     });
   }
 
+  /// Deletes the friendship **and** ends the accepted requests behind
+  /// it, in one batch.
+  ///
+  /// Both or neither. Deleting only the friendship leaves an accepted
+  /// request with no friendship, which is precisely the shape the sync's
+  /// self-healing pass repairs — so the next sync on either device would
+  /// recreate the friendship that was just ended. The two-account
+  /// walkthrough caught exactly that.
   @override
   Future<void> deleteFriendship({
     required String a,
     required String b,
-  }) => _friendships.doc(friendshipKey(a, b)).delete();
+  }) async {
+    final batch = _firestore.batch()
+      ..delete(_friendships.doc(friendshipKey(a, b)));
+
+    // Either direction may hold the acceptance, and in principle both
+    // could, so end whichever exist.
+    for (final (from, to) in [(a, b), (b, a)]) {
+      final ref = _requests.doc(friendRequestKey(fromUid: from, toUid: to));
+      final snapshot = await ref.get();
+      if (snapshot.data()?['status'] == FriendRequestStatus.accepted.name) {
+        batch.update(ref, {
+          'status': FriendRequestStatus.ended.name,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+      }
+    }
+
+    await batch.commit();
+  }
 
   @override
   Future<List<RemoteFriendship>> friendshipsFor(String uid) async {
@@ -258,6 +304,36 @@ class FirestoreSocialDirectory implements SocialDirectory {
           createdAt: _dateFrom(d.data()['createdAt']),
         ),
     ];
+  }
+
+  @override
+  Stream<List<RemoteFriendship>> watchFriendships(String uid) {
+    if (uid.isEmpty) return const Stream.empty();
+    return _friendships
+        .where('uids', arrayContains: uid)
+        .snapshots()
+        .map(
+          (snapshot) => [
+            for (final d in snapshot.docs)
+              RemoteFriendship(
+                pairKey: d.id,
+                uids: List<String>.from(d.data()['uids'] as List? ?? const []),
+                createdAt: _dateFrom(d.data()['createdAt']),
+              ),
+          ],
+        );
+  }
+
+  @override
+  Stream<List<FriendRequest>> watchIncomingRequests(String uid) {
+    if (uid.isEmpty) return const Stream.empty();
+    // Incoming only. An outgoing request changing state matters far
+    // less to the sender's screen than an arriving one does to the
+    // recipient's, and one listener is one fewer thing to leak.
+    return _requests
+        .where('toUid', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) => [for (final d in snapshot.docs) _requestFrom(d)]);
   }
 
   FriendRequest _requestFrom(

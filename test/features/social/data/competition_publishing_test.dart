@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
@@ -102,7 +103,13 @@ void main() {
     await db.close();
   });
 
-  Future<void> signIn(String uid) => settings.syncUid(uid);
+  /// Signing in also names the account: the publisher refuses to write
+  /// a nameless public profile, so a fixture without a username would
+  /// be testing a path the product deliberately skips.
+  Future<void> signIn(String uid) async {
+    await settings.syncUid(uid);
+    await settings.patch(const UserSettingsCompanion(username: Value('basit')));
+  }
 
   Future<int> addTrip({double distanceKm = 100, DateTime? startedAt}) {
     return db.into(db.trips).insert(

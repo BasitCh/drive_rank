@@ -63,6 +63,16 @@ class CompetitionValuePublisher {
         }
         return;
       }
+      // A public directory entry with no name in it is worse than no
+      // entry: it is findable by code, renders as a raw uid to whoever
+      // finds it, and says nothing. Seen on device, where a fresh
+      // install published one before onboarding had asked for a name.
+      if (row.username.trim().isEmpty) {
+        if (kDebugMode) {
+          debugPrint('[CompetitionMirror] skip — no username yet');
+        }
+        return;
+      }
 
       final now = DateTime.now();
       final totals = <(CompetitionMetric, LeaderboardPeriod), double>{};
