@@ -23,6 +23,12 @@ void main() {
   const uid = 'user-1';
   // A Thursday, mid-week, so a weekly window has room on both sides.
   final tripStart = DateTime(2026, 9, 3, 9);
+  // The clock every test runs on: an hour after the drive, and inside
+  // the fixture challenge window below. Pinned rather than left to
+  // `DateTime.now()`, which made this whole file start failing the day
+  // the real world reached the fixtures' `endAt` — every target expired
+  // before its progress was computed.
+  final now = DateTime(2026, 9, 3, 10);
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -110,6 +116,7 @@ void main() {
       distanceKm: 10,
       durationSeconds: 600,
       startedAt: tripStart,
+      now: now,
     );
   }
 

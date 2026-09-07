@@ -67,6 +67,7 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
     required int durationSeconds,
     required DateTime startedAt,
     String? tripRemoteId,
+    DateTime? now,
   }) {
     final result = _queue.then(
       (_) => _process(
@@ -77,6 +78,7 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
         durationSeconds: durationSeconds,
         startedAt: startedAt,
         tripRemoteId: tripRemoteId,
+        now: now,
       ),
     );
     // The queue itself must never hold an error, or one failed trip
@@ -102,6 +104,7 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
     required int durationSeconds,
     required DateTime startedAt,
     String? tripRemoteId,
+    DateTime? now,
   }) async {
     final eligibility = evaluateCompetitionEligibility(
       points: points,
@@ -126,14 +129,16 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
       );
     }
 
-    final now = DateTime.now();
-    final expired = await _expireLapsedChallenges(uid: uid, at: now);
-    final refresh = await _refreshTargets(uid: uid, at: now);
+    // The one clock this whole pass runs on, so expiry, progress and
+    // trophies can't disagree about what time it is mid-trip.
+    final at = now ?? DateTime.now();
+    final expired = await _expireLapsedChallenges(uid: uid, at: at);
+    final refresh = await _refreshTargets(uid: uid, at: at);
     final progress = refresh.progress;
     final completed = refresh.completedChallengeIds;
     final trophies = await _awardTrophies(
       uid: uid,
-      now: now,
+      now: at,
       tripStartedAt: startedAt,
       completedChallengeIds: completed,
     );

@@ -34,5 +34,11 @@ abstract interface class SocialTripProcessor {
     required int durationSeconds,
     required DateTime startedAt,
     String? tripRemoteId,
+
+    /// The moment to evaluate windows against. Defaults to the real
+    /// clock; tests pass one so that a fixture with a fixed challenge
+    /// window doesn't start expiring itself the day the window's end
+    /// date arrives in the real world.
+    DateTime? now,
   });
 }
