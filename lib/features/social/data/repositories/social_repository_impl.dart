@@ -101,6 +101,12 @@ class SocialRepositoryImpl implements SocialRepository {
   }
 
   @override
+  Future<List<FriendRequest>> getIncomingRequests(String uid) async {
+    final rows = await _local.getIncomingRequests(uid);
+    return rows.map(_friendRequestFromRow).toList();
+  }
+
+  @override
   /// The duplicate guard is direction-agnostic.
   ///
   /// It used to check only `from → to`, so two people could each hold a
@@ -123,22 +129,32 @@ class SocialRepositoryImpl implements SocialRepository {
       throw StateError('Already friends.');
     }
     final now = DateTime.now();
-    final row = await _local.insertFriendRequest(
-      FriendRequestsCompanion.insert(
-        // The *derived* id, not a fresh UUID. A random one left the same
-        // logical request in the local table twice — once under the UUID
-        // this side minted, once under the deterministic id sync pulled
-        // back — and the phantom stayed `pending` forever, which then
-        // made `hasPendingRequest` refuse every future request to that
-        // person. Seen in real device data.
-        remoteId: friendRequestKey(fromUid: fromUid, toUid: toUid),
-        fromUid: fromUid,
-        toUid: toUid,
-        createdAt: now,
-        updatedAt: now,
-      ),
+    // The *derived* id, not a fresh UUID. A random one left the same
+    // logical request in the local table twice — once under the UUID
+    // this side minted, once under the deterministic id sync pulled
+    // back — and the phantom stayed `pending` forever, which then made
+    // `hasPendingRequest` refuse every future request to that person.
+    // Seen in real device data.
+    final id = friendRequestKey(fromUid: fromUid, toUid: toUid);
+
+    // Upsert, not insert. Withdrawing leaves the row behind as
+    // `cancelled` — history survives here as it does in the rules — so
+    // a plain insert made the *second* request to anyone the user had
+    // ever withdrawn fail on the unique remote id, forever. The rules
+    // deliberately allow cancelled → pending precisely so that
+    // cancelling by mistake isn't permanent.
+    await _local.upsertFriendRequest(
+      remoteId: id,
+      fromUid: fromUid,
+      toUid: toUid,
+      status: FriendRequestStatus.pending.name,
+      // Kept when the row already exists, so this reads as the same
+      // request resumed rather than a new one.
+      createdAt: now,
+      updatedAt: now,
     );
-    return _friendRequestFromRow(row);
+    final row = await _local.getRequestByRemoteId(id);
+    return _friendRequestFromRow(row!);
   }
 
   /// Accepting a request **creates the friendship**.

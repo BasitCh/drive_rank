@@ -2,7 +2,8 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
-import 'package:drive_rank/features/social/domain/usecases/compare_with_benchmark.dart';
+import 'package:drive_rank/features/social/domain/entities/opponent.dart';
+import 'package:drive_rank/features/social/domain/usecases/compare_with_opponent.dart';
 import 'package:drive_rank/features/social/presentation/widgets/benchmark_badge.dart';
 import 'package:drive_rank/features/social/presentation/widgets/compare_sheet.dart';
 import 'package:drive_rank/shared/widgets/car_silhouette.dart';
@@ -31,13 +32,16 @@ void main() {
     createdAt: DateTime(2026),
   );
 
-  BenchmarkComparison comparison({
+  Comparison comparison({
     double distanceMine = 300,
     double longestMine = 212,
     double consistencyMine = 4,
-  }) => BenchmarkComparison(
-    benchmarkId: 'road_warrior',
-    benchmarkName: 'Road Warrior',
+    Opponent opponent = const Opponent.benchmark(
+      id: 'road_warrior',
+      displayName: 'Road Warrior',
+    ),
+  }) => Comparison(
+    opponent: opponent,
     period: LeaderboardPeriod.weekly,
     rows: [
       ComparisonRow(
@@ -58,7 +62,7 @@ void main() {
     ],
   );
 
-  Future<void> pump(WidgetTester tester, BenchmarkComparison c) {
+  Future<void> pump(WidgetTester tester, Comparison c) {
     return tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -129,6 +133,59 @@ void main() {
     expect(find.text(AppStrings.compareYou), findsOneWidget);
   });
 
+  testWidgets('gives a friend their car and flag where a benchmark gets '
+      'the glyph — two silhouettes on the screen, one badge fewer',
+      (tester) async {
+    await pump(
+      tester,
+      comparison(
+        opponent: const Opponent.person(
+          id: 'bob-uid',
+          displayName: 'bob',
+          countryCode: 'PK',
+          carMake: 'Toyota',
+          carModel: 'Corolla',
+        ),
+      ),
+    );
+
+    expect(find.byType(CarSilhouette), findsNWidgets(2));
+    expect(find.byType(BenchmarkBadge), findsNothing);
+    expect(find.byIcon(Icons.speed_rounded), findsNothing);
+    expect(find.text('bob'), findsOneWidget);
+    expect(find.textContaining('Toyota Corolla'), findsOneWidget);
+  });
+
+  testWidgets("says a friend's figures are old rather than presenting last "
+      "week's driving as this week's", (tester) async {
+    await pump(
+      tester,
+      comparison(
+        opponent: const Opponent.person(
+          id: 'bob-uid',
+          displayName: 'bob',
+          carMake: 'Toyota',
+          isStale: true,
+        ),
+      ),
+    );
+    expect(find.byType(StaleBadge), findsOneWidget);
+  });
+
+  testWidgets('a fresh friend gets no caveat', (tester) async {
+    await pump(
+      tester,
+      comparison(
+        opponent: const Opponent.person(
+          id: 'bob-uid',
+          displayName: 'bob',
+          carMake: 'Toyota',
+        ),
+      ),
+    );
+    expect(find.byType(StaleBadge), findsNothing);
+  });
+
   testWidgets('shows the period it is comparing over', (tester) async {
     await pump(tester, comparison());
     expect(find.text('THIS WEEK'), findsOneWidget);
@@ -139,9 +196,11 @@ void main() {
       (tester) async {
     await pump(
       tester,
-      const BenchmarkComparison(
-        benchmarkId: 'road_warrior',
-        benchmarkName: 'Road Warrior',
+      const Comparison(
+        opponent: Opponent.benchmark(
+          id: 'road_warrior',
+          displayName: 'Road Warrior',
+        ),
         period: LeaderboardPeriod.weekly,
         rows: [
           ComparisonRow(

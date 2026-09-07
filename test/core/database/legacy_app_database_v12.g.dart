@@ -8260,6 +8260,10 @@ abstract class _$LegacyAppDatabaseV12 extends GeneratedDatabase {
   late final $TripEligibilityTable tripEligibility = $TripEligibilityTable(
     this,
   );
+  late final Index idxFriendRequestsRemoteId = Index(
+    'idx_friend_requests_remote_id',
+    'CREATE UNIQUE INDEX idx_friend_requests_remote_id ON friend_requests (remote_id)',
+  );
   late final Index idxTrophiesRemoteId = Index(
     'idx_trophies_remote_id',
     'CREATE UNIQUE INDEX idx_trophies_remote_id ON trophies (remote_id)',
@@ -8280,6 +8284,7 @@ abstract class _$LegacyAppDatabaseV12 extends GeneratedDatabase {
     challengeProgress,
     trophies,
     tripEligibility,
+    idxFriendRequestsRemoteId,
     idxTrophiesRemoteId,
   ];
   @override

@@ -3,6 +3,7 @@ import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsRow;
 import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
+import 'package:drive_rank/shared/models/car_make_icons.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/widgets/car_silhouette.dart';
@@ -19,6 +20,15 @@ import 'package:flutter/material.dart';
 /// photo, no silhouette, no flag, nothing that could be mistaken for a
 /// person's likeness. That's the whole point of the distinction, and it
 /// holds at every size the podium and list use.
+///
+/// Two sources of identity, and which one applies is decided by whose
+/// row it is:
+///  * the **viewer** is drawn from their settings row, which is always
+///    fresher than anything they published and is the only place a
+///    photo exists;
+///  * a **friend** is drawn from what they published — their make, and
+///    their country for the flag. No photo, because the mirror
+///    deliberately doesn't carry one.
 class RankIdentity extends StatelessWidget {
   const RankIdentity({
     required this.entry,
@@ -32,9 +42,10 @@ class RankIdentity extends StatelessWidget {
   final LeaderboardEntry entry;
   final double diameter;
 
-  /// The viewer's settings row, for their own car art. Only the viewer's
-  /// identity is known locally; other real drivers arrive with the
-  /// remote phase and will carry their own.
+  /// The viewer's settings row, for their own car art. Used only on the
+  /// viewer's own row — a friend's art comes off their entry, so passing
+  /// this down every row can't leak the viewer's photo onto somebody
+  /// else's circle.
   final UserSettingsRow? viewer;
 
   /// Overrides the default ring — the podium passes medal colours so
@@ -42,12 +53,13 @@ class RankIdentity extends StatelessWidget {
   /// identical circles.
   final Color? ringColor;
 
-  /// Whether to badge the circle with the viewer's country flag.
+  /// Whether to badge the circle with this driver's country flag.
   ///
-  /// Only ever true for the viewer, and only when they've set a country.
-  /// A benchmark is not from anywhere — giving one a flag would invent a
-  /// nationality for a constant, and the absence is itself the signal
-  /// that this entry isn't a person.
+  /// True for a person who has a country — the viewer's from settings, a
+  /// friend's from their mirror. **Never for a benchmark**, which is not
+  /// from anywhere: giving one a flag would invent a nationality for a
+  /// constant, and the absence is itself the signal that this entry
+  /// isn't a person.
   final bool showFlag;
 
   @override
@@ -55,8 +67,14 @@ class RankIdentity extends StatelessWidget {
     final defaultRing = entry.isCurrentUser
         ? AppColors.teal
         : AppColors.border2;
+    // The viewer's country comes from settings, everyone else's from
+    // what they published — never the other way round, or one person's
+    // flag would end up on another's row.
+    final countryCode = entry.isCurrentUser
+        ? (viewer?.country ?? '')
+        : entry.countryCode;
     final flag = showFlag && !entry.isBenchmark
-        ? countryFromCode(viewer?.country ?? '')?.flag
+        ? countryFromCode(countryCode)?.flag
         : null;
 
     final circle = Container(
@@ -79,7 +97,11 @@ class RankIdentity extends StatelessWidget {
                 color: AppColors.textTertiary,
               ),
             )
-          : _CarArt(diameter: diameter, viewer: viewer),
+          : _CarArt(
+              diameter: diameter,
+              viewer: entry.isCurrentUser ? viewer : null,
+              entry: entry,
+            ),
     );
 
     if (flag == null) return circle;
@@ -120,17 +142,37 @@ class RankIdentity extends StatelessWidget {
 }
 
 class _CarArt extends StatelessWidget {
-  const _CarArt({required this.diameter, required this.viewer});
+  const _CarArt({
+    required this.diameter,
+    required this.viewer,
+    required this.entry,
+  });
 
   final double diameter;
+
+  /// Non-null only on the viewer's own row.
   final UserSettingsRow? viewer;
+  final LeaderboardEntry entry;
 
   @override
   Widget build(BuildContext context) {
     final settings = viewer;
     if (settings == null) {
-      // A real driver whose vehicle we don't know (only possible for
-      // someone other than the viewer, i.e. once remote entries exist).
+      // Somebody else: their make is all we have, because the mirror
+      // publishes no photo and no vehicle category. A make we hold art
+      // for gets its own outline; anything else gets the generic car
+      // rather than a person glyph, since what's known about them is
+      // that they drive, not what they look like.
+      if (entry.carMake.trim().isNotEmpty) {
+        return Padding(
+          padding: EdgeInsets.all(diameter * 0.16),
+          child: CarSilhouette(
+            category: CarCategory.defaultCategory,
+            makeId: makeIdFromDisplayName(entry.carMake),
+          ),
+        );
+      }
+      // A driver who hasn't set a car at all.
       return const Center(
         child: Icon(
           Icons.person_rounded,

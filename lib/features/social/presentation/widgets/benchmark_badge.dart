@@ -43,6 +43,42 @@ class BenchmarkBadge extends StatelessWidget {
   }
 }
 
+/// The `OLD FIGURE` label.
+///
+/// A friend's number is whatever their phone last published, and the app
+/// can't tell the difference between "they didn't drive" and "they
+/// haven't opened the app since Tuesday". So the figure still ranks —
+/// dropping somebody off the board because their phone was off reads as
+/// a bug to both of them — and this says out loud that it may not be
+/// current. Third sibling of [BenchmarkBadge] and [YouBadge]: same pill
+/// geometry, amber rather than grey or teal, because it's a caveat
+/// rather than a category or an achievement.
+class StaleBadge extends StatelessWidget {
+  const StaleBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.orange.withValues(alpha: 0.1),
+        border: Border.all(color: AppColors.orange.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Text(
+        AppStrings.leaderboardStaleFigure,
+        style: TextStyle(
+          fontFamily: 'JetBrainsMono',
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.6,
+          color: AppColors.orange,
+        ),
+      ),
+    );
+  }
+}
+
 /// The `YOU` label — the counterpart marker on the viewer's own row.
 ///
 /// Same geometry as [BenchmarkBadge] but in teal, so the two read as

@@ -2,7 +2,6 @@ import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/tables/challenge_progress_table.dart';
 import 'package:drive_rank/core/database/tables/challenges_table.dart';
 import 'package:drive_rank/core/database/tables/deleted_trips_table.dart';
-import 'package:drive_rank/core/database/tables/friend_requests_table.dart';
 import 'package:drive_rank/core/database/tables/friends_table.dart';
 import 'package:drive_rank/core/database/tables/live_trips_table.dart'
     show LiveTrips, LiveWaypoints;
@@ -12,6 +11,7 @@ import 'package:drive_rank/core/database/tables/trophies_table.dart';
 import 'package:drive_rank/core/database/tables/waypoints_table.dart';
 
 import 'legacy_tables_pre_v15.dart';
+import 'legacy_tables_pre_v16.dart';
 
 part 'legacy_app_database_v14.g.dart';
 
@@ -23,6 +23,11 @@ part 'legacy_app_database_v14.g.dart';
 /// fixture documents: a live definition here would carry a column v15
 /// is about to add, and the migration would fail on the duplicate
 /// instead of proving anything.
+///
+/// `friend_requests` is frozen for the same reason, one version later:
+/// the live class gained a unique index on `remote_id` in v16, and with
+/// that index present the duplicate rows v16 exists to collapse cannot
+/// be written at all.
 @DriftDatabase(
   tables: [
     Trips,
@@ -31,7 +36,7 @@ part 'legacy_app_database_v14.g.dart';
     LiveTrips,
     LiveWaypoints,
     Friends,
-    FriendRequests,
+    LegacyFriendRequestsPreV16,
     Challenges,
     ChallengeProgress,
     Trophies,

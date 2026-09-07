@@ -15,16 +15,17 @@ import 'package:flutter/material.dart';
 /// missing one still leaves the other:
 ///  * the identity circle holds the driver's own vehicle for a person
 ///    and a gauge glyph for a benchmark — never an avatar;
-///  * the marker beside the name is `YOU`, `BENCHMARK`, or absent.
+///  * the marker beside the name is `YOU`, `BENCHMARK`, `OLD FIGURE`,
+///    or absent.
 ///
 /// The viewer's row additionally takes the app's selection promotion
 /// (teal fill, teal 1.5px border), the same treatment the paywall uses
 /// for the chosen plan — so "this is me" survives even if both labels
 /// are missed.
 ///
-/// A benchmark row is tappable and opens the head-to-head; the viewer's
-/// own row is not, and shows no affordance, because there is nothing to
-/// compare yourself against on it.
+/// A benchmark or friend row is tappable and opens the head-to-head; the
+/// viewer's own row is not, and shows no affordance, because there is
+/// nothing to compare yourself against on it.
 class LeaderboardRow extends StatelessWidget {
   const LeaderboardRow({
     required this.position,
@@ -99,7 +100,10 @@ class LeaderboardRow extends StatelessWidget {
             entry: entry,
             diameter: 40,
             viewer: viewer,
-            showFlag: isMe,
+            // Anyone who is actually a person and told us where they
+            // drive. A benchmark is excluded inside `RankIdentity`, so
+            // this can't accidentally grant one a nationality.
+            showFlag: isMe || entry.countryCode.isNotEmpty,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -125,6 +129,12 @@ class LeaderboardRow extends StatelessWidget {
                     if (isBenchmark) ...[
                       const SizedBox(width: 6),
                       const BenchmarkBadge(),
+                    ]
+                    // Marked on the row, not hidden from it. The value
+                    // below still ranks — see `StaleBadge`.
+                    else if (entry.isStale) ...[
+                      const SizedBox(width: 6),
+                      const StaleBadge(),
                     ],
                   ],
                 ),

@@ -85,6 +85,24 @@ class SocialLocalDataSource {
   /// Writes a request from the cloud into the local table, keyed on its
   /// remote id. Upsert rather than insert so a status that changed on
   /// somebody else's device lands here instead of duplicating the row.
+  /// Writes one request by its derived remote id, creating or updating.
+  ///
+  /// One statement, with the conflict target **named**. A read-then-
+  /// insert lost the race against itself the moment a second listener
+  /// existed: the incoming and outgoing request streams both drive the
+  /// same reconciliation, both found no row, and both inserted —
+  /// silently duplicating before v16's unique index, and throwing
+  /// after it.
+  ///
+  /// The target has to be spelled out: `insertOnConflictUpdate` alone
+  /// resolves against the *primary key*, which here is the autoincrement
+  /// `id` and never collides, so the unique index on `remoteId` is the
+  /// constraint that actually fires. The same trap cost a day on the
+  /// friendships table in 4b.
+  ///
+  /// `createdAt` is only ever written on the insert — an update keeps
+  /// whatever the row already had, so a re-send does not look like a
+  /// brand-new ask locally.
   Future<void> upsertFriendRequest({
     required String remoteId,
     required String fromUid,
@@ -93,28 +111,23 @@ class SocialLocalDataSource {
     required DateTime createdAt,
     required DateTime updatedAt,
   }) async {
-    final existing = await getRequestByRemoteId(remoteId);
-    if (existing == null) {
-      await _db
-          .into(_db.friendRequests)
-          .insert(
-            FriendRequestsCompanion.insert(
-              remoteId: remoteId,
-              fromUid: fromUid,
-              toUid: toUid,
-              status: Value(status),
-              createdAt: createdAt,
-              updatedAt: updatedAt,
-            ),
-          );
-      return;
-    }
-    await (_db.update(_db.friendRequests)
-          ..where((r) => r.remoteId.equals(remoteId)))
-        .write(
-          FriendRequestsCompanion(
+    await _db
+        .into(_db.friendRequests)
+        .insert(
+          FriendRequestsCompanion.insert(
+            remoteId: remoteId,
+            fromUid: fromUid,
+            toUid: toUid,
             status: Value(status),
-            updatedAt: Value(updatedAt),
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          onConflict: DoUpdate(
+            (_) => FriendRequestsCompanion(
+              status: Value(status),
+              updatedAt: Value(updatedAt),
+            ),
+            target: [_db.friendRequests.remoteId],
           ),
         );
   }
@@ -212,6 +225,18 @@ class SocialLocalDataSource {
             (r) => r.toUid.equals(toUid) & r.status.equals('pending'),
           ))
         .watch();
+  }
+
+  /// Every request addressed to [toUid], whatever its status.
+  ///
+  /// [watchIncomingRequests] narrows to `pending`, which is what a
+  /// requests *list* wants and is wrong for anything asking what has
+  /// already happened between two people — an answered request is
+  /// invisible through it.
+  Future<List<FriendRequestRow>> getIncomingRequests(String toUid) {
+    return (_db.select(_db.friendRequests)
+          ..where((r) => r.toUid.equals(toUid)))
+        .get();
   }
 
   Future<List<FriendRequestRow>> getOutgoingRequests(String fromUid) {

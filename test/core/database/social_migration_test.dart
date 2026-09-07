@@ -501,4 +501,75 @@ void main() {
       expect(settings.onboardingComplete, isTrue);
     });
   });
+
+  group('v15 -> v16 — one row per friend request', () {
+    test('collapses duplicate friend requests and then makes them '
+        'impossible — a request id is derived from the pair, so every '
+        'reader has assumed one row per remote id since 4b while '
+        'nothing enforced it. A real device held the same request three '
+        'times', () async {
+      final legacyDb = v14.LegacyAppDatabaseV14(NativeDatabase(dbFile));
+      // The same logical request, three times, as found on device.
+      for (final (i, status) in [
+        'pending',
+        'accepted',
+        'ended',
+      ].indexed) {
+        await legacyDb
+            .into(legacyDb.legacyFriendRequestsPreV16)
+            .insert(
+              v14.LegacyFriendRequestsPreV16Companion.insert(
+                remoteId: 'alice_bob',
+                fromUid: 'alice',
+                toUid: 'bob',
+                status: Value(status),
+                createdAt: DateTime(2026),
+                // Ascending, so the last one written is the survivor.
+                updatedAt: DateTime(2026, 1, i + 1),
+              ),
+            );
+      }
+      // A different pair is untouched by the collapse.
+      await legacyDb
+          .into(legacyDb.legacyFriendRequestsPreV16)
+          .insert(
+            v14.LegacyFriendRequestsPreV16Companion.insert(
+              remoteId: 'alice_carol',
+              fromUid: 'alice',
+              toUid: 'carol',
+              status: const Value('pending'),
+              createdAt: DateTime(2026),
+              updatedAt: DateTime(2026),
+            ),
+          );
+      await legacyDb.close();
+
+      final db = openMigrated();
+      final rows = await db.select(db.friendRequests).get();
+      expect(rows, hasLength(2));
+
+      // The survivor is the furthest-along copy, not an arbitrary one:
+      // the most recently updated row is the one that reflects what
+      // actually happened between these two people.
+      final collapsed = rows.firstWhere((r) => r.remoteId == 'alice_bob');
+      expect(collapsed.status, 'ended');
+      expect(rows.any((r) => r.remoteId == 'alice_carol'), isTrue);
+
+      // And a fourth copy can no longer be written at all.
+      await expectLater(
+        db
+            .into(db.friendRequests)
+            .insert(
+              FriendRequestsCompanion.insert(
+                remoteId: 'alice_bob',
+                fromUid: 'alice',
+                toUid: 'bob',
+                createdAt: DateTime(2026),
+                updatedAt: DateTime(2026),
+              ),
+            ),
+        throwsA(anything),
+      );
+    });
+  });
 }

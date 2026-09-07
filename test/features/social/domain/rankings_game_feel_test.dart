@@ -5,9 +5,10 @@ import 'package:drive_rank/features/social/data/repositories/social_repository_i
 import 'package:drive_rank/features/social/domain/entities/benchmark_tier.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_eligibility.dart';
+import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
-import 'package:drive_rank/features/social/domain/usecases/compare_with_benchmark.dart';
+import 'package:drive_rank/features/social/domain/usecases/compare_with_opponent.dart';
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_qualifying_days.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -113,7 +114,7 @@ void main() {
     late AppDatabase db;
     late SocialRepositoryImpl repo;
     late GetQualifyingDays qualifyingDays;
-    late CompareWithBenchmark compare;
+    late CompareWithOpponent compare;
 
     const uid = 'user-1';
     final now = DateTime(2026, 9, 4, 12); // Friday
@@ -126,7 +127,7 @@ void main() {
       db = AppDatabase.forTesting(NativeDatabase.memory());
       repo = SocialRepositoryImpl(SocialLocalDataSource(db));
       qualifyingDays = GetQualifyingDays(repo);
-      compare = CompareWithBenchmark(
+      compare = CompareWithOpponent(
         repo,
         const DefaultCompetitionMetricCalculator(),
       );
@@ -208,12 +209,12 @@ void main() {
       });
     });
 
-    group('CompareWithBenchmark', () {
+    group('CompareWithOpponent — against a benchmark', () {
       test('puts both sides on every metric the benchmark publishes',
           () async {
         await addTrip(startedAt: DateTime(2026, 9, 2), distanceKm: 300);
 
-        final result = await compare(
+        final result = await compare.againstBenchmark(
           uid: uid,
           benchmarkId: 'road_warrior',
           period: LeaderboardPeriod.weekly,
@@ -221,7 +222,8 @@ void main() {
         );
 
         expect(result, isNotNull);
-        expect(result!.benchmarkName, 'Road Warrior');
+        expect(result!.opponent.displayName, 'Road Warrior');
+        expect(result.opponent.isBenchmark, isTrue);
         expect(result.rows, isNotEmpty);
         final distance = result.rows.firstWhere(
           (r) => r.metric == CompetitionMetric.distance,
@@ -235,7 +237,7 @@ void main() {
         // Beats the gentlest benchmark on distance, not on consistency.
         await addTrip(startedAt: DateTime(2026, 9, 2), distanceKm: 400);
 
-        final result = await compare(
+        final result = await compare.againstBenchmark(
           uid: uid,
           benchmarkId: 'weekend_cruiser',
           period: LeaderboardPeriod.weekly,
@@ -254,7 +256,7 @@ void main() {
       test('an unknown opponent returns null rather than a row of zeroes — '
           'no published pace is not the same as a pace of nothing',
           () async {
-        final result = await compare(
+        final result = await compare.againstBenchmark(
           uid: uid,
           benchmarkId: 'someone_who_does_not_exist',
           period: LeaderboardPeriod.weekly,
@@ -266,7 +268,7 @@ void main() {
       test('the shared scale puts a losing side below half', () async {
         await addTrip(startedAt: DateTime(2026, 9, 2), distanceKm: 100);
 
-        final result = await compare(
+        final result = await compare.againstBenchmark(
           uid: uid,
           benchmarkId: 'road_warrior',
           period: LeaderboardPeriod.weekly,
@@ -277,6 +279,132 @@ void main() {
         );
         expect(distance.myShare, lessThan(0.5));
         expect(distance.myShare, closeTo(100 / 674, 0.001));
+      });
+    });
+
+    group('CompareWithOpponent — against a friend', () {
+      CompetitionMirror friend({
+        Map<(CompetitionMetric, LeaderboardPeriod), double?>? totals,
+        DateTime? updatedAt,
+      }) => CompetitionMirror(
+        uid: 'bob-uid',
+        username: 'bob',
+        carMake: 'Toyota',
+        carModel: 'Corolla',
+        countryCode: 'PK',
+        inviteCode: 'CODE1234',
+        updatedAt: updatedAt ?? now.subtract(const Duration(hours: 2)),
+        totals:
+            totals ??
+            {
+              (CompetitionMetric.distance, LeaderboardPeriod.weekly): 200,
+              (CompetitionMetric.longestTrip, LeaderboardPeriod.weekly): 80,
+              (CompetitionMetric.consistency, LeaderboardPeriod.weekly): 3,
+            },
+      );
+
+      test('a friend who published everything fills all three rows — the '
+          'first opponent to exercise the whole sheet, since a weekly '
+          'consistency ladder is shorter than the metric set', () async {
+        await addTrip(startedAt: DateTime(2026, 9, 2), distanceKm: 300);
+
+        final result = await compare.againstFriend(
+          uid: uid,
+          friend: friend(),
+          period: LeaderboardPeriod.weekly,
+          now: now,
+        );
+
+        expect(result!.rows, hasLength(CompetitionMetric.values.length));
+        final distance = result.rows.firstWhere(
+          (r) => r.metric == CompetitionMetric.distance,
+        );
+        expect(distance.mine, 300);
+        expect(distance.theirs, 200);
+        expect(distance.iLead, isTrue);
+      });
+
+      test('the opponent carries their identity, so the sheet can show '
+          'their car and flag where a benchmark shows a glyph', () async {
+        final result = await compare.againstFriend(
+          uid: uid,
+          friend: friend(),
+          period: LeaderboardPeriod.weekly,
+          now: now,
+        );
+
+        expect(result!.opponent.isBenchmark, isFalse);
+        expect(result.opponent.displayName, 'bob');
+        expect(result.opponent.countryCode, 'PK');
+        expect(result.opponent.carMake, 'Toyota');
+      });
+
+      test('a metric the friend never published is skipped, not compared '
+          'against zero — the sheet would otherwise award the viewer a '
+          'win over a figure that was never reported', () async {
+        await addTrip(startedAt: DateTime(2026, 9, 2), distanceKm: 300);
+
+        final result = await compare.againstFriend(
+          uid: uid,
+          friend: friend(
+            totals: const {
+              (CompetitionMetric.distance, LeaderboardPeriod.weekly): 200,
+            },
+          ),
+          period: LeaderboardPeriod.weekly,
+          now: now,
+        );
+
+        expect(result!.rows, hasLength(1));
+        expect(result.rows.single.metric, CompetitionMetric.distance);
+        expect(result.metricsLed, 1);
+        expect(result.metricCount, 1);
+      });
+
+      test('the score counts only the metrics actually led', () async {
+        // Ahead on distance, behind on consistency.
+        await addTrip(startedAt: DateTime(2026, 9, 2), distanceKm: 300);
+
+        final result = await compare.againstFriend(
+          uid: uid,
+          friend: friend(),
+          period: LeaderboardPeriod.weekly,
+          now: now,
+        );
+
+        expect(result!.metricsLed, lessThan(result.metricCount));
+        expect(
+          result.rows
+              .firstWhere((r) => r.metric == CompetitionMetric.consistency)
+              .iLead,
+          isFalse,
+        );
+      });
+
+      test('an old snapshot is marked on the opponent, and still compared '
+          '— the numbers are the truest thing the app knows about them',
+          () async {
+        await addTrip(startedAt: DateTime(2026, 9, 2), distanceKm: 300);
+
+        final result = await compare.againstFriend(
+          uid: uid,
+          friend: friend(updatedAt: now.subtract(const Duration(days: 6))),
+          period: LeaderboardPeriod.weekly,
+          now: now,
+        );
+
+        expect(result!.opponent.isStale, isTrue);
+        expect(result.rows, isNotEmpty);
+      });
+
+      test('a fresh snapshot is not marked', () async {
+        final result = await compare.againstFriend(
+          uid: uid,
+          friend: friend(),
+          period: LeaderboardPeriod.weekly,
+          now: now,
+        );
+        expect(result!.opponent.isStale, isFalse);
       });
     });
   });

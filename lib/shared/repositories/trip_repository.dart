@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/geocoding_service.dart';
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:drive_rank/features/trip_insights/domain/usecases/zero_to_hundred.dart';
@@ -248,7 +252,7 @@ class TripRepository {
   Future<int> deleteTrip(int id) async {
     final trip = await getById(id);
     final remoteId = trip?.remoteId;
-    return _db.transaction(() async {
+    final deleted = await _db.transaction(() async {
       if (remoteId != null && remoteId.isNotEmpty) {
         await _db
             .into(_db.deletedTrips)
@@ -262,6 +266,27 @@ class TripRepository {
       }
       return (_db.delete(_db.trips)..where((t) => t.id.equals(id))).go();
     });
+    // After the transaction, so a rolled-back delete never republishes.
+    if (deleted > 0) _republishCompetitionValues();
+    return deleted;
+  }
+
+  /// Republishes the competition mirror after a trip goes away.
+  ///
+  /// "Recompute, never accumulate" is the feature's load-bearing rule,
+  /// and until now nothing outside this device depended on it: deleting
+  /// a trip lowered every local figure immediately, while the *published*
+  /// total — the one friends rank against — kept the old, higher value
+  /// until the next app start. The one direction that flatters the
+  /// person who deleted it, on the one surface other people read.
+  ///
+  /// Fire-and-forget and registration-guarded, exactly as
+  /// `TrackingBloc` does it after a drive: a delete is a UI action and
+  /// must not wait on a network round trip, and a failed publish costs
+  /// freshness until the next launch rather than blocking the delete.
+  void _republishCompetitionValues() {
+    if (!getIt.isRegistered<CompetitionValuePublisher>()) return;
+    unawaited(getIt<CompetitionValuePublisher>().publishNow());
   }
 
   /// Trips deleted locally whose cloud copy is still to be removed.

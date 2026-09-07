@@ -18,6 +18,13 @@ enum FriendRequestStatus {
   ///
   /// Unfriending therefore ends the request and deletes the friendship
   /// in one batch: both land or neither does.
+  ///
+  /// **Not terminal.** The sender may re-open an ended request as
+  /// [pending], because a request id is derived from the pair — so
+  /// "re-friending starts a new request" cannot mean a new document.
+  /// While this was treated as final, two people who unfriended could
+  /// never become friends again from either side; the rules refused the
+  /// write and the local guard didn't even attempt it.
   ended;
 
   static FriendRequestStatus fromName(String name) =>

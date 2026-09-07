@@ -5,15 +5,18 @@ import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsRow;
 import 'package:drive_rank/core/di/injection.dart';
+import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
+import 'package:drive_rank/features/social/domain/entities/account_label.dart';
 import 'package:drive_rank/features/social/domain/entities/benchmark_tier.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
+import 'package:drive_rank/features/social/domain/entities/leaderboard_scope.dart';
 import 'package:drive_rank/features/social/domain/entities/target.dart';
-import 'package:drive_rank/features/social/domain/usecases/compare_with_benchmark.dart';
+import 'package:drive_rank/features/social/domain/usecases/compare_with_opponent.dart';
 import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart';
 import 'package:drive_rank/features/social/presentation/widgets/compare_sheet.dart';
 import 'package:drive_rank/features/social/presentation/widgets/create_target_sheet.dart';
@@ -27,16 +30,17 @@ import 'package:drive_rank/features/social/presentation/widgets/trophies_tab.dar
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
-/// The global rankings board.
+/// The rankings board, global or friends.
 ///
 /// Structured like `HistoryPage` — no AppBar, a fixed header and pinned
 /// selectors above a scrolling list — so it feels like a sibling of the
 /// other tab screens rather than a new kind of screen.
 ///
-/// The friends board and its tab bar arrive with the friends feature;
-/// shipping a `Friends` tab now would mean shipping an invite button
-/// with nowhere to go.
+/// The friends scope is a third selector chip, not a fourth tab: the
+/// podium, rows, rank card and compare sheet are identical either way,
+/// and only the population differs.
 class RankingsPage extends StatelessWidget {
   const RankingsPage({super.key});
 
@@ -62,6 +66,11 @@ class _RankingsBody extends StatelessWidget {
     (LeaderboardPeriod.weekly, AppStrings.rankingsPeriodWeek),
     (LeaderboardPeriod.monthly, AppStrings.rankingsPeriodMonth),
     (LeaderboardPeriod.allTime, AppStrings.rankingsPeriodAllTime),
+  ];
+
+  static const _scopes = <(LeaderboardScope, String)>[
+    (LeaderboardScope.global, AppStrings.rankingsScopeGlobal),
+    (LeaderboardScope.friends, AppStrings.rankingsScopeFriends),
   ];
 
   @override
@@ -166,66 +175,96 @@ class _BoardSelectors extends StatelessWidget {
     );
   }
 
+  static String _scopeLabel(LeaderboardScope scope) => scope.label;
+
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<RankingsBloc>();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Row(
-        children: [
-          Flexible(
-            child: SelectorChip(
-              icon: Icons.flag_rounded,
-              label: _metricLabel(state.metric),
-              onTap: () async {
-                final picked = await _pick<CompetitionMetric>(
-                  context,
-                  title: AppStrings.createTargetMetricLabel,
-                  options: _RankingsBody._metrics,
-                  active: state.metric,
-                );
-                if (picked != null) bloc.add(RankingsMetricChanged(picked));
-              },
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Flexible(
-            child: SelectorChip(
-              icon: Icons.calendar_today_rounded,
-              label: _periodLabel(state.period),
-              onTap: () async {
-                final picked = await _pick<LeaderboardPeriod>(
-                  context,
-                  title: AppStrings.createTargetPeriodLabel,
-                  options: _RankingsBody._periods,
-                  active: state.period,
-                );
-                if (picked != null) bloc.add(RankingsPeriodChanged(picked));
-              },
-            ),
-          ),
-        ],
-      ),
+    return SelectorChipRow(
+      chips: [
+        SelectorChip(
+          icon: Icons.people_alt_rounded,
+          label: _scopeLabel(state.scope),
+          onTap: () async {
+            final picked = await _pick<LeaderboardScope>(
+              context,
+              title: AppStrings.rankingsScopeLabel,
+              options: _RankingsBody._scopes,
+              active: state.scope,
+            );
+            if (picked != null) bloc.add(RankingsScopeChanged(picked));
+          },
+        ),
+        SelectorChip(
+          icon: Icons.flag_rounded,
+          label: _metricLabel(state.metric),
+          onTap: () async {
+            final picked = await _pick<CompetitionMetric>(
+              context,
+              title: AppStrings.createTargetMetricLabel,
+              options: _RankingsBody._metrics,
+              active: state.metric,
+            );
+            if (picked != null) bloc.add(RankingsMetricChanged(picked));
+          },
+        ),
+        SelectorChip(
+          icon: Icons.calendar_today_rounded,
+          label: _periodLabel(state.period),
+          onTap: () async {
+            final picked = await _pick<LeaderboardPeriod>(
+              context,
+              title: AppStrings.createTargetPeriodLabel,
+              options: _RankingsBody._periods,
+              active: state.period,
+            );
+            if (picked != null) bloc.add(RankingsPeriodChanged(picked));
+          },
+        ),
+      ],
     );
   }
 }
 
-/// Opens the head-to-head for a benchmark.
+/// Opens the head-to-head for whoever the viewer tapped.
 ///
 /// Resolved through `getIt` rather than the bloc: this is a one-shot
 /// read for a modal, and putting it in `RankingsState` would mean the
 /// bloc had to model whether a sheet is open.
+///
+/// A friend's side comes from the mirror already in state rather than a
+/// fresh fetch — it's the very snapshot their row was ranked on, so the
+/// sheet can't contradict the board it opened from.
 Future<void> _openCompare(
   BuildContext context,
   RankingsState state,
   LeaderboardEntry entry,
 ) async {
-  final comparison = await getIt<CompareWithBenchmark>()(
-    uid: state.viewer?.uid ?? '',
-    benchmarkId: entry.id,
-    period: state.period,
-  );
+  final compare = getIt<CompareWithOpponent>();
+  final uid = state.viewer?.uid ?? '';
+
+  final Comparison? comparison;
+  if (entry.isBenchmark) {
+    comparison = await compare.againstBenchmark(
+      uid: uid,
+      benchmarkId: entry.id,
+      period: state.period,
+    );
+  } else {
+    final friend = state.friendProfiles
+        .where((profile) => profile.uid == entry.id)
+        .firstOrNull;
+    if (friend == null) return;
+    comparison = await compare.againstFriend(
+      uid: uid,
+      friend: friend,
+      period: state.period,
+    );
+  }
   if (comparison == null || !context.mounted) return;
+  // A local the closure can capture: a nullable captured by the sheet's
+  // builder can't be promoted, however it was checked.
+  final built = comparison;
 
   await showModalBottomSheet<void>(
     context: context,
@@ -235,7 +274,7 @@ Future<void> _openCompare(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (_) => CompareSheet(
-      comparison: comparison,
+      comparison: built,
       periodLabel: _BoardSelectors._periodLabel(state.period),
       metricLabel: _BoardSelectors._metricLabel,
       formatValue: (metric, value) {
@@ -527,6 +566,21 @@ class _Board extends StatelessWidget {
       );
     }
 
+    // "You have nobody to rank against" is a different answer from "you
+    // haven't driven", and pointing the first at History would be no
+    // help at all.
+    if (state.scope == LeaderboardScope.friends && !state.hasFriends) {
+      return _RankingsMessage(
+        icon: Icons.group_add_rounded,
+        title: AppStrings.rankingsNoFriendsTitle,
+        body: AppStrings.rankingsNoFriendsBody,
+        action: (
+          AppStrings.rankingsNoFriendsCta,
+          () => context.push(RouteNames.friends),
+        ),
+      );
+    }
+
     final board = state.board;
     if (board == null || board.positions.isEmpty) {
       return const _RankingsMessage(
@@ -571,11 +625,11 @@ class _Board extends StatelessWidget {
                     unitLabel: format.unit(position.entry.value),
                     subtitle: _subtitleFor(position, state.viewer),
                     viewer: state.viewer,
-                    // Only a benchmark is a compare target. Tapping
-                    // yourself would open you against yourself.
-                    onTap: position.entry.isBenchmark
-                        ? () => _openCompare(context, state, position.entry)
-                        : null,
+                    // Everyone but the viewer is a compare target.
+                    // Tapping yourself would open you against yourself.
+                    onTap: position.entry.isCurrentUser
+                        ? null
+                        : () => _openCompare(context, state, position.entry),
                   ),
                   const SizedBox(height: 5),
                 ],
@@ -591,16 +645,53 @@ class _Board extends StatelessWidget {
             style: AppTextStyles.microLabel.copyWith(fontSize: 10),
           ),
         ],
+        // The trust model, said to the people it applies to rather than
+        // only in the code that implements it.
+        if (state.scope == LeaderboardScope.friends) ...[
+          const SizedBox(height: 6),
+          Text(
+            AppStrings.rankingsFriendsFooter,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.microLabel.copyWith(fontSize: 10),
+          ),
+        ],
       ],
     );
   }
 
-  /// The row's second line. A benchmark says what it is; the viewer gets
-  /// their car. Anyone else is left blank rather than given a
-  /// placeholder — their identity arrives with the remote phase.
+  /// The row's second line.
+  ///
+  /// A benchmark says what it is. The viewer's comes from their settings
+  /// row, which is fresher than anything they published. A friend's
+  /// comes from their mirror, through the very `AccountLabel.describe`
+  /// the friend search uses — but **without the invite code**: a code
+  /// disambiguates a stranger you're about to add, and is noise beside
+  /// somebody you already chose.
+  ///
+  /// Nobody gets a placeholder. A driver who hasn't set a car reads as
+  /// having no car, not as having a blank one.
   String? _subtitleFor(LeaderboardPosition position, UserSettingsRow? viewer) {
-    if (position.entry.isBenchmark) return AppStrings.rankingsPaceReference;
-    if (!position.entry.isCurrentUser || viewer == null) return null;
+    final entry = position.entry;
+    if (entry.isBenchmark) return AppStrings.rankingsPaceReference;
+
+    if (!entry.isCurrentUser) {
+      final label = AccountLabel.describe(
+        countryCode: entry.countryCode,
+        carMake: entry.carMake,
+        carModel: entry.carModel,
+        inviteCode: '',
+        includeCode: false,
+      );
+      final published = entry.publishedAt;
+      final age = published == null ? null : _agoLabel(published);
+      final parts = [
+        if (label.isNotEmpty) label,
+        if (age != null) AppStrings.rankingsPublishedAgo(age),
+      ];
+      return parts.isEmpty ? null : parts.join('  ·  ');
+    }
+
+    if (viewer == null) return null;
     final car = [
       viewer.carMake,
       viewer.carModel,
@@ -611,6 +702,16 @@ class _Board extends StatelessWidget {
       if (car.isNotEmpty) car,
     ];
     return parts.isEmpty ? null : parts.join('  ·  ');
+  }
+
+  /// "today" / "yesterday" / "3 days ago" — day granularity, because
+  /// the mirror is published a few times a day at most and "4 hours ago"
+  /// would imply a precision the number doesn't have.
+  static String _agoLabel(DateTime published) {
+    final days = DateTime.now().difference(published).inDays;
+    return days <= 0
+        ? AppStrings.rankingsAgoToday
+        : AppStrings.rankingsAgoDays(days);
   }
 }
 
@@ -671,11 +772,17 @@ class _RankingsMessage extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    this.action,
   });
 
   final IconData icon;
   final String title;
   final String body;
+
+  /// An optional label and callback. Only the friends board has one: its
+  /// emptiness has a fix, and a message that names the fix without
+  /// offering it makes the user go looking for it.
+  final (String, VoidCallback)? action;
 
   @override
   Widget build(BuildContext context) {
@@ -709,6 +816,22 @@ class _RankingsMessage extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.55),
               ),
             ),
+            if (action != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton(
+                onPressed: action!.$2,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.teal,
+                  foregroundColor: AppColors.bg,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xl,
+                    vertical: 12,
+                  ),
+                  shape: const StadiumBorder(),
+                ),
+                child: Text(action!.$1),
+              ),
+            ],
           ],
         ),
       ),

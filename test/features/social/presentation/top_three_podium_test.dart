@@ -3,7 +3,9 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_participant_type.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
+import 'package:drive_rank/features/social/presentation/widgets/benchmark_badge.dart';
 import 'package:drive_rank/features/social/presentation/widgets/top_three_podium.dart';
+import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,6 +20,9 @@ void main() {
     required double value,
     bool isBenchmark = false,
     bool isMe = false,
+    String countryCode = '',
+    String carMake = '',
+    bool isStale = false,
   }) {
     return LeaderboardPosition(
       rank: rank,
@@ -29,14 +34,18 @@ void main() {
             ? LeaderboardParticipantType.benchmark
             : LeaderboardParticipantType.realUser,
         isCurrentUser: isMe,
+        countryCode: countryCode,
+        carMake: carMake,
+        isStale: isStale,
       ),
     );
   }
 
   Future<void> pumpPodium(
     WidgetTester tester,
-    List<LeaderboardPosition> positions,
-  ) {
+    List<LeaderboardPosition> positions, {
+    void Function(LeaderboardEntry)? onCompare,
+  }) {
     return tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -44,6 +53,7 @@ void main() {
             positions: positions,
             formatValue: (v) => v.round().toString(),
             unitFor: (_) => 'KM',
+            onCompare: onCompare,
           ),
         ),
       ),
@@ -125,6 +135,75 @@ void main() {
     expect(find.text('Basit'), findsNothing);
     expect(find.text(AppStrings.leaderboardBenchmark), findsNWidgets(2));
     expect(find.byIcon(Icons.speed_rounded), findsNWidgets(2));
+  });
+
+  group('a friend on the podium', () {
+    testWidgets('gets their medal ring, their car and their flag — and '
+        'none of the benchmark treatment', (tester) async {
+      await pumpPodium(tester, [
+        positionFor(
+          rank: 1,
+          name: 'hamza',
+          value: 600,
+          countryCode: 'PK',
+          carMake: 'Toyota',
+        ),
+        positionFor(rank: 2, name: 'Basit', value: 500, isMe: true),
+        positionFor(
+          rank: 3,
+          name: 'Road Warrior',
+          value: 412,
+          isBenchmark: true,
+        ),
+      ]);
+
+      expect(find.text('hamza'), findsOneWidget);
+      expect(find.text(AppStrings.leaderboardBenchmark), findsOneWidget);
+      // One glyph, for the single benchmark. The friend gets a vehicle
+      // from what they published; the viewer's would come from their
+      // settings row, which this podium wasn't given — so exactly one
+      // silhouette, and no glyph leaking onto a person.
+      expect(find.byIcon(Icons.speed_rounded), findsOneWidget);
+      expect(find.byType(CarSilhouette), findsOneWidget);
+      // A real person at the top means somebody actually won.
+      expect(trophyColour(tester), AppColors.yellow);
+    });
+
+    testWidgets('an old figure is marked in the badge slot, where a '
+        'benchmark would be labelled', (tester) async {
+      await pumpPodium(tester, [
+        positionFor(
+          rank: 1,
+          name: 'hamza',
+          value: 600,
+          carMake: 'Toyota',
+          isStale: true,
+        ),
+      ]);
+      expect(find.byType(StaleBadge), findsOneWidget);
+      expect(find.text(AppStrings.leaderboardBenchmark), findsNothing);
+    });
+
+    testWidgets('is tappable for a head-to-head, and the viewer is not — '
+        'comparing yourself with yourself goes nowhere', (tester) async {
+      final tapped = <String>[];
+      await pumpPodium(
+        tester,
+        [
+          positionFor(rank: 1, name: 'hamza', value: 600, carMake: 'Toyota'),
+          positionFor(rank: 2, name: 'Basit', value: 500, isMe: true),
+        ],
+        onCompare: (entry) => tapped.add(entry.id),
+      );
+
+      await tester.tap(find.text('hamza'));
+      await tester.pump();
+      expect(tapped, ['hamza']);
+
+      await tester.tap(find.text(AppStrings.leaderboardYou));
+      await tester.pump();
+      expect(tapped, ['hamza'], reason: 'the viewer must stay inert');
+    });
   });
 
   group('a board with fewer than three entries', () {

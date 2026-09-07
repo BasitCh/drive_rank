@@ -1,9 +1,12 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
+import 'package:drive_rank/features/social/domain/entities/account_label.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_participant_type.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
+import 'package:drive_rank/features/social/presentation/widgets/benchmark_badge.dart';
 import 'package:drive_rank/features/social/presentation/widgets/leaderboard_row.dart';
+import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,6 +24,11 @@ void main() {
     required double value,
     bool isBenchmark = false,
     bool isMe = false,
+    String countryCode = '',
+    String carMake = '',
+    String carModel = '',
+    DateTime? publishedAt,
+    bool isStale = false,
   }) {
     return LeaderboardPosition(
       rank: rank,
@@ -32,6 +40,11 @@ void main() {
             ? LeaderboardParticipantType.benchmark
             : LeaderboardParticipantType.realUser,
         isCurrentUser: isMe,
+        countryCode: countryCode,
+        carMake: carMake,
+        carModel: carModel,
+        publishedAt: publishedAt,
+        isStale: isStale,
       ),
     );
   }
@@ -179,6 +192,79 @@ void main() {
       expect(find.text(AppStrings.leaderboardYou), findsNothing);
       expect(find.text(AppStrings.leaderboardBenchmark), findsNothing);
       expect(find.byIcon(Icons.speed_rounded), findsNothing);
+    });
+
+    testWidgets('a friend gets their flag, their car and no invite code — '
+        'a code disambiguates a stranger, not somebody you chose',
+        (tester) async {
+      final friend = positionFor(
+        rank: 2,
+        name: 'hamza',
+        value: 300,
+        countryCode: 'PK',
+        carMake: 'Toyota',
+        carModel: 'Corolla',
+      );
+      await pumpRow(
+        tester,
+        friend,
+        subtitle: AccountLabel.describe(
+          countryCode: friend.entry.countryCode,
+          carMake: friend.entry.carMake,
+          carModel: friend.entry.carModel,
+          inviteCode: 'CODE1234',
+          includeCode: false,
+        ),
+      );
+
+      expect(find.textContaining('Pakistan'), findsOneWidget);
+      expect(find.textContaining('Toyota Corolla'), findsOneWidget);
+      expect(find.textContaining('CODE1234'), findsNothing);
+      // Their car, drawn from what they published — never the gauge
+      // glyph, which belongs to benchmarks alone.
+      expect(find.byType(CarSilhouette), findsOneWidget);
+      expect(find.byIcon(Icons.speed_rounded), findsNothing);
+    });
+
+    testWidgets('an old figure is marked on the row and still shows its '
+        'value — the number ranks, the row just says it may be stale',
+        (tester) async {
+      await pumpRow(
+        tester,
+        positionFor(
+          rank: 2,
+          name: 'hamza',
+          value: 300,
+          carMake: 'Toyota',
+          isStale: true,
+        ),
+      );
+      expect(find.byType(StaleBadge), findsOneWidget);
+      expect(find.text('300'), findsOneWidget);
+    });
+
+    testWidgets('a fresh figure carries no caveat', (tester) async {
+      await pumpRow(
+        tester,
+        positionFor(rank: 2, name: 'hamza', value: 300, carMake: 'Toyota'),
+      );
+      expect(find.byType(StaleBadge), findsNothing);
+    });
+
+    testWidgets('a benchmark is never marked stale — a constant cannot '
+        'go out of date', (tester) async {
+      await pumpRow(
+        tester,
+        positionFor(
+          rank: 2,
+          name: 'Daily Driver',
+          value: 300,
+          isBenchmark: true,
+          isStale: true,
+        ),
+      );
+      expect(find.byType(StaleBadge), findsNothing);
+      expect(find.text(AppStrings.leaderboardBenchmark), findsOneWidget);
     });
   });
 

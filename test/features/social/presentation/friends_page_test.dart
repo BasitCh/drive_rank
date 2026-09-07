@@ -48,6 +48,15 @@ void main() {
     updatedAt: DateTime(2026),
   );
 
+  FriendRequest requestTo(String uid) => FriendRequest(
+    id: 'me-uid_$uid',
+    fromUid: 'me-uid',
+    toUid: uid,
+    status: FriendRequestStatus.pending,
+    createdAt: DateTime(2026),
+    updatedAt: DateTime(2026),
+  );
+
   FriendRequest requestFrom(String uid) => FriendRequest(
     id: '${uid}_me-uid',
     fromUid: uid,
@@ -136,8 +145,42 @@ void main() {
       );
     });
 
-    testWidgets('an already-sent request is inert rather than a button that '
-        'silently does nothing', (tester) async {
+    testWidgets('a request already sent offers the one thing left to do '
+        'with it — withdraw it. It used to show an inert button, and '
+        'looking the person up again showed a live ADD that the '
+        'repository refused, so a sent request was a dead end nobody '
+        'could see or undo', (tester) async {
+      await pumpSheet(
+        tester,
+        FriendsState(
+          isLoading: false,
+          lookupStatus: LookupStatus.requestSent,
+          lookupResult: mirror(),
+        ),
+      );
+
+      expect(find.text(AppStrings.friendsAwaitingReply), findsOneWidget);
+      expect(
+        find.text(AppStrings.friendsAddButton.toUpperCase()),
+        findsNothing,
+      );
+
+      await tester.tap(
+        find.text(AppStrings.friendsCancelButton.toUpperCase()),
+      );
+      final events = verify(() => bloc.add(captureAny())).captured;
+      expect(
+        events.single,
+        isA<FriendsRequestCancelled>().having(
+          (e) => e.toUid,
+          'toUid',
+          'bob-uid',
+        ),
+      );
+    });
+
+    testWidgets('a request sent from this very sheet reads the same way, '
+        'without waiting for another lookup', (tester) async {
       await pumpSheet(
         tester,
         FriendsState(
@@ -147,13 +190,29 @@ void main() {
           sentTo: const {'bob-uid'},
         ),
       );
-
+      expect(find.text(AppStrings.friendsAwaitingReply), findsOneWidget);
       expect(
-        find.text(AppStrings.friendsSentButton.toUpperCase()),
+        find.text(AppStrings.friendsCancelButton.toUpperCase()),
         findsOneWidget,
       );
+    });
+
+    testWidgets('when they asked first, the sheet says so and stays inert — '
+        'asking back would cross the two requests, and the answer to '
+        'theirs lives on the Friends screen', (tester) async {
+      await pumpSheet(
+        tester,
+        FriendsState(
+          isLoading: false,
+          lookupStatus: LookupStatus.requestReceived,
+          lookupResult: mirror(),
+        ),
+      );
+
+      expect(find.text(AppStrings.friendsTheyAskedFirst), findsOneWidget);
       await tester.tap(find.text(AppStrings.friendsSentButton.toUpperCase()));
       verifyNever(() => bloc.add(any(that: isA<FriendsRequestSent>())));
+      verifyNever(() => bloc.add(any(that: isA<FriendsRequestCancelled>())));
     });
 
     testWidgets('an existing friend is labelled as one', (tester) async {
@@ -254,6 +313,53 @@ void main() {
         find.text(AppStrings.friendsIncomingTitle.toUpperCase()),
         findsNothing,
       );
+    });
+
+    testWidgets('lists a request the viewer sent, with the one action '
+        'they have over it — it used to appear nowhere at all, so the '
+        'only person who could withdraw it could not see it',
+        (tester) async {
+      await pumpPage(
+        tester,
+        FriendsState(
+          isLoading: false,
+          uid: 'me-uid',
+          outgoing: [requestTo('bob-uid')],
+          friendProfiles: {'bob-uid': mirror()},
+        ),
+      );
+
+      expect(
+        find.text(AppStrings.friendsSentTitle.toUpperCase()),
+        findsOneWidget,
+      );
+      // Named from their published profile, not shown as a raw uid.
+      expect(find.textContaining('bob'), findsOneWidget);
+      expect(find.textContaining('bob-uid'), findsNothing);
+
+      await tester.tap(find.text(AppStrings.friendsCancelButton));
+      final events = verify(() => bloc.add(captureAny())).captured;
+      expect(
+        events.whereType<FriendsRequestCancelled>().single.toUid,
+        'bob-uid',
+      );
+    });
+
+    testWidgets('names an incoming request from the sender profile — a '
+        'request the viewer cannot attribute is one they cannot answer',
+        (tester) async {
+      await pumpPage(
+        tester,
+        FriendsState(
+          isLoading: false,
+          uid: 'me-uid',
+          incoming: [requestFrom('bob-uid')],
+          friendProfiles: {'bob-uid': mirror()},
+        ),
+      );
+
+      expect(find.textContaining('bob'), findsOneWidget);
+      expect(find.textContaining('bob-uid'), findsNothing);
     });
 
     testWidgets('shows an incoming request with both answers', (tester) async {

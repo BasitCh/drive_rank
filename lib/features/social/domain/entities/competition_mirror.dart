@@ -35,6 +35,7 @@ class CompetitionMirror {
     required this.countryCode,
     required this.inviteCode,
     required this.totals,
+    this.updatedAt,
   });
 
   final String uid;
@@ -50,7 +51,44 @@ class CompetitionMirror {
 
   /// One value per metric and period — nine in all. Keyed rather than
   /// nine named fields so adding a metric doesn't reshape the document.
-  final Map<(CompetitionMetric, LeaderboardPeriod), double> totals;
+  ///
+  /// **A missing key means "they never published this", not "zero".**
+  /// The two are different claims about a person: one is silence, the
+  /// other is an assertion that they drove nothing. The reader used to
+  /// coerce absent fields to `0`, which put a friend whose document
+  /// predates a metric at the bottom of the board as though they'd sat
+  /// still all week. Callers that rank must consult [hasTotalFor];
+  /// [totalFor] still returns a number, for display.
+  final Map<(CompetitionMetric, LeaderboardPeriod), double?> totals;
+
+  /// When this snapshot was published, or null for a document written
+  /// before the field was read back.
+  ///
+  /// A friend's figure is whatever their phone last sent, and until this
+  /// was surfaced a five-day-old total rendered identically to one from
+  /// a minute ago — so the board could present last week's distance as
+  /// this week's.
+  final DateTime? updatedAt;
+
+  /// Whether this driver has actually published [metric] over [period].
+  bool hasTotalFor(CompetitionMetric metric, LeaderboardPeriod period) =>
+      totals[(metric, period)] != null;
+
+  /// How stale the snapshot is, or null when it has no timestamp.
+  Duration? ageAt(DateTime now) {
+    final at = updatedAt;
+    return at == null ? null : now.difference(at);
+  }
+
+  /// Older than this and a row says so. Publishing happens on app
+  /// start, after a drive and on an identity change, so a single day
+  /// without opening the app is ordinary and not worth flagging.
+  static const Duration staleAfter = Duration(days: 2);
+
+  bool isStaleAt(DateTime now) {
+    final age = ageAt(now);
+    return age != null && age > staleAfter;
+  }
 
   /// Firestore field name for one metric/period pair, e.g.
   /// `distance_weekly`. Flat keys rather than nested maps so a rules

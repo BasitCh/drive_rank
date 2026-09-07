@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/free_trip_counter_service.dart';
+import 'package:drive_rank/core/services/geocoding_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart';
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart';
@@ -14,6 +15,7 @@ import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
+import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/services/public_profile_service.dart';
 import 'package:drive_rank/shared/services/username_reservation_service.dart';
@@ -167,6 +169,40 @@ void main() {
       await (db.delete(db.trips)..where((t) => t.id.equals(id))).go();
       await publisher.publishNow();
 
+      expect(
+        sink.writes.last.totalFor(
+          CompetitionMetric.distance,
+          LeaderboardPeriod.weekly,
+        ),
+        30,
+      );
+    });
+
+    test('deleting a trip republishes on its own — every other local '
+        'figure dropped the moment the trip went, while the published '
+        'total that friends rank against kept the old higher value '
+        'until the next app start. The one direction that flatters the '
+        'person who deleted it, on the one surface other people read',
+        () async {
+      await signIn('user-1');
+      final trips = TripRepository(db, GeocodingService());
+      final id = await addTrip(distanceKm: 120);
+      await addTrip(distanceKm: 30);
+      await publisher.publishNow();
+      expect(
+        sink.writes.last.totalFor(
+          CompetitionMetric.distance,
+          LeaderboardPeriod.weekly,
+        ),
+        150,
+      );
+      final writesBefore = sink.writes.length;
+
+      // No explicit publish: the delete has to do it.
+      await trips.deleteTrip(id);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(sink.writes.length, greaterThan(writesBefore));
       expect(
         sink.writes.last.totalFor(
           CompetitionMetric.distance,

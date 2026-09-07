@@ -187,10 +187,20 @@ class _Result extends StatelessWidget {
         );
       case LookupStatus.alreadyFriend:
       case LookupStatus.found:
+      case LookupStatus.requestSent:
+      case LookupStatus.requestReceived:
+      case LookupStatus.theyMustAsk:
         final profile = state.lookupResult;
         if (profile == null) return const SizedBox.shrink();
-        final already = state.lookupStatus == LookupStatus.alreadyFriend;
-        final sent = state.sentTo.contains(profile.uid);
+        final status = state.lookupStatus;
+        final already = status == LookupStatus.alreadyFriend;
+        final mustAsk = status == LookupStatus.theyMustAsk;
+        final theyAsked = status == LookupStatus.requestReceived;
+        // Either the lookup found an outstanding request, or one was
+        // sent from this very sheet a moment ago.
+        final sent =
+            status == LookupStatus.requestSent ||
+            state.sentTo.contains(profile.uid);
         // Country, car and the account's own code — because two people
         // can legitimately share a name, and a list of identical names
         // is worse than no search at all.
@@ -233,6 +243,23 @@ class _Result extends StatelessWidget {
                         style: AppTextStyles.microLabel.copyWith(fontSize: 10),
                       ),
                     ],
+                    // Says what is actually going on, so an outstanding
+                    // request reads as a state of the world rather than
+                    // as something that just went wrong.
+                    if (theyAsked || sent || mustAsk) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        theyAsked
+                            ? AppStrings.friendsTheyAskedFirst
+                            : mustAsk
+                            ? AppStrings.friendsTheyMustAsk
+                            : AppStrings.friendsAwaitingReply,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -240,15 +267,27 @@ class _Result extends StatelessWidget {
               _ActionButton(
                 label: already
                     ? AppStrings.friendsAddedButton
-                    : sent
+                    : mustAsk
+                    ? AppStrings.friendsAddButton
+                    : theyAsked
                     ? AppStrings.friendsSentButton
+                    : sent
+                    ? AppStrings.friendsCancelButton
                     : AppStrings.friendsAddButton,
-                // Nothing to do in either terminal state, and a live
-                // button that no-ops is worse than an inert one.
-                onPressed: already || sent
+                // A sent request offers the only thing left to do with
+                // it — withdraw it. It used to offer a live ADD that
+                // the repository refused, which is how a request nobody
+                // could see became a permanent dead end.
+                //
+                // Already friends, or they asked first, are genuinely
+                // terminal here: the answer to theirs lives on the
+                // Friends screen.
+                onPressed: already || theyAsked || mustAsk
                     ? null
                     : () => context.read<FriendsBloc>().add(
-                        FriendsRequestSent(profile.uid),
+                        sent
+                            ? FriendsRequestCancelled(profile.uid)
+                            : FriendsRequestSent(profile.uid),
                       ),
               ),
             ],

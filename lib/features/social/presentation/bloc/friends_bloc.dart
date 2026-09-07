@@ -49,6 +49,12 @@ class FriendsRequestSent extends FriendsEvent {
   final String toUid;
 }
 
+/// Withdraws a request the viewer sent and that hasn't been answered.
+class FriendsRequestCancelled extends FriendsEvent {
+  const FriendsRequestCancelled(this.toUid);
+  final String toUid;
+}
+
 class FriendsRequestAnswered extends FriendsEvent {
   const FriendsRequestAnswered(this.request, {required this.accept});
   final FriendRequest request;
@@ -63,7 +69,34 @@ class FriendsRemoved extends FriendsEvent {
 /// How a lookup ended. Distinct states rather than a nullable result,
 /// because "searching", "nothing there" and "found somebody" all need
 /// different copy and the difference matters to the user.
-enum LookupStatus { idle, searching, notFound, found, isSelf, alreadyFriend }
+/// What the lookup found, and therefore what the sheet may offer.
+///
+/// [requestSent] and [requestReceived] exist because the sheet used to
+/// know neither: an outstanding request left it showing a live ADD
+/// button that the repository then refused, and since a sent request
+/// appears nowhere in the app, there was no way to see it, withdraw it,
+/// or get past it. The lookup answers the question the button was
+/// guessing at.
+enum LookupStatus {
+  idle,
+  searching,
+  notFound,
+  found,
+  isSelf,
+  alreadyFriend,
+
+  /// The viewer already asked this person, and they haven't answered.
+  requestSent,
+
+  /// This person already asked the viewer — the answer is on the
+  /// Friends screen, and asking back would cross the two requests.
+  requestReceived,
+
+  /// Asking is not possible from this side: they declined an earlier
+  /// request and nothing has superseded it. They can still add the
+  /// viewer, which is the one thing worth saying.
+  theyMustAsk,
+}
 
 @immutable
 class FriendsState {
@@ -75,6 +108,7 @@ class FriendsState {
     this.friends = const [],
     this.friendProfiles = const {},
     this.incoming = const [],
+    this.outgoing = const [],
     this.lookupStatus = LookupStatus.idle,
     this.lookupResult,
     this.sentTo = const {},
@@ -103,6 +137,14 @@ class FriendsState {
   /// Requests waiting on this user's answer.
   final List<FriendRequest> incoming;
 
+  /// Requests the viewer sent and nobody has answered.
+  ///
+  /// Shown on the page, which it wasn't: a sent request existed only in
+  /// Firestore and in a set that died with the sheet, so the sender had
+  /// no way to see it, no way to withdraw it, and no way past the guard
+  /// that then refused to send it again.
+  final List<FriendRequest> outgoing;
+
   final LookupStatus lookupStatus;
   final CompetitionMirror? lookupResult;
 
@@ -120,6 +162,7 @@ class FriendsState {
     List<Friend>? friends,
     Map<String, CompetitionMirror>? friendProfiles,
     List<FriendRequest>? incoming,
+    List<FriendRequest>? outgoing,
     LookupStatus? lookupStatus,
     CompetitionMirror? lookupResult,
     Set<String>? sentTo,
@@ -134,6 +177,7 @@ class FriendsState {
     friends: friends ?? this.friends,
     friendProfiles: friendProfiles ?? this.friendProfiles,
     incoming: incoming ?? this.incoming,
+    outgoing: outgoing ?? this.outgoing,
     lookupStatus: clearLookup
         ? LookupStatus.idle
         : (lookupStatus ?? this.lookupStatus),
@@ -157,6 +201,7 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
     on<FriendsLookupRequested>(_onLookup);
     on<FriendsLookupCleared>(_onLookupCleared);
     on<FriendsRequestSent>(_onRequestSent);
+    on<FriendsRequestCancelled>(_onRequestCancelled);
     on<FriendsRequestAnswered>(_onRequestAnswered);
     on<FriendsRemoved>(_onRemoved);
   }
@@ -199,6 +244,10 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
     // …and keep listening, so a request that arrives while this page is
     // open shows up without closing and reopening it.
     await _sync.start();
+    // Two awaits stand between here and the event above, and leaving
+    // the page inside them closed the bloc — `add` on a closed bloc
+    // throws, so opening Friends and going straight back crashed.
+    if (isClosed) return;
     add(const FriendsRefreshed());
   }
 
@@ -216,14 +265,37 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
     final pending = requests
         .where((r) => r.status == FriendRequestStatus.pending)
         .toList();
+    final friendUids = {for (final f in friends) f.friendUid};
+    final sent = (await _social.getOutgoingRequests(uid))
+        .where(
+          (r) =>
+              r.status == FriendRequestStatus.pending &&
+              // Somebody who is already a friend cannot also be
+              // somebody you are waiting on. Belt to the listener's
+              // braces: the request's own status arrives on its own
+              // stream, and this makes the list right on the frame the
+              // friendship lands even if that status is a beat behind.
+              !friendUids.contains(r.toUid),
+        )
+        .toList();
+
+    // Whoever is on either side of a request is somebody the page has
+    // to name, so their profile is fetched like a friend's.
+    final counterparties = {
+      for (final r in pending) r.fromUid,
+      for (final r in sent) r.toUid,
+    };
 
     // Profiles are best-effort decoration: a friend with no published
     // mirror still belongs in the list, under their local record.
     final profiles = <String, CompetitionMirror>{...state.friendProfiles};
-    for (final friend in friends) {
-      if (profiles.containsKey(friend.friendUid)) continue;
-      final profile = await _directory.profileFor(friend.friendUid);
-      if (profile != null) profiles[friend.friendUid] = profile;
+    for (final uid in {
+      for (final friend in friends) friend.friendUid,
+      ...counterparties,
+    }) {
+      if (profiles.containsKey(uid)) continue;
+      final profile = await _directory.profileFor(uid);
+      if (profile != null) profiles[uid] = profile;
     }
 
     emit(
@@ -232,6 +304,7 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
         friends: friends,
         friendProfiles: profiles,
         incoming: pending,
+        outgoing: sent,
       ),
     );
   }
@@ -279,10 +352,66 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
     }
 
     final profile = await _directory.profileFor(uid);
+    if (profile == null) {
+      emit(state.copyWith(lookupStatus: LookupStatus.notFound));
+      return;
+    }
+
+    // An outstanding request in either direction. Checked here rather
+    // than left to the send path, which could only report it as an
+    // error after the user had already committed to the action.
+    //
+    // Read from the table, not from `state.incoming`: that is filled by
+    // a refresh, and the sheet can be open before the first one lands.
+    // Every status, not just pending — what has already happened
+    // between these two is exactly what decides whether asking is
+    // possible.
+    final incoming = await _social.getIncomingRequests(state.uid);
+    final theyAsked = incoming.any(
+      (r) => r.fromUid == uid && r.status == FriendRequestStatus.pending,
+    );
+    if (theyAsked) {
+      emit(
+        state.copyWith(
+          lookupStatus: LookupStatus.requestReceived,
+          lookupResult: profile,
+        ),
+      );
+      return;
+    }
+    final outgoing = await _social.getOutgoingRequests(state.uid);
+    final mine = outgoing.where((r) => r.toUid == uid);
+    if (mine.any((r) => r.status == FriendRequestStatus.pending)) {
+      emit(
+        state.copyWith(
+          lookupStatus: LookupStatus.requestSent,
+          lookupResult: profile,
+        ),
+      );
+      return;
+    }
+
+    // A decline this side cannot write past. It stops being binding
+    // once the two have actually been friends — proven by the other
+    // direction reaching `accepted` or `ended` — which is the same
+    // condition the security rules check before allowing the re-ask.
+    // Duplicated here on purpose: the alternative is offering a button
+    // whose write the cloud refuses, and reporting that refusal as
+    // "try again" when trying again can never work.
+    final supersededByFriendship = incoming.any(
+      (r) =>
+          r.fromUid == uid &&
+          (r.status == FriendRequestStatus.accepted ||
+              r.status == FriendRequestStatus.ended),
+    );
+    final declinedByThem = mine.any(
+      (r) => r.status == FriendRequestStatus.declined,
+    );
+
     emit(
       state.copyWith(
-        lookupStatus: profile == null
-            ? LookupStatus.notFound
+        lookupStatus: declinedByThem && !supersededByFriendship
+            ? LookupStatus.theyMustAsk
             : LookupStatus.found,
         lookupResult: profile,
       ),
@@ -300,10 +429,9 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
     FriendsRequestSent event,
     Emitter<FriendsState> emit,
   ) async {
+    final id = friendRequestKey(fromUid: state.uid, toUid: event.toUid);
     try {
       await _social.sendFriendRequest(fromUid: state.uid, toUid: event.toUid);
-      await _directory.sendRequest(fromUid: state.uid, toUid: event.toUid);
-      emit(state.copyWith(sentTo: {...state.sentTo, event.toUid}));
     } catch (e) {
       // The repository throws a StateError carrying the reason — a
       // crossed request, or already friends. Its message is the most
@@ -313,7 +441,86 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
           error: e is StateError ? e.message : AppStrings.friendsSendFailed,
         ),
       );
+      return;
     }
+
+    try {
+      await _directory.sendRequest(fromUid: state.uid, toUid: event.toUid);
+    } catch (e) {
+      // **The local row must not outlive a failed remote write.** A
+      // local `pending` with nothing behind it is invisible to the
+      // person it was addressed to, blocks every later attempt to ask
+      // them, and cannot be withdrawn — there is no remote document to
+      // withdraw. That trap is what a real device was found in. Undo
+      // the local half and report the failure honestly.
+      if (kDebugMode) debugPrint('[Friends] remote send failed: $e');
+      try {
+        await _social.cancelFriendRequest(id, byUid: state.uid);
+      } catch (rollback) {
+        if (kDebugMode) debugPrint('[Friends] rollback failed: $rollback');
+      }
+      emit(state.copyWith(error: AppStrings.friendsSendFailed));
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        // The status, not just the set: it is what survives the sheet
+        // being rebuilt, and what a fresh lookup will find too.
+        lookupStatus: state.lookupResult?.uid == event.toUid
+            ? LookupStatus.requestSent
+            : state.lookupStatus,
+        sentTo: {...state.sentTo, event.toUid},
+      ),
+    );
+    add(const FriendsRefreshed());
+  }
+
+  /// Withdraws a request the viewer sent.
+  ///
+  /// The repository and the rules have supported this since 4b and
+  /// nothing ever called it, which is what made a sent request
+  /// permanent: it was invisible, unanswerable by the sender, and it
+  /// blocked every later attempt to add that person.
+  Future<void> _onRequestCancelled(
+    FriendsRequestCancelled event,
+    Emitter<FriendsState> emit,
+  ) async {
+    try {
+      // Local first, as everywhere else here: it is what the UI reads.
+      await _social.cancelFriendRequest(
+        friendRequestKey(fromUid: state.uid, toUid: event.toUid),
+        byUid: state.uid,
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Friends] local cancel failed: $e');
+      emit(state.copyWith(error: AppStrings.friendsCancelFailed));
+      return;
+    }
+
+    try {
+      await _directory.cancelRequest(fromUid: state.uid, toUid: event.toUid);
+    } catch (e) {
+      // **Best-effort, and deliberately not an error.** The two ways
+      // this fails are a request with no remote document — in which
+      // case there is nothing to withdraw and the local row was the
+      // whole problem — and being offline, where the next sync pass
+      // reconciles from the cloud either way. Reporting "couldn't
+      // withdraw" over a local row that *was* withdrawn is what left
+      // the withdrawal looking broken while it had in fact worked.
+      if (kDebugMode) debugPrint('[Friends] remote cancel skipped: $e');
+    }
+
+    // Straight back to a person you can ask, so withdrawing by mistake
+    // costs one tap rather than locking the sheet.
+    emit(
+      state.copyWith(
+        lookupStatus: LookupStatus.found,
+        sentTo: {...state.sentTo}..remove(event.toUid),
+        clearError: true,
+      ),
+    );
+    add(const FriendsRefreshed());
   }
 
   Future<void> _onRequestAnswered(

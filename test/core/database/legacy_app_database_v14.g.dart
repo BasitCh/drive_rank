@@ -5786,12 +5786,16 @@ class FriendsCompanion extends UpdateCompanion<FriendRow> {
   }
 }
 
-class $FriendRequestsTable extends FriendRequests
-    with TableInfo<$FriendRequestsTable, FriendRequestRow> {
+class $LegacyFriendRequestsPreV16Table extends LegacyFriendRequestsPreV16
+    with
+        TableInfo<
+          $LegacyFriendRequestsPreV16Table,
+          LegacyFriendRequestPreV16Row
+        > {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $FriendRequestsTable(this.attachedDatabase, [this._alias]);
+  $LegacyFriendRequestsPreV16Table(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -5885,7 +5889,7 @@ class $FriendRequestsTable extends FriendRequests
   static const String $name = 'friend_requests';
   @override
   VerificationContext validateIntegrity(
-    Insertable<FriendRequestRow> instance, {
+    Insertable<LegacyFriendRequestPreV16Row> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -5945,9 +5949,12 @@ class $FriendRequestsTable extends FriendRequests
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  FriendRequestRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  LegacyFriendRequestPreV16Row map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return FriendRequestRow(
+    return LegacyFriendRequestPreV16Row(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -5980,13 +5987,13 @@ class $FriendRequestsTable extends FriendRequests
   }
 
   @override
-  $FriendRequestsTable createAlias(String alias) {
-    return $FriendRequestsTable(attachedDatabase, alias);
+  $LegacyFriendRequestsPreV16Table createAlias(String alias) {
+    return $LegacyFriendRequestsPreV16Table(attachedDatabase, alias);
   }
 }
 
-class FriendRequestRow extends DataClass
-    implements Insertable<FriendRequestRow> {
+class LegacyFriendRequestPreV16Row extends DataClass
+    implements Insertable<LegacyFriendRequestPreV16Row> {
   final int id;
   final String remoteId;
   final String fromUid;
@@ -5994,7 +6001,7 @@ class FriendRequestRow extends DataClass
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
-  const FriendRequestRow({
+  const LegacyFriendRequestPreV16Row({
     required this.id,
     required this.remoteId,
     required this.fromUid,
@@ -6016,8 +6023,8 @@ class FriendRequestRow extends DataClass
     return map;
   }
 
-  FriendRequestsCompanion toCompanion(bool nullToAbsent) {
-    return FriendRequestsCompanion(
+  LegacyFriendRequestsPreV16Companion toCompanion(bool nullToAbsent) {
+    return LegacyFriendRequestsPreV16Companion(
       id: Value(id),
       remoteId: Value(remoteId),
       fromUid: Value(fromUid),
@@ -6028,12 +6035,12 @@ class FriendRequestRow extends DataClass
     );
   }
 
-  factory FriendRequestRow.fromJson(
+  factory LegacyFriendRequestPreV16Row.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return FriendRequestRow(
+    return LegacyFriendRequestPreV16Row(
       id: serializer.fromJson<int>(json['id']),
       remoteId: serializer.fromJson<String>(json['remoteId']),
       fromUid: serializer.fromJson<String>(json['fromUid']),
@@ -6057,7 +6064,7 @@ class FriendRequestRow extends DataClass
     };
   }
 
-  FriendRequestRow copyWith({
+  LegacyFriendRequestPreV16Row copyWith({
     int? id,
     String? remoteId,
     String? fromUid,
@@ -6065,7 +6072,7 @@ class FriendRequestRow extends DataClass
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) => FriendRequestRow(
+  }) => LegacyFriendRequestPreV16Row(
     id: id ?? this.id,
     remoteId: remoteId ?? this.remoteId,
     fromUid: fromUid ?? this.fromUid,
@@ -6074,8 +6081,10 @@ class FriendRequestRow extends DataClass
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
-  FriendRequestRow copyWithCompanion(FriendRequestsCompanion data) {
-    return FriendRequestRow(
+  LegacyFriendRequestPreV16Row copyWithCompanion(
+    LegacyFriendRequestsPreV16Companion data,
+  ) {
+    return LegacyFriendRequestPreV16Row(
       id: data.id.present ? data.id.value : this.id,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       fromUid: data.fromUid.present ? data.fromUid.value : this.fromUid,
@@ -6088,7 +6097,7 @@ class FriendRequestRow extends DataClass
 
   @override
   String toString() {
-    return (StringBuffer('FriendRequestRow(')
+    return (StringBuffer('LegacyFriendRequestPreV16Row(')
           ..write('id: $id, ')
           ..write('remoteId: $remoteId, ')
           ..write('fromUid: $fromUid, ')
@@ -6106,7 +6115,7 @@ class FriendRequestRow extends DataClass
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is FriendRequestRow &&
+      (other is LegacyFriendRequestPreV16Row &&
           other.id == this.id &&
           other.remoteId == this.remoteId &&
           other.fromUid == this.fromUid &&
@@ -6116,7 +6125,8 @@ class FriendRequestRow extends DataClass
           other.updatedAt == this.updatedAt);
 }
 
-class FriendRequestsCompanion extends UpdateCompanion<FriendRequestRow> {
+class LegacyFriendRequestsPreV16Companion
+    extends UpdateCompanion<LegacyFriendRequestPreV16Row> {
   final Value<int> id;
   final Value<String> remoteId;
   final Value<String> fromUid;
@@ -6124,7 +6134,7 @@ class FriendRequestsCompanion extends UpdateCompanion<FriendRequestRow> {
   final Value<String> status;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
-  const FriendRequestsCompanion({
+  const LegacyFriendRequestsPreV16Companion({
     this.id = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.fromUid = const Value.absent(),
@@ -6133,7 +6143,7 @@ class FriendRequestsCompanion extends UpdateCompanion<FriendRequestRow> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
-  FriendRequestsCompanion.insert({
+  LegacyFriendRequestsPreV16Companion.insert({
     this.id = const Value.absent(),
     required String remoteId,
     required String fromUid,
@@ -6146,7 +6156,7 @@ class FriendRequestsCompanion extends UpdateCompanion<FriendRequestRow> {
        toUid = Value(toUid),
        createdAt = Value(createdAt),
        updatedAt = Value(updatedAt);
-  static Insertable<FriendRequestRow> custom({
+  static Insertable<LegacyFriendRequestPreV16Row> custom({
     Expression<int>? id,
     Expression<String>? remoteId,
     Expression<String>? fromUid,
@@ -6166,7 +6176,7 @@ class FriendRequestsCompanion extends UpdateCompanion<FriendRequestRow> {
     });
   }
 
-  FriendRequestsCompanion copyWith({
+  LegacyFriendRequestsPreV16Companion copyWith({
     Value<int>? id,
     Value<String>? remoteId,
     Value<String>? fromUid,
@@ -6175,7 +6185,7 @@ class FriendRequestsCompanion extends UpdateCompanion<FriendRequestRow> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
-    return FriendRequestsCompanion(
+    return LegacyFriendRequestsPreV16Companion(
       id: id ?? this.id,
       remoteId: remoteId ?? this.remoteId,
       fromUid: fromUid ?? this.fromUid,
@@ -6215,7 +6225,7 @@ class FriendRequestsCompanion extends UpdateCompanion<FriendRequestRow> {
 
   @override
   String toString() {
-    return (StringBuffer('FriendRequestsCompanion(')
+    return (StringBuffer('LegacyFriendRequestsPreV16Companion(')
           ..write('id: $id, ')
           ..write('remoteId: $remoteId, ')
           ..write('fromUid: $fromUid, ')
@@ -8579,7 +8589,8 @@ abstract class _$LegacyAppDatabaseV14 extends GeneratedDatabase {
   late final $LiveTripsTable liveTrips = $LiveTripsTable(this);
   late final $LiveWaypointsTable liveWaypoints = $LiveWaypointsTable(this);
   late final $FriendsTable friends = $FriendsTable(this);
-  late final $FriendRequestsTable friendRequests = $FriendRequestsTable(this);
+  late final $LegacyFriendRequestsPreV16Table legacyFriendRequestsPreV16 =
+      $LegacyFriendRequestsPreV16Table(this);
   late final $ChallengesTable challenges = $ChallengesTable(this);
   late final $ChallengeProgressTable challengeProgress =
       $ChallengeProgressTable(this);
@@ -8603,7 +8614,7 @@ abstract class _$LegacyAppDatabaseV14 extends GeneratedDatabase {
     liveTrips,
     liveWaypoints,
     friends,
-    friendRequests,
+    legacyFriendRequestsPreV16,
     challenges,
     challengeProgress,
     trophies,
@@ -11542,8 +11553,8 @@ typedef $$FriendsTableProcessedTableManager =
       FriendRow,
       PrefetchHooks Function()
     >;
-typedef $$FriendRequestsTableCreateCompanionBuilder =
-    FriendRequestsCompanion Function({
+typedef $$LegacyFriendRequestsPreV16TableCreateCompanionBuilder =
+    LegacyFriendRequestsPreV16Companion Function({
       Value<int> id,
       required String remoteId,
       required String fromUid,
@@ -11552,8 +11563,8 @@ typedef $$FriendRequestsTableCreateCompanionBuilder =
       required DateTime createdAt,
       required DateTime updatedAt,
     });
-typedef $$FriendRequestsTableUpdateCompanionBuilder =
-    FriendRequestsCompanion Function({
+typedef $$LegacyFriendRequestsPreV16TableUpdateCompanionBuilder =
+    LegacyFriendRequestsPreV16Companion Function({
       Value<int> id,
       Value<String> remoteId,
       Value<String> fromUid,
@@ -11563,9 +11574,9 @@ typedef $$FriendRequestsTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
     });
 
-class $$FriendRequestsTableFilterComposer
-    extends Composer<_$LegacyAppDatabaseV14, $FriendRequestsTable> {
-  $$FriendRequestsTableFilterComposer({
+class $$LegacyFriendRequestsPreV16TableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV14, $LegacyFriendRequestsPreV16Table> {
+  $$LegacyFriendRequestsPreV16TableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -11608,9 +11619,9 @@ class $$FriendRequestsTableFilterComposer
   );
 }
 
-class $$FriendRequestsTableOrderingComposer
-    extends Composer<_$LegacyAppDatabaseV14, $FriendRequestsTable> {
-  $$FriendRequestsTableOrderingComposer({
+class $$LegacyFriendRequestsPreV16TableOrderingComposer
+    extends Composer<_$LegacyAppDatabaseV14, $LegacyFriendRequestsPreV16Table> {
+  $$LegacyFriendRequestsPreV16TableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -11653,9 +11664,9 @@ class $$FriendRequestsTableOrderingComposer
   );
 }
 
-class $$FriendRequestsTableAnnotationComposer
-    extends Composer<_$LegacyAppDatabaseV14, $FriendRequestsTable> {
-  $$FriendRequestsTableAnnotationComposer({
+class $$LegacyFriendRequestsPreV16TableAnnotationComposer
+    extends Composer<_$LegacyAppDatabaseV14, $LegacyFriendRequestsPreV16Table> {
+  $$LegacyFriendRequestsPreV16TableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -11684,41 +11695,50 @@ class $$FriendRequestsTableAnnotationComposer
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
-class $$FriendRequestsTableTableManager
+class $$LegacyFriendRequestsPreV16TableTableManager
     extends
         RootTableManager<
           _$LegacyAppDatabaseV14,
-          $FriendRequestsTable,
-          FriendRequestRow,
-          $$FriendRequestsTableFilterComposer,
-          $$FriendRequestsTableOrderingComposer,
-          $$FriendRequestsTableAnnotationComposer,
-          $$FriendRequestsTableCreateCompanionBuilder,
-          $$FriendRequestsTableUpdateCompanionBuilder,
+          $LegacyFriendRequestsPreV16Table,
+          LegacyFriendRequestPreV16Row,
+          $$LegacyFriendRequestsPreV16TableFilterComposer,
+          $$LegacyFriendRequestsPreV16TableOrderingComposer,
+          $$LegacyFriendRequestsPreV16TableAnnotationComposer,
+          $$LegacyFriendRequestsPreV16TableCreateCompanionBuilder,
+          $$LegacyFriendRequestsPreV16TableUpdateCompanionBuilder,
           (
-            FriendRequestRow,
+            LegacyFriendRequestPreV16Row,
             BaseReferences<
               _$LegacyAppDatabaseV14,
-              $FriendRequestsTable,
-              FriendRequestRow
+              $LegacyFriendRequestsPreV16Table,
+              LegacyFriendRequestPreV16Row
             >,
           ),
-          FriendRequestRow,
+          LegacyFriendRequestPreV16Row,
           PrefetchHooks Function()
         > {
-  $$FriendRequestsTableTableManager(
+  $$LegacyFriendRequestsPreV16TableTableManager(
     _$LegacyAppDatabaseV14 db,
-    $FriendRequestsTable table,
+    $LegacyFriendRequestsPreV16Table table,
   ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$FriendRequestsTableFilterComposer($db: db, $table: table),
+              $$LegacyFriendRequestsPreV16TableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
           createOrderingComposer: () =>
-              $$FriendRequestsTableOrderingComposer($db: db, $table: table),
+              $$LegacyFriendRequestsPreV16TableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
           createComputedFieldComposer: () =>
-              $$FriendRequestsTableAnnotationComposer($db: db, $table: table),
+              $$LegacyFriendRequestsPreV16TableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -11728,7 +11748,7 @@ class $$FriendRequestsTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
-              }) => FriendRequestsCompanion(
+              }) => LegacyFriendRequestsPreV16Companion(
                 id: id,
                 remoteId: remoteId,
                 fromUid: fromUid,
@@ -11746,7 +11766,7 @@ class $$FriendRequestsTableTableManager
                 Value<String> status = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
-              }) => FriendRequestsCompanion.insert(
+              }) => LegacyFriendRequestsPreV16Companion.insert(
                 id: id,
                 remoteId: remoteId,
                 fromUid: fromUid,
@@ -11763,25 +11783,25 @@ class $$FriendRequestsTableTableManager
       );
 }
 
-typedef $$FriendRequestsTableProcessedTableManager =
+typedef $$LegacyFriendRequestsPreV16TableProcessedTableManager =
     ProcessedTableManager<
       _$LegacyAppDatabaseV14,
-      $FriendRequestsTable,
-      FriendRequestRow,
-      $$FriendRequestsTableFilterComposer,
-      $$FriendRequestsTableOrderingComposer,
-      $$FriendRequestsTableAnnotationComposer,
-      $$FriendRequestsTableCreateCompanionBuilder,
-      $$FriendRequestsTableUpdateCompanionBuilder,
+      $LegacyFriendRequestsPreV16Table,
+      LegacyFriendRequestPreV16Row,
+      $$LegacyFriendRequestsPreV16TableFilterComposer,
+      $$LegacyFriendRequestsPreV16TableOrderingComposer,
+      $$LegacyFriendRequestsPreV16TableAnnotationComposer,
+      $$LegacyFriendRequestsPreV16TableCreateCompanionBuilder,
+      $$LegacyFriendRequestsPreV16TableUpdateCompanionBuilder,
       (
-        FriendRequestRow,
+        LegacyFriendRequestPreV16Row,
         BaseReferences<
           _$LegacyAppDatabaseV14,
-          $FriendRequestsTable,
-          FriendRequestRow
+          $LegacyFriendRequestsPreV16Table,
+          LegacyFriendRequestPreV16Row
         >,
       ),
-      FriendRequestRow,
+      LegacyFriendRequestPreV16Row,
       PrefetchHooks Function()
     >;
 typedef $$ChallengesTableCreateCompanionBuilder =
@@ -13382,8 +13402,12 @@ class $LegacyAppDatabaseV14Manager {
       $$LiveWaypointsTableTableManager(_db, _db.liveWaypoints);
   $$FriendsTableTableManager get friends =>
       $$FriendsTableTableManager(_db, _db.friends);
-  $$FriendRequestsTableTableManager get friendRequests =>
-      $$FriendRequestsTableTableManager(_db, _db.friendRequests);
+  $$LegacyFriendRequestsPreV16TableTableManager
+  get legacyFriendRequestsPreV16 =>
+      $$LegacyFriendRequestsPreV16TableTableManager(
+        _db,
+        _db.legacyFriendRequestsPreV16,
+      );
   $$ChallengesTableTableManager get challenges =>
       $$ChallengesTableTableManager(_db, _db.challenges);
   $$ChallengeProgressTableTableManager get challengeProgress =>

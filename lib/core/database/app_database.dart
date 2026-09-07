@@ -47,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -262,6 +262,36 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE user_settings ADD COLUMN username_claimed '
           'INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 16) {
+        // v16 — one row per friend request, enforced.
+        //
+        // A request id is derived from the pair (`{fromUid}_{toUid}`),
+        // and every reader has assumed since 4b that a remote id
+        // therefore identifies exactly one local row. Nothing enforced
+        // it: the writer used a plain insert, so each send appended
+        // another copy. A real device was found holding the same
+        // request three times, which shows the same entry three times
+        // in a list and leaves "which copy is the status" undefined.
+        //
+        // Collapse first, then constrain — unlike the trophies index in
+        // v12, duplicates certainly exist in the wild, so an index
+        // added before the dedupe would fail to build and take the
+        // whole upgrade with it. The survivor is the most recently
+        // updated row, which carries the furthest-along status.
+        await customStatement(
+          'DELETE FROM friend_requests WHERE id NOT IN ('
+          ' SELECT id FROM ('
+          ' SELECT id, ROW_NUMBER() OVER ('
+          ' PARTITION BY remote_id ORDER BY updated_at DESC, id DESC'
+          ' ) AS rn FROM friend_requests'
+          ' ) WHERE rn = 1'
+          ' )',
+        );
+        await customStatement(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_friend_requests_remote_id '
+          'ON friend_requests (remote_id)',
         );
       }
     },

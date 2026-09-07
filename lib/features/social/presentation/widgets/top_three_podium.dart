@@ -37,9 +37,9 @@ class TopThreePodium extends StatelessWidget {
   final String Function(double) unitFor;
   final UserSettingsRow? viewer;
 
-  /// Opens the head-to-head for a benchmark. Wired only for benchmark
-  /// tiles — the viewer's own tile stays inert, because comparing
-  /// yourself with yourself goes nowhere.
+  /// Opens the head-to-head. Wired for everyone but the viewer — their
+  /// own tile stays inert, because comparing yourself with yourself goes
+  /// nowhere.
   final void Function(LeaderboardEntry entry)? onCompare;
 
   /// Fixed heights for the block above each plinth.
@@ -65,7 +65,7 @@ class TopThreePodium extends StatelessWidget {
 
   VoidCallback? _tapFor(LeaderboardPosition position) {
     final compare = onCompare;
-    if (compare == null || !position.entry.isBenchmark) return null;
+    if (compare == null || position.entry.isCurrentUser) return null;
     return () => compare(position.entry);
   }
 
@@ -206,7 +206,7 @@ class _PodiumTile extends StatelessWidget {
                 diameter: diameter,
                 viewer: viewer,
                 ringColor: medal,
-                showFlag: entry.isCurrentUser,
+                showFlag: entry.isCurrentUser || entry.countryCode.isNotEmpty,
               ),
               const SizedBox(height: 6),
               Text(
@@ -235,6 +235,11 @@ class _PodiumTile extends StatelessWidget {
                     ? const Padding(
                         padding: EdgeInsets.only(top: 3),
                         child: BenchmarkBadge(),
+                      )
+                    : entry.isStale
+                    ? const Padding(
+                        padding: EdgeInsets.only(top: 3),
+                        child: StaleBadge(),
                       )
                     : null,
               ),

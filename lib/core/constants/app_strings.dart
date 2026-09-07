@@ -410,6 +410,44 @@ class AppStrings {
   static const String rankingsBenchmarkFooter =
       'Benchmarks are fixed targets, not other drivers.';
 
+  /// The label on a row whose figure is older than `staleAfter`.
+  ///
+  /// "Old figure" rather than "stale" or "offline": it describes the
+  /// *number*, not the person. A friend who hasn't opened the app hasn't
+  /// gone anywhere, and their last published total is still the truest
+  /// thing the app knows about them.
+  static const String leaderboardStaleFigure = 'OLD FIGURE';
+
+  /// The freshness note under the friends board, e.g. "Updated 3 days
+  /// ago" — the caller supplies the phrase.
+  static String rankingsPublishedAgo(String ago) => 'Updated $ago';
+
+  static String rankingsAgoDays(int days) =>
+      days == 1 ? 'yesterday' : '$days days ago';
+  static const String rankingsAgoToday = 'today';
+
+  // Rankings — scope. A third selector beside metric and period rather
+  // than a fourth tab: friends-vs-global is the same board with a
+  // different population, and Targets and Trophies are personal
+  // surfaces that a scope would mean nothing on.
+  static const String rankingsScopeGlobal = 'Global';
+  static const String rankingsScopeFriends = 'Friends';
+  static const String rankingsScopeLabel = "Who you're ranked against";
+
+  /// Shown on the friends board when the viewer has no friends yet.
+  /// Points at the place that fixes it rather than just reporting the
+  /// emptiness.
+  static const String rankingsNoFriendsTitle = 'No friends ranked yet';
+  static const String rankingsNoFriendsBody =
+      'Add a friend and you both appear on this board. Until then, '
+      'Global ranks you against fixed benchmarks.';
+  static const String rankingsNoFriendsCta = 'Find friends';
+
+  /// The footer under a friends board — the self-reported trust model,
+  /// said plainly to the people it applies to.
+  static const String rankingsFriendsFooter =
+      "Friends' figures are published by their own devices.";
+
   // Rankings — sparse states. Two variants, because the same note has
   // to be true both for a driver with no ranked trips yet and for one
   // who has plenty but is still the only real competitor here. Telling
@@ -552,12 +590,36 @@ class AppStrings {
   static const String friendsSentButton = 'Sent';
   static const String friendsSendFailed =
       "Couldn't send the request — try again";
+
+  // An outstanding request, in either direction. The sheet used to show
+  // a live ADD button in both cases and report the refusal as an error,
+  // which read as a failure and offered no way forward.
+  static const String friendsAwaitingReply = 'Asked — waiting for a reply';
+  static const String friendsCancelButton = 'Withdraw';
+  static const String friendsCancelFailed =
+      "Couldn't withdraw the request — try again";
+  static const String friendsTheyAskedFirst =
+      'They asked you first — answer it under Friend requests';
+
+  /// When asking is genuinely not possible from this side.
+  ///
+  /// Deliberately does not say "they declined you": it is true, but the
+  /// useful half is what to do next, and stating it adds nothing the
+  /// viewer can act on. What it must not do is what it used to —
+  /// report "couldn't send, try again", which was a plain lie: trying
+  /// again could never work.
+  static const String friendsTheyMustAsk = 'They can add you from their end';
   static const String friendsSectionTitle = 'Friends';
   static const String friendsIncomingTitle = 'Friend requests';
   static const String friendsAccept = 'Accept';
   static const String friendsDecline = 'Decline';
   static const String friendsRequestPrefix = '@';
   static const String friendsRequestSuffix = ' wants to be friends';
+
+  // Requests the viewer sent. They had no section at all, so a sent
+  // request was invisible to the only person who could withdraw it.
+  static const String friendsSentTitle = 'Requests you sent';
+  static const String friendsSentSuffix = ' — waiting for a reply';
 
   // Friends — invite and empty states (Phase 4b).
   static const String friendsTitle = 'Friends';

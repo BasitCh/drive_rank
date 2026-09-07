@@ -98,7 +98,26 @@ class _FriendsBody extends StatelessWidget {
                   const _SectionLabel(AppStrings.friendsIncomingTitle),
                   const SizedBox(height: AppSpacing.sm),
                   for (final request in state.incoming) ...[
-                    _RequestRow(request: request),
+                    _RequestRow(
+                      request: request,
+                      profile: state.friendProfiles[request.fromUid],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                ],
+                // Sent requests, which had nowhere to appear before.
+                // Below the incoming ones: answering somebody who is
+                // waiting on you matters more than watching your own
+                // request sit there.
+                if (state.outgoing.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  const _SectionLabel(AppStrings.friendsSentTitle),
+                  const SizedBox(height: AppSpacing.sm),
+                  for (final request in state.outgoing) ...[
+                    _SentRow(
+                      request: request,
+                      profile: state.friendProfiles[request.toUid],
+                    ),
                     const SizedBox(height: 6),
                   ],
                 ],
@@ -241,10 +260,21 @@ class _ShareButton extends StatelessWidget {
   }
 }
 
+/// Somebody's name for a request row.
+///
+/// The uid is the last resort, not the default: a row reading
+/// `@k3Jd0…9Zq wants to be friends` names nobody the viewer recognises,
+/// and a request they can't attribute is one they can't answer.
+String _nameFor(String uid, CompetitionMirror? profile) {
+  final username = profile?.username ?? '';
+  return username.isEmpty ? uid : username;
+}
+
 class _RequestRow extends StatelessWidget {
-  const _RequestRow({required this.request});
+  const _RequestRow({required this.request, this.profile});
 
   final FriendRequest request;
+  final CompetitionMirror? profile;
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +290,8 @@ class _RequestRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              '${AppStrings.friendsRequestPrefix}${request.fromUid}'
+              '${AppStrings.friendsRequestPrefix}'
+              '${_nameFor(request.fromUid, profile)}'
               '${AppStrings.friendsRequestSuffix}',
               maxLines: 2,
               style: AppTextStyles.bodySmall.copyWith(
@@ -282,6 +313,52 @@ class _RequestRow extends StatelessWidget {
             child: const Text(
               AppStrings.friendsAccept,
               style: TextStyle(color: AppColors.teal),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A request the viewer sent, with the one action they have over it.
+///
+/// The counterpart of [_RequestRow]: muted rather than teal-bordered,
+/// because it is something to be aware of rather than something to do.
+class _SentRow extends StatelessWidget {
+  const _SentRow({required this.request, this.profile});
+
+  final FriendRequest request;
+  final CompetitionMirror? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.read<FriendsBloc>();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        border: Border.all(color: AppColors.border2),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${AppStrings.friendsRequestPrefix}'
+              '${_nameFor(request.toUid, profile)}'
+              '${AppStrings.friendsSentSuffix}',
+              maxLines: 2,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => bloc.add(FriendsRequestCancelled(request.toUid)),
+            child: const Text(
+              AppStrings.friendsCancelButton,
+              style: TextStyle(color: AppColors.textSecondary),
             ),
           ),
         ],

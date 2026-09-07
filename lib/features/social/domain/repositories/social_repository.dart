@@ -33,6 +33,11 @@ abstract class SocialRepository {
   // Friend requests
   Stream<List<FriendRequest>> watchIncomingRequests(String uid);
   Future<List<FriendRequest>> getOutgoingRequests(String uid);
+
+  /// Every request addressed to [uid], whatever its status — unlike
+  /// [watchIncomingRequests], which is a list of what needs answering
+  /// and therefore shows only `pending`.
+  Future<List<FriendRequest>> getIncomingRequests(String uid);
   Future<FriendRequest> sendFriendRequest({
     required String fromUid,
     required String toUid,

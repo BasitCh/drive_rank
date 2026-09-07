@@ -73,6 +73,36 @@ class SelectorChip extends StatelessWidget {
   }
 }
 
+/// The board's row of [SelectorChip]s.
+///
+/// **Scrolls rather than wraps.** Scope, metric and period don't fit
+/// two-up on a narrow phone, and a `Wrap` would reflow them into two
+/// rows — undoing the compaction the chips were introduced for in the
+/// first place, and pushing the podium below the fold on exactly the
+/// devices that can least afford it. `RankingPills` already established
+/// scrolling as this screen's answer to a crowded row.
+class SelectorChipRow extends StatelessWidget {
+  const SelectorChipRow({required this.chips, super.key});
+
+  final List<Widget> chips;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: [
+          for (var i = 0; i < chips.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSpacing.sm),
+            chips[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// The sheet a [SelectorChip] opens: one tappable row per option, the
 /// active one marked.
 ///

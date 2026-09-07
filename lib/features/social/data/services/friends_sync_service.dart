@@ -36,6 +36,26 @@ class FriendsSyncService {
 
   StreamSubscription<void>? _friendshipsSub;
   StreamSubscription<void>? _requestsSub;
+  StreamSubscription<void>? _sentSub;
+
+  /// Serialises reconciliation passes.
+  ///
+  /// Three listeners drive this, and two of them (incoming and
+  /// outgoing requests) wake for the *same* remote change — so without
+  /// a queue the same pass ran twice at once, each half deciding from a
+  /// database the other was mid-write on. Same reasoning, and the same
+  /// shape, as `LocalSocialTripProcessor`'s queue.
+  Future<void> _queue = Future<void>.value();
+
+  Future<void> _serialised(Future<void> Function() work) {
+    final result = _queue.then((_) => work());
+    // The queue must never hold an error, or one failed pass would
+    // poison every later one.
+    _queue = result.catchError((Object e, StackTrace st) {
+      if (kDebugMode) debugPrint('[FriendsSync] pass failed: $e');
+    });
+    return result;
+  }
 
   /// Starts reconciling live, instead of only when something asks.
   ///
@@ -55,15 +75,25 @@ class FriendsSyncService {
     // Each snapshot is reconciled the same way a manual pass is, so
     // live and manual can't drift apart in behaviour.
     _friendshipsSub = _directory.watchFriendships(uid).listen(
-      (_) => _syncFriendships(uid),
+      (_) => _serialised(() => _syncFriendships(uid)),
       onError: (Object e) {
         if (kDebugMode) debugPrint('[FriendsSync] friendships stream: $e');
       },
     );
     _requestsSub = _directory.watchIncomingRequests(uid).listen(
-      (_) => _syncRequests(uid),
+      (_) => _serialised(() => _syncRequests(uid)),
       onError: (Object e) {
         if (kDebugMode) debugPrint('[FriendsSync] requests stream: $e');
+      },
+    );
+    // Both directions. A request the *sender* is watching changes state
+    // on the recipient's device, so without this the sender's own
+    // accepted request stayed `pending` locally and sat in their
+    // "requests you sent" list until they pulled to refresh.
+    _sentSub = _directory.watchOutgoingRequests(uid).listen(
+      (_) => _serialised(() => _syncRequests(uid)),
+      onError: (Object e) {
+        if (kDebugMode) debugPrint('[FriendsSync] sent stream: $e');
       },
     );
   }
@@ -71,8 +101,10 @@ class FriendsSyncService {
   Future<void> stop() async {
     await _friendshipsSub?.cancel();
     await _requestsSub?.cancel();
+    await _sentSub?.cancel();
     _friendshipsSub = null;
     _requestsSub = null;
+    _sentSub = null;
   }
 
   static bool _isPlaceholder(String uid) =>
@@ -83,8 +115,10 @@ class FriendsSyncService {
       final uid = (await _settings.read()).uid;
       if (_isPlaceholder(uid)) return;
 
-      await _syncFriendships(uid);
-      await _syncRequests(uid);
+      await _serialised(() async {
+        await _syncFriendships(uid);
+        await _syncRequests(uid);
+      });
     } catch (e, st) {
       // Same contract as a trip upload: a failed pass costs freshness,
       // and the next one recomputes from scratch.
@@ -160,16 +194,42 @@ class FriendsSyncService {
       // would resurrect a friendship somebody deliberately ended.
       if (request.status == FriendRequestStatus.accepted) {
         final other = request.fromUid == uid ? request.toUid : request.fromUid;
-        final alreadyFriends = await _local.friendshipExists(uid, other);
-        if (!alreadyFriends) {
-          await _directory.createFriendship(a: uid, b: other);
-          await _local.insertFriendship(
-            remoteId: friendshipKey(uid, other),
-            ownerUid: uid,
-            friendUid: other,
-            at: request.updatedAt,
-          );
+        if (await _local.friendshipExists(uid, other)) continue;
+
+        // **The local row missing does not mean the friendship is.**
+        // The usual reason this pass runs at all is the other person
+        // having just accepted: the friendship document already exists
+        // remotely and simply hasn't been projected here yet. Writing
+        // it again is an *update*, which the rules forbid outright —
+        // so the create that was meant to heal a missing friendship
+        // instead threw permission-denied straight into Crashlytics,
+        // every single time somebody accepted.
+        //
+        // A query, not a document read: a rules read of a document
+        // that does not exist is denied rather than answered, so
+        // "check whether it exists" has to be phrased as a query over
+        // the collection, which legitimately comes back empty.
+        final remote = await _directory.friendshipsFor(uid);
+        final existsRemotely = remote.any((f) => f.uids.contains(other));
+
+        if (!existsRemotely) {
+          try {
+            await _directory.createFriendship(a: uid, b: other);
+          } catch (e) {
+            // Both devices can reach this at once, and the loser of
+            // that race is refused for the same reason. Harmless: the
+            // winner's document is the one both sides then project.
+            if (kDebugMode) debugPrint('[FriendsSync] heal skipped: $e');
+            continue;
+          }
         }
+
+        await _local.insertFriendship(
+          remoteId: friendshipKey(uid, other),
+          ownerUid: uid,
+          friendUid: other,
+          at: request.updatedAt,
+        );
       }
     }
   }

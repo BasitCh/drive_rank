@@ -166,6 +166,37 @@ describe('friend requests', () => {
       );
     });
 
+    it('accepts a re-send written as one whole document — the client '
+      + 'cannot read first to find out whether the request exists, so '
+      + 'both create and re-send have to go through a single set',
+    async () => {
+      await assertSucceeds(
+        updateDoc(asUser(A), { status: 'cancelled', updatedAt: new Date() }),
+      );
+      await assertSucceeds(setDoc(asUser(A), requestDoc(A, B)));
+    });
+
+    it('still refuses a write that redirects the request at somebody '
+      + 'else — that is the field the friendship rule reads', async () => {
+      await assertFails(
+        setDoc(asUser(A), requestDoc(A, C)),
+      );
+      await assertFails(
+        updateDoc(asUser(A), { toUid: C, updatedAt: new Date() }),
+      );
+      await assertFails(
+        updateDoc(asUser(A), { fromUid: C, updatedAt: new Date() }),
+      );
+    });
+
+    it('refuses a re-send of a declined request, whole document or not — '
+      + 'a decline is terminal however it is written', async () => {
+      await assertSucceeds(
+        updateDoc(asUser(B), { status: 'declined', updatedAt: new Date() }),
+      );
+      await assertFails(setDoc(asUser(A), requestDoc(A, B)));
+    });
+
     it('refuses a cancel by the recipient', async () => {
       await assertFails(
         updateDoc(asUser(B), { status: 'cancelled', updatedAt: new Date() }),
@@ -202,6 +233,51 @@ describe('friend requests', () => {
       );
     });
 
+    it('lets two people who unfriended become friends again — a request '
+      + 'id is derived from the pair, so a fully terminal `ended` left '
+      + 'them with no address for a fresh request and no way back',
+    async () => {
+      await assertSucceeds(
+        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+      );
+      await assertSucceeds(
+        updateDoc(asUser(A), { status: 'ended', updatedAt: new Date() }),
+      );
+      // The sender asks again, as one whole `set` — the only write the
+      // client can make without reading first.
+      await assertSucceeds(setDoc(asUser(A), requestDoc(A, B)));
+    });
+
+    it('refuses re-opening an ended request straight into accepted — the '
+      + 'recipient has to agree again, and the healing pass must not be '
+      + 'handed back a friendship somebody deleted', async () => {
+      await assertSucceeds(
+        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+      );
+      await assertSucceeds(
+        updateDoc(asUser(A), { status: 'ended', updatedAt: new Date() }),
+      );
+      await assertFails(
+        updateDoc(asUser(A), { status: 'accepted', updatedAt: new Date() }),
+      );
+      await assertFails(
+        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+      );
+    });
+
+    it('refuses re-opening an ended request by the recipient — asking is '
+      + "the sender's move, at their own document id", async () => {
+      await assertSucceeds(
+        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+      );
+      await assertSucceeds(
+        updateDoc(asUser(A), { status: 'ended', updatedAt: new Date() }),
+      );
+      await assertFails(
+        updateDoc(asUser(B), { status: 'pending', updatedAt: new Date() }),
+      );
+    });
+
     it('lets either party end an accepted request, which is how an '
       + 'unfriend records itself', async () => {
       await assertSucceeds(
@@ -227,20 +303,53 @@ describe('friend requests', () => {
       );
     });
 
-    it('treats ended as terminal — re-friending starts a new request '
-      + 'rather than reviving an old one', async () => {
+    it("keeps a stranger's decline final — terminality is the anti-spam "
+      + 'rule, and without it a declined asker can re-ask on a loop',
+    async () => {
       await assertSucceeds(
-        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+        updateDoc(asUser(B), { status: 'declined', updatedAt: new Date() }),
       );
-      await assertSucceeds(
-        updateDoc(asUser(A), { status: 'ended', updatedAt: new Date() }),
-      );
+      // No reverse request at all: these two were never friends.
       await assertFails(
         updateDoc(asUser(A), { status: 'pending', updatedAt: new Date() }),
       );
-      await assertFails(
-        updateDoc(asUser(B), { status: 'accepted', updatedAt: new Date() }),
+      await assertFails(setDoc(asUser(A), requestDoc(A, B)));
+    });
+
+    it('lets a decline be re-opened once the two have actually been '
+      + 'friends since — an early "no" in one direction, a friendship '
+      + 'formed through the other, then an unfriend, left the declined '
+      + 'party unable to ask again for a no the friendship had already '
+      + 'superseded', async () => {
+      await assertSucceeds(
+        updateDoc(asUser(B), { status: 'declined', updatedAt: new Date() }),
       );
+
+      // The other direction: B asked A, A accepted, then somebody
+      // unfriended — which is what `ended` records.
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(
+          doc(ctx.firestore(), 'friend_requests', requestId(B, A)),
+          requestDoc(B, A, 'ended'),
+        );
+      });
+
+      await assertSucceeds(setDoc(asUser(A), requestDoc(A, B)));
+    });
+
+    it('a reverse request that never became a friendship does not '
+      + 'supersede anything — a crossed pair of asks is not agreement',
+    async () => {
+      await assertSucceeds(
+        updateDoc(asUser(B), { status: 'declined', updatedAt: new Date() }),
+      );
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(
+          doc(ctx.firestore(), 'friend_requests', requestId(B, A)),
+          requestDoc(B, A, 'declined'),
+        );
+      });
+      await assertFails(setDoc(asUser(A), requestDoc(A, B)));
     });
 
     it('never allows a delete, so a decline cannot be made invisible',

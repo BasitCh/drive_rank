@@ -5,24 +5,26 @@ import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsRow;
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
-import 'package:drive_rank/features/social/domain/usecases/compare_with_benchmark.dart';
+import 'package:drive_rank/features/social/domain/entities/opponent.dart';
+import 'package:drive_rank/features/social/domain/usecases/compare_with_opponent.dart';
 import 'package:drive_rank/features/social/presentation/widgets/benchmark_badge.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
+import 'package:drive_rank/shared/models/car_make_icons.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
 
-/// You against one benchmark, metric by metric.
+/// You against one opponent, metric by metric.
 ///
 /// The board tells you where you stand; this tells you *why*. Both sides
 /// are real — your figures come from the same calculator the board uses,
-/// the benchmark's from its published constants — so the bars measure
-/// something rather than dramatise it.
+/// the opponent's from their published constants or their published
+/// mirror — so the bars measure something rather than dramatise it.
 ///
-/// This is deliberately the layout a real friend will occupy. When the
-/// remote phase lands, their values replace the constants and their car
-/// replaces the gauge glyph; nothing else about this screen changes.
+/// The layout was built for a real person to occupy and now one does:
+/// a friend brings their car and flag where a benchmark keeps the gauge
+/// glyph, and nothing else about this screen changed.
 class CompareSheet extends StatelessWidget {
   const CompareSheet({
     required this.comparison,
@@ -33,7 +35,7 @@ class CompareSheet extends StatelessWidget {
     super.key,
   });
 
-  final BenchmarkComparison comparison;
+  final Comparison comparison;
   final String periodLabel;
   final String Function(CompetitionMetric) metricLabel;
 
@@ -115,7 +117,7 @@ class CompareSheet extends StatelessWidget {
                     ),
                   ),
                 ),
-                Expanded(child: _Them(name: comparison.benchmarkName)),
+                Expanded(child: _Them(opponent: comparison.opponent)),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -212,17 +214,21 @@ class _You extends StatelessWidget {
 }
 
 class _Them extends StatelessWidget {
-  const _Them({required this.name});
+  const _Them({required this.opponent});
 
-  final String name;
+  final Opponent opponent;
 
   @override
   Widget build(BuildContext context) {
+    final isBenchmark = opponent.isBenchmark;
+    final flag = countryFromCode(opponent.countryCode)?.flag;
+    final car = [
+      opponent.carMake,
+      opponent.carModel,
+    ].where((s) => s.trim().isNotEmpty).join(' ');
+
     return Column(
       children: [
-        // The same gauge glyph the board uses. A benchmark gets no car,
-        // no photo and no flag here either — the rule doesn't relax
-        // because the screen got bigger.
         Container(
           width: 68,
           height: 68,
@@ -231,15 +237,33 @@ class _Them extends StatelessWidget {
             color: AppColors.card,
             border: Border.all(color: AppColors.border2),
           ),
-          child: const Icon(
-            Icons.speed_rounded,
-            size: 30,
-            color: AppColors.textTertiary,
-          ),
+          clipBehavior: Clip.antiAlias,
+          // A benchmark keeps the same gauge glyph the board uses — no
+          // car, no photo, no flag here either. The rule doesn't relax
+          // because the screen got bigger. A friend gets their make.
+          child: isBenchmark
+              ? const Icon(
+                  Icons.speed_rounded,
+                  size: 30,
+                  color: AppColors.textTertiary,
+                )
+              : car.isEmpty
+              ? const Icon(
+                  Icons.person_rounded,
+                  size: 28,
+                  color: AppColors.textTertiary,
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(11),
+                  child: CarSilhouette(
+                    category: CarCategory.defaultCategory,
+                    makeId: makeIdFromDisplayName(opponent.carMake),
+                  ),
+                ),
         ),
         const SizedBox(height: 8),
         Text(
-          name,
+          opponent.displayName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -250,7 +274,23 @@ class _Them extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 3),
-        const BenchmarkBadge(),
+        if (isBenchmark)
+          const BenchmarkBadge()
+        else ...[
+          Text(
+            [if (flag != null) flag, if (car.isNotEmpty) car].join(' '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.microLabel.copyWith(fontSize: 10),
+          ),
+          // Their figures are a snapshot their phone sent, so the sheet
+          // says when it's an old one rather than presenting last week's
+          // driving as this week's.
+          if (opponent.isStale) ...[
+            const SizedBox(height: 3),
+            const StaleBadge(),
+          ],
+        ],
       ],
     );
   }

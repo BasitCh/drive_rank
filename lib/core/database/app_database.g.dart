@@ -8692,6 +8692,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $DeletedTripsTable deletedTrips = $DeletedTripsTable(this);
+  late final Index idxFriendRequestsRemoteId = Index(
+    'idx_friend_requests_remote_id',
+    'CREATE UNIQUE INDEX idx_friend_requests_remote_id ON friend_requests (remote_id)',
+  );
   late final Index idxTrophiesRemoteId = Index(
     'idx_trophies_remote_id',
     'CREATE UNIQUE INDEX idx_trophies_remote_id ON trophies (remote_id)',
@@ -8713,6 +8717,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     trophies,
     tripEligibility,
     deletedTrips,
+    idxFriendRequestsRemoteId,
     idxTrophiesRemoteId,
   ];
   @override

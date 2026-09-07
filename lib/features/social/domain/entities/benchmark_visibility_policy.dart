@@ -19,21 +19,37 @@ import 'package:flutter/foundation.dart';
 /// benchmarks disappear early rather than lingering as decoration.
 const int kBenchmarkHiddenAtRealCompetitors = 10;
 
+/// The same threshold for a **friends** board, which fills up far more
+/// slowly.
+///
+/// Ten is right for a global board, where the population is everyone;
+/// on a friends board it would mean benchmarks effectively never retire,
+/// because ten friends who all publish is a lot of friends. Four — the
+/// viewer plus three people they chose — is a ranking in its own right,
+/// and past that a published constant standing between two friends is
+/// clutter rather than a pace.
+const int kBenchmarkHiddenAtFriendCompetitors = 4;
+
 @immutable
 class BenchmarkVisibilityPolicy {
   const BenchmarkVisibilityPolicy({
     this.hiddenAtRealCompetitors = kBenchmarkHiddenAtRealCompetitors,
   });
 
+  /// The policy for a friends-scoped board.
+  const BenchmarkVisibilityPolicy.friends()
+    : hiddenAtRealCompetitors = kBenchmarkHiddenAtFriendCompetitors;
+
   final int hiddenAtRealCompetitors;
 
   /// Whether to show benchmarks on a board with [realCompetitors] real
   /// people on it (the viewer included).
   ///
-  /// Today that count is always 1 — nothing publishes other users'
-  /// values yet — so benchmarks always show. The policy takes the count
-  /// as an argument anyway so that when real competitors do arrive,
-  /// benchmarks retire on their own with no UI change.
+  /// On the global board that count is still always 1 — nothing ranks
+  /// strangers, and widening the mirror's read rule to do so is exactly
+  /// the change not to make. On the friends board it is the viewer plus
+  /// however many friends published a figure, so benchmarks retire on
+  /// their own there with no UI change at all.
   bool showBenchmarks({required int realCompetitors}) =>
       realCompetitors < hiddenAtRealCompetitors;
 }

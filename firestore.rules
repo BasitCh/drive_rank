@@ -138,14 +138,28 @@ service cloud.firestore {
                && (request.auth.uid == existing().fromUid
                    || request.auth.uid == existing().toUid);
       }
-      // fromUid, toUid and createdAt may never change. The friendship
-      // rule reads exactly those fields to decide, so a mutable toUid
-      // would let a request be redirected at a third party after the
-      // fact.
+      // fromUid and toUid may never change. The friendship rule reads
+      // exactly those to decide, so a mutable toUid would let a request
+      // be redirected at a third party after the fact.
       function identityUnchanged() {
         return request_().fromUid == existing().fromUid
-               && request_().toUid == existing().toUid
-               && request_().createdAt == existing().createdAt;
+               && request_().toUid == existing().toUid;
+      }
+
+      // createdAt is pinned on every transition except one: the
+      // sender's re-send after a withdrawal.
+      //
+      // A re-send has to be a single unconditional `set`, because the
+      // client cannot read the document first to learn whether it
+      // exists — a rules read of a missing document evaluates against a
+      // null resource and is denied rather than answered — so one
+      // write has to serve as both create and re-send. That write
+      // necessarily carries a fresh createdAt. Nothing authorises on
+      // createdAt, and a re-send resetting "asked at" is honest: it is
+      // a new ask. Every other transition is a narrow status update, so
+      // it keeps the original.
+      function createdAtUnchanged() {
+        return request_().createdAt == existing().createdAt;
       }
 
       allow read: if isParty();
@@ -159,27 +173,73 @@ service cloud.firestore {
                          ['fromUid', 'toUid', 'status',
                           'createdAt', 'updatedAt']);
 
-      // The recipient decides. accepted and declined are terminal —
-      // nothing un-declines, and nothing re-sends into a decline. The
-      // person who declined can still send their own request, which is
-      // the *other* document id: the decision to reconnect belongs to
-      // whoever said no.
+      // Whether the *other* direction shows these two were once
+      // actually friends. `accepted` is a live friendship; `ended` is
+      // one that was unfriended. Either way they agreed at some point,
+      // which is what supersedes an older decline — see below.
+      function reverseShowsFriendship() {
+        return exists(/databases/$(database)/documents/friend_requests/$(existing().toUid + '_' + existing().fromUid))
+               && get(/databases/$(database)/documents/friend_requests/$(existing().toUid + '_' + existing().fromUid))
+                    .data.status in ['accepted', 'ended'];
+      }
+
+      // The recipient decides. `accepted` is terminal, and `declined`
+      // is terminal *between strangers*: nothing un-declines, and the
+      // person who declined can still send their own request at the
+      // other document id, so the decision to reconnect belongs to
+      // whoever said no. Terminality is the whole anti-spam mechanism
+      // here — without it a declined asker can re-ask on a loop — so
+      // it does not come off lightly.
       allow update: if request.auth != null
                     && identityUnchanged()
                     && (
                       (request.auth.uid == existing().toUid
                        && existing().status == 'pending'
+                       && createdAtUnchanged()
                        && (request_().status == 'accepted'
                            || request_().status == 'declined'))
                       ||
-                      // The sender may withdraw, and may re-send after
-                      // withdrawing — cancelling by mistake must not
-                      // lock someone out permanently.
+                      // The sender may withdraw, and may ask again
+                      // afterwards — cancelling by mistake must not
+                      // lock someone out permanently, and neither must
+                      // unfriending. The re-send is the one write
+                      // allowed to carry a new createdAt; see
+                      // createdAtUnchanged() for why it has to be.
+                      //
+                      // `ended` re-opens for the same reason. It marks
+                      // a friendship that was deleted, and a request id
+                      // is derived from the pair — so "re-friending
+                      // starts a new request" cannot mean a new
+                      // document: there is exactly one address for
+                      // these two people in this direction. Leaving
+                      // `ended` fully terminal therefore meant two
+                      // people who unfriended could never become
+                      // friends again, from either side. Re-opening
+                      // grants nothing on its own: the recipient still
+                      // has to accept before any friendship can be
+                      // created, and the sync's healing pass only ever
+                      // heals `accepted`.
                       (request.auth.uid == existing().fromUid
                        && ((existing().status == 'pending'
-                            && request_().status == 'cancelled')
-                           || (existing().status == 'cancelled'
-                               && request_().status == 'pending')))
+                            && request_().status == 'cancelled'
+                            && createdAtUnchanged())
+                           || ((existing().status == 'cancelled'
+                                || existing().status == 'ended')
+                               && request_().status == 'pending')
+                           // A decline that the two of them have since
+                           // overtaken by actually being friends. Found
+                           // on a real pair: an early decline in one
+                           // direction, a friendship formed through the
+                           // other, then an unfriend — which left the
+                           // person who had been declined unable to ask
+                           // again, for a "no" the friendship itself had
+                           // already superseded. A stranger's decline
+                           // still blocks permanently: this needs the
+                           // other party to have genuinely befriended
+                           // them, which only they could have done.
+                           || (existing().status == 'declined'
+                               && request_().status == 'pending'
+                               && reverseShowsFriendship())))
                       ||
                       // Either party may end an accepted request when
                       // they unfriend. Without this, "accepted request
@@ -187,11 +247,15 @@ service cloud.firestore {
                       // from "the friendship write never landed", and
                       // the sync's self-healing pass recreates a
                       // friendship that was deliberately ended.
-                      // `ended` is terminal: re-friending starts a new
-                      // request, it does not revive an old one.
+                      // `ended` stops the healing pass, which only
+                      // acts on `accepted`. It is not fully terminal:
+                      // the sender may re-open it as `pending` above,
+                      // because a pair-derived id leaves nowhere else
+                      // for a fresh request to live.
                       (isParty()
                        && existing().status == 'accepted'
-                       && request_().status == 'ended')
+                       && request_().status == 'ended'
+                       && createdAtUnchanged())
                     );
 
       // History survives. A deletable request would make a decline

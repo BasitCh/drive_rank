@@ -73,12 +73,14 @@ import 'package:drive_rank/features/social/data/services/social_directory.dart'
     as _i408;
 import 'package:drive_rank/features/social/domain/repositories/social_repository.dart'
     as _i247;
-import 'package:drive_rank/features/social/domain/usecases/compare_with_benchmark.dart'
-    as _i1018;
+import 'package:drive_rank/features/social/domain/usecases/compare_with_opponent.dart'
+    as _i989;
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart'
     as _i163;
 import 'package:drive_rank/features/social/domain/usecases/create_target.dart'
     as _i302;
+import 'package:drive_rank/features/social/domain/usecases/get_friends_leaderboard.dart'
+    as _i108;
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart'
     as _i932;
 import 'package:drive_rank/features/social/domain/usecases/get_qualifying_days.dart'
@@ -341,8 +343,14 @@ _i174.GetIt $initGetIt(
       gh<_i163.CompetitionMetricCalculator>(),
     ),
   );
-  gh.factory<_i1018.CompareWithBenchmark>(
-    () => _i1018.CompareWithBenchmark(
+  gh.factory<_i989.CompareWithOpponent>(
+    () => _i989.CompareWithOpponent(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.factory<_i108.GetFriendsLeaderboard>(
+    () => _i108.GetFriendsLeaderboard(
       gh<_i247.SocialRepository>(),
       gh<_i163.CompetitionMetricCalculator>(),
     ),
@@ -425,6 +433,8 @@ _i174.GetIt $initGetIt(
       gh<_i302.CreateTarget>(),
       gh<_i247.SocialRepository>(),
       gh<_i218.GetQualifyingDays>(),
+      gh<_i108.GetFriendsLeaderboard>(),
+      gh<_i408.SocialDirectory>(),
     ),
   );
   return getIt;

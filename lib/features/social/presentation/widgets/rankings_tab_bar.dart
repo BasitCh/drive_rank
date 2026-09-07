@@ -6,9 +6,12 @@ import 'package:flutter/material.dart';
 
 /// Which competition surface the Rankings screen is showing.
 ///
-/// `friends` deliberately isn't here yet — it arrives with the remote
-/// layer that can actually supply another driver's values, and this
-/// enum is where it will slot in.
+/// This used to predict a `friends` value here. It didn't get one, and
+/// deliberately: friends-versus-global turned out to be the same board
+/// with a different population — a *scope*, which lives beside metric
+/// and period as `LeaderboardScope`. A tab here switches what you are
+/// looking at; Targets and Trophies are personal surfaces where "global
+/// or friends" would mean nothing at all.
 enum RankingsTab {
   board,
   targets,
