@@ -54,21 +54,30 @@ enum TrophyType {
 
   /// Whether anything in the app can currently award this trophy.
   ///
-  /// Four of the seven can't be: three need an opponent's data and one
-  /// needs a real ranking, neither of which exists yet. A grid that
-  /// showed them alongside the earnable ones with no distinction would
-  /// be telling the user to chase something unreachable, so the UI
-  /// states the reason instead — see [unavailableReason].
+  /// Two of the seven still can't be: `rivalHunter` needs a
+  /// per-opponent win count and `rankClimber` needs rank *history*,
+  /// neither of which anything records. 4c gave ranks to people, not a
+  /// history. A grid that showed them alongside the earnable ones with
+  /// no distinction would be telling the user to chase something
+  /// unreachable, so the UI states the reason instead — see
+  /// [unavailableReason].
   bool get isEarnableNow => switch (this) {
-    firstTarget || roadWarrior || consistent => true,
-    firstChallenge || firstWin || rivalHunter || rankClimber => false,
+    firstTarget ||
+    roadWarrior ||
+    consistent ||
+    firstChallenge ||
+    firstWin => true,
+    rivalHunter || rankClimber => false,
   };
 
   /// Why an unearnable trophy can't be earned yet. Null when it can.
   String? get unavailableReason => switch (this) {
-    firstTarget || roadWarrior || consistent => null,
-    firstChallenge || firstWin || rivalHunter =>
-      AppStrings.trophyNeedsFriends,
+    firstTarget ||
+    roadWarrior ||
+    consistent ||
+    firstChallenge ||
+    firstWin => null,
+    rivalHunter => AppStrings.trophyNeedsFriends,
     rankClimber => AppStrings.trophyNeedsRivals,
   };
 

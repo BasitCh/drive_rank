@@ -36,12 +36,30 @@ class NewTargetRequest {
 /// and disposed on close, which is the lesson recorded on
 /// `_CustomModelSheet` in the onboarding car step.
 class CreateTargetSheet extends StatefulWidget {
-  const CreateTargetSheet({required this.deadlineFor, super.key});
+  const CreateTargetSheet({
+    required this.deadlineFor,
+    this.title = AppStrings.createTargetTitle,
+    this.ctaLabel = AppStrings.createTargetSave,
+    this.allowAllTime = true,
+    super.key,
+  });
 
   /// Formats the deadline a given period would inherit, e.g.
   /// "Ends Sunday". Passed in so the sheet displays the window without
   /// computing it.
   final String Function(LeaderboardPeriod) deadlineFor;
+
+  /// Parameterised rather than copied, because a challenge asks for the
+  /// same three things a target does — metric, period, number — and two
+  /// sheets would be two places for the pickers to diverge.
+  final String title;
+  final String ctaLabel;
+
+  /// Whether all-time is offered. **False for a challenge:** an
+  /// all-time window has no end, and a race with no finish line cannot
+  /// be settled — `CreateChallenge` rejects it, so offering it here
+  /// would be offering a button that throws.
+  final bool allowAllTime;
 
   @override
   State<CreateTargetSheet> createState() => _CreateTargetSheetState();
@@ -59,6 +77,12 @@ class _CreateTargetSheetState extends State<CreateTargetSheet> {
     (LeaderboardPeriod.monthly, AppStrings.rankingsPeriodMonth),
     (LeaderboardPeriod.allTime, AppStrings.rankingsPeriodAllTime),
   ];
+
+  List<(LeaderboardPeriod, String)> get _offeredPeriods => widget.allowAllTime
+      ? _periods
+      : _periods
+            .where((p) => p.$1 != LeaderboardPeriod.allTime)
+            .toList();
 
   late final TextEditingController _value;
   CompetitionMetric _metric = CompetitionMetric.distance;
@@ -118,10 +142,7 @@ class _CreateTargetSheetState extends State<CreateTargetSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const Text(
-                AppStrings.createTargetTitle,
-                style: AppTextStyles.headingMedium,
-              ),
+              Text(widget.title, style: AppTextStyles.headingMedium),
               const SizedBox(height: AppSpacing.lg),
               Text(
                 AppStrings.createTargetMetricLabel,
@@ -140,7 +161,7 @@ class _CreateTargetSheetState extends State<CreateTargetSheet> {
               ),
               const SizedBox(height: AppSpacing.sm),
               RankingPills<LeaderboardPeriod>(
-                items: _periods,
+                items: _offeredPeriods,
                 active: _period,
                 onChanged: (p) => setState(() => _period = p),
               ),
@@ -180,10 +201,7 @@ class _CreateTargetSheetState extends State<CreateTargetSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              TealButton(
-                label: AppStrings.createTargetSave,
-                onPressed: _submit,
-              ),
+              TealButton(label: widget.ctaLabel, onPressed: _submit),
             ],
           ),
         ),

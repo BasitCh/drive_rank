@@ -6238,12 +6238,12 @@ class LegacyFriendRequestsPreV16Companion
   }
 }
 
-class $ChallengesTable extends Challenges
-    with TableInfo<$ChallengesTable, ChallengeRow> {
+class $LegacyChallengesPreV17Table extends LegacyChallengesPreV17
+    with TableInfo<$LegacyChallengesPreV17Table, LegacyChallengePreV17Row> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $ChallengesTable(this.attachedDatabase, [this._alias]);
+  $LegacyChallengesPreV17Table(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<int> id = GeneratedColumn<int>(
@@ -6393,7 +6393,7 @@ class $ChallengesTable extends Challenges
   static const String $name = 'challenges';
   @override
   VerificationContext validateIntegrity(
-    Insertable<ChallengeRow> instance, {
+    Insertable<LegacyChallengePreV17Row> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -6497,9 +6497,12 @@ class $ChallengesTable extends Challenges
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  ChallengeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  LegacyChallengePreV17Row map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return ChallengeRow(
+    return LegacyChallengePreV17Row(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -6552,17 +6555,16 @@ class $ChallengesTable extends Challenges
   }
 
   @override
-  $ChallengesTable createAlias(String alias) {
-    return $ChallengesTable(attachedDatabase, alias);
+  $LegacyChallengesPreV17Table createAlias(String alias) {
+    return $LegacyChallengesPreV17Table(attachedDatabase, alias);
   }
 }
 
-class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
+class LegacyChallengePreV17Row extends DataClass
+    implements Insertable<LegacyChallengePreV17Row> {
   final int id;
   final String remoteId;
   final String creatorUid;
-
-  /// Null for a personal target — not competitive against another user.
   final String? opponentUid;
   final String metric;
   final double targetValue;
@@ -6572,7 +6574,7 @@ class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
-  const ChallengeRow({
+  const LegacyChallengePreV17Row({
     required this.id,
     required this.remoteId,
     required this.creatorUid,
@@ -6606,8 +6608,8 @@ class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
     return map;
   }
 
-  ChallengesCompanion toCompanion(bool nullToAbsent) {
-    return ChallengesCompanion(
+  LegacyChallengesPreV17Companion toCompanion(bool nullToAbsent) {
+    return LegacyChallengesPreV17Companion(
       id: Value(id),
       remoteId: Value(remoteId),
       creatorUid: Value(creatorUid),
@@ -6625,12 +6627,12 @@ class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
     );
   }
 
-  factory ChallengeRow.fromJson(
+  factory LegacyChallengePreV17Row.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return ChallengeRow(
+    return LegacyChallengePreV17Row(
       id: serializer.fromJson<int>(json['id']),
       remoteId: serializer.fromJson<String>(json['remoteId']),
       creatorUid: serializer.fromJson<String>(json['creatorUid']),
@@ -6664,7 +6666,7 @@ class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
     };
   }
 
-  ChallengeRow copyWith({
+  LegacyChallengePreV17Row copyWith({
     int? id,
     String? remoteId,
     String? creatorUid,
@@ -6677,7 +6679,7 @@ class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) => ChallengeRow(
+  }) => LegacyChallengePreV17Row(
     id: id ?? this.id,
     remoteId: remoteId ?? this.remoteId,
     creatorUid: creatorUid ?? this.creatorUid,
@@ -6691,8 +6693,10 @@ class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
-  ChallengeRow copyWithCompanion(ChallengesCompanion data) {
-    return ChallengeRow(
+  LegacyChallengePreV17Row copyWithCompanion(
+    LegacyChallengesPreV17Companion data,
+  ) {
+    return LegacyChallengePreV17Row(
       id: data.id.present ? data.id.value : this.id,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       creatorUid: data.creatorUid.present
@@ -6716,7 +6720,7 @@ class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
 
   @override
   String toString() {
-    return (StringBuffer('ChallengeRow(')
+    return (StringBuffer('LegacyChallengePreV17Row(')
           ..write('id: $id, ')
           ..write('remoteId: $remoteId, ')
           ..write('creatorUid: $creatorUid, ')
@@ -6751,7 +6755,7 @@ class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is ChallengeRow &&
+      (other is LegacyChallengePreV17Row &&
           other.id == this.id &&
           other.remoteId == this.remoteId &&
           other.creatorUid == this.creatorUid &&
@@ -6766,7 +6770,8 @@ class ChallengeRow extends DataClass implements Insertable<ChallengeRow> {
           other.updatedAt == this.updatedAt);
 }
 
-class ChallengesCompanion extends UpdateCompanion<ChallengeRow> {
+class LegacyChallengesPreV17Companion
+    extends UpdateCompanion<LegacyChallengePreV17Row> {
   final Value<int> id;
   final Value<String> remoteId;
   final Value<String> creatorUid;
@@ -6779,7 +6784,7 @@ class ChallengesCompanion extends UpdateCompanion<ChallengeRow> {
   final Value<String> status;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
-  const ChallengesCompanion({
+  const LegacyChallengesPreV17Companion({
     this.id = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.creatorUid = const Value.absent(),
@@ -6793,7 +6798,7 @@ class ChallengesCompanion extends UpdateCompanion<ChallengeRow> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
-  ChallengesCompanion.insert({
+  LegacyChallengesPreV17Companion.insert({
     this.id = const Value.absent(),
     required String remoteId,
     required String creatorUid,
@@ -6815,7 +6820,7 @@ class ChallengesCompanion extends UpdateCompanion<ChallengeRow> {
        endAt = Value(endAt),
        createdAt = Value(createdAt),
        updatedAt = Value(updatedAt);
-  static Insertable<ChallengeRow> custom({
+  static Insertable<LegacyChallengePreV17Row> custom({
     Expression<int>? id,
     Expression<String>? remoteId,
     Expression<String>? creatorUid,
@@ -6845,7 +6850,7 @@ class ChallengesCompanion extends UpdateCompanion<ChallengeRow> {
     });
   }
 
-  ChallengesCompanion copyWith({
+  LegacyChallengesPreV17Companion copyWith({
     Value<int>? id,
     Value<String>? remoteId,
     Value<String>? creatorUid,
@@ -6859,7 +6864,7 @@ class ChallengesCompanion extends UpdateCompanion<ChallengeRow> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
-    return ChallengesCompanion(
+    return LegacyChallengesPreV17Companion(
       id: id ?? this.id,
       remoteId: remoteId ?? this.remoteId,
       creatorUid: creatorUid ?? this.creatorUid,
@@ -6919,7 +6924,7 @@ class ChallengesCompanion extends UpdateCompanion<ChallengeRow> {
 
   @override
   String toString() {
-    return (StringBuffer('ChallengesCompanion(')
+    return (StringBuffer('LegacyChallengesPreV17Companion(')
           ..write('id: $id, ')
           ..write('remoteId: $remoteId, ')
           ..write('creatorUid: $creatorUid, ')
@@ -6937,12 +6942,16 @@ class ChallengesCompanion extends UpdateCompanion<ChallengeRow> {
   }
 }
 
-class $ChallengeProgressTable extends ChallengeProgress
-    with TableInfo<$ChallengeProgressTable, ChallengeProgressRow> {
+class $LegacyChallengeProgressPreV17Table extends LegacyChallengeProgressPreV17
+    with
+        TableInfo<
+          $LegacyChallengeProgressPreV17Table,
+          LegacyChallengeProgressPreV17Row
+        > {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $ChallengeProgressTable(this.attachedDatabase, [this._alias]);
+  $LegacyChallengeProgressPreV17Table(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _challengeIdMeta = const VerificationMeta(
     'challengeId',
   );
@@ -7028,7 +7037,7 @@ class $ChallengeProgressTable extends ChallengeProgress
   static const String $name = 'challenge_progress';
   @override
   VerificationContext validateIntegrity(
-    Insertable<ChallengeProgressRow> instance, {
+    Insertable<LegacyChallengeProgressPreV17Row> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -7096,9 +7105,12 @@ class $ChallengeProgressTable extends ChallengeProgress
   @override
   Set<GeneratedColumn> get $primaryKey => {challengeId, uid};
   @override
-  ChallengeProgressRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+  LegacyChallengeProgressPreV17Row map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return ChallengeProgressRow(
+    return LegacyChallengeProgressPreV17Row(
       challengeId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}challenge_id'],
@@ -7127,20 +7139,20 @@ class $ChallengeProgressTable extends ChallengeProgress
   }
 
   @override
-  $ChallengeProgressTable createAlias(String alias) {
-    return $ChallengeProgressTable(attachedDatabase, alias);
+  $LegacyChallengeProgressPreV17Table createAlias(String alias) {
+    return $LegacyChallengeProgressPreV17Table(attachedDatabase, alias);
   }
 }
 
-class ChallengeProgressRow extends DataClass
-    implements Insertable<ChallengeProgressRow> {
+class LegacyChallengeProgressPreV17Row extends DataClass
+    implements Insertable<LegacyChallengeProgressPreV17Row> {
   final int challengeId;
   final String uid;
   final double currentValue;
   final double targetValue;
   final DateTime? lastCalculatedAt;
   final DateTime? completedAt;
-  const ChallengeProgressRow({
+  const LegacyChallengeProgressPreV17Row({
     required this.challengeId,
     required this.uid,
     required this.currentValue,
@@ -7164,8 +7176,8 @@ class ChallengeProgressRow extends DataClass
     return map;
   }
 
-  ChallengeProgressCompanion toCompanion(bool nullToAbsent) {
-    return ChallengeProgressCompanion(
+  LegacyChallengeProgressPreV17Companion toCompanion(bool nullToAbsent) {
+    return LegacyChallengeProgressPreV17Companion(
       challengeId: Value(challengeId),
       uid: Value(uid),
       currentValue: Value(currentValue),
@@ -7179,12 +7191,12 @@ class ChallengeProgressRow extends DataClass
     );
   }
 
-  factory ChallengeProgressRow.fromJson(
+  factory LegacyChallengeProgressPreV17Row.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return ChallengeProgressRow(
+    return LegacyChallengeProgressPreV17Row(
       challengeId: serializer.fromJson<int>(json['challengeId']),
       uid: serializer.fromJson<String>(json['uid']),
       currentValue: serializer.fromJson<double>(json['currentValue']),
@@ -7208,14 +7220,14 @@ class ChallengeProgressRow extends DataClass
     };
   }
 
-  ChallengeProgressRow copyWith({
+  LegacyChallengeProgressPreV17Row copyWith({
     int? challengeId,
     String? uid,
     double? currentValue,
     double? targetValue,
     Value<DateTime?> lastCalculatedAt = const Value.absent(),
     Value<DateTime?> completedAt = const Value.absent(),
-  }) => ChallengeProgressRow(
+  }) => LegacyChallengeProgressPreV17Row(
     challengeId: challengeId ?? this.challengeId,
     uid: uid ?? this.uid,
     currentValue: currentValue ?? this.currentValue,
@@ -7225,8 +7237,10 @@ class ChallengeProgressRow extends DataClass
         : this.lastCalculatedAt,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
   );
-  ChallengeProgressRow copyWithCompanion(ChallengeProgressCompanion data) {
-    return ChallengeProgressRow(
+  LegacyChallengeProgressPreV17Row copyWithCompanion(
+    LegacyChallengeProgressPreV17Companion data,
+  ) {
+    return LegacyChallengeProgressPreV17Row(
       challengeId: data.challengeId.present
           ? data.challengeId.value
           : this.challengeId,
@@ -7248,7 +7262,7 @@ class ChallengeProgressRow extends DataClass
 
   @override
   String toString() {
-    return (StringBuffer('ChallengeProgressRow(')
+    return (StringBuffer('LegacyChallengeProgressPreV17Row(')
           ..write('challengeId: $challengeId, ')
           ..write('uid: $uid, ')
           ..write('currentValue: $currentValue, ')
@@ -7271,7 +7285,7 @@ class ChallengeProgressRow extends DataClass
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is ChallengeProgressRow &&
+      (other is LegacyChallengeProgressPreV17Row &&
           other.challengeId == this.challengeId &&
           other.uid == this.uid &&
           other.currentValue == this.currentValue &&
@@ -7280,7 +7294,8 @@ class ChallengeProgressRow extends DataClass
           other.completedAt == this.completedAt);
 }
 
-class ChallengeProgressCompanion extends UpdateCompanion<ChallengeProgressRow> {
+class LegacyChallengeProgressPreV17Companion
+    extends UpdateCompanion<LegacyChallengeProgressPreV17Row> {
   final Value<int> challengeId;
   final Value<String> uid;
   final Value<double> currentValue;
@@ -7288,7 +7303,7 @@ class ChallengeProgressCompanion extends UpdateCompanion<ChallengeProgressRow> {
   final Value<DateTime?> lastCalculatedAt;
   final Value<DateTime?> completedAt;
   final Value<int> rowid;
-  const ChallengeProgressCompanion({
+  const LegacyChallengeProgressPreV17Companion({
     this.challengeId = const Value.absent(),
     this.uid = const Value.absent(),
     this.currentValue = const Value.absent(),
@@ -7297,7 +7312,7 @@ class ChallengeProgressCompanion extends UpdateCompanion<ChallengeProgressRow> {
     this.completedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
-  ChallengeProgressCompanion.insert({
+  LegacyChallengeProgressPreV17Companion.insert({
     required int challengeId,
     required String uid,
     this.currentValue = const Value.absent(),
@@ -7308,7 +7323,7 @@ class ChallengeProgressCompanion extends UpdateCompanion<ChallengeProgressRow> {
   }) : challengeId = Value(challengeId),
        uid = Value(uid),
        targetValue = Value(targetValue);
-  static Insertable<ChallengeProgressRow> custom({
+  static Insertable<LegacyChallengeProgressPreV17Row> custom({
     Expression<int>? challengeId,
     Expression<String>? uid,
     Expression<double>? currentValue,
@@ -7328,7 +7343,7 @@ class ChallengeProgressCompanion extends UpdateCompanion<ChallengeProgressRow> {
     });
   }
 
-  ChallengeProgressCompanion copyWith({
+  LegacyChallengeProgressPreV17Companion copyWith({
     Value<int>? challengeId,
     Value<String>? uid,
     Value<double>? currentValue,
@@ -7337,7 +7352,7 @@ class ChallengeProgressCompanion extends UpdateCompanion<ChallengeProgressRow> {
     Value<DateTime?>? completedAt,
     Value<int>? rowid,
   }) {
-    return ChallengeProgressCompanion(
+    return LegacyChallengeProgressPreV17Companion(
       challengeId: challengeId ?? this.challengeId,
       uid: uid ?? this.uid,
       currentValue: currentValue ?? this.currentValue,
@@ -7377,7 +7392,7 @@ class ChallengeProgressCompanion extends UpdateCompanion<ChallengeProgressRow> {
 
   @override
   String toString() {
-    return (StringBuffer('ChallengeProgressCompanion(')
+    return (StringBuffer('LegacyChallengeProgressPreV17Companion(')
           ..write('challengeId: $challengeId, ')
           ..write('uid: $uid, ')
           ..write('currentValue: $currentValue, ')
@@ -8591,9 +8606,10 @@ abstract class _$LegacyAppDatabaseV14 extends GeneratedDatabase {
   late final $FriendsTable friends = $FriendsTable(this);
   late final $LegacyFriendRequestsPreV16Table legacyFriendRequestsPreV16 =
       $LegacyFriendRequestsPreV16Table(this);
-  late final $ChallengesTable challenges = $ChallengesTable(this);
-  late final $ChallengeProgressTable challengeProgress =
-      $ChallengeProgressTable(this);
+  late final $LegacyChallengesPreV17Table legacyChallengesPreV17 =
+      $LegacyChallengesPreV17Table(this);
+  late final $LegacyChallengeProgressPreV17Table legacyChallengeProgressPreV17 =
+      $LegacyChallengeProgressPreV17Table(this);
   late final $TrophiesTable trophies = $TrophiesTable(this);
   late final $TripEligibilityTable tripEligibility = $TripEligibilityTable(
     this,
@@ -8615,8 +8631,8 @@ abstract class _$LegacyAppDatabaseV14 extends GeneratedDatabase {
     liveWaypoints,
     friends,
     legacyFriendRequestsPreV16,
-    challenges,
-    challengeProgress,
+    legacyChallengesPreV17,
+    legacyChallengeProgressPreV17,
     trophies,
     tripEligibility,
     deletedTrips,
@@ -11804,8 +11820,8 @@ typedef $$LegacyFriendRequestsPreV16TableProcessedTableManager =
       LegacyFriendRequestPreV16Row,
       PrefetchHooks Function()
     >;
-typedef $$ChallengesTableCreateCompanionBuilder =
-    ChallengesCompanion Function({
+typedef $$LegacyChallengesPreV17TableCreateCompanionBuilder =
+    LegacyChallengesPreV17Companion Function({
       Value<int> id,
       required String remoteId,
       required String creatorUid,
@@ -11819,8 +11835,8 @@ typedef $$ChallengesTableCreateCompanionBuilder =
       required DateTime createdAt,
       required DateTime updatedAt,
     });
-typedef $$ChallengesTableUpdateCompanionBuilder =
-    ChallengesCompanion Function({
+typedef $$LegacyChallengesPreV17TableUpdateCompanionBuilder =
+    LegacyChallengesPreV17Companion Function({
       Value<int> id,
       Value<String> remoteId,
       Value<String> creatorUid,
@@ -11835,32 +11851,41 @@ typedef $$ChallengesTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
     });
 
-final class $$ChallengesTableReferences
+final class $$LegacyChallengesPreV17TableReferences
     extends
-        BaseReferences<_$LegacyAppDatabaseV14, $ChallengesTable, ChallengeRow> {
-  $$ChallengesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+        BaseReferences<
+          _$LegacyAppDatabaseV14,
+          $LegacyChallengesPreV17Table,
+          LegacyChallengePreV17Row
+        > {
+  $$LegacyChallengesPreV17TableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
 
   static MultiTypedResultKey<
-    $ChallengeProgressTable,
-    List<ChallengeProgressRow>
+    $LegacyChallengeProgressPreV17Table,
+    List<LegacyChallengeProgressPreV17Row>
   >
-  _challengeProgressRefsTable(_$LegacyAppDatabaseV14 db) =>
+  _legacyChallengeProgressPreV17RefsTable(_$LegacyAppDatabaseV14 db) =>
       MultiTypedResultKey.fromTable(
-        db.challengeProgress,
+        db.legacyChallengeProgressPreV17,
         aliasName: $_aliasNameGenerator(
-          db.challenges.id,
-          db.challengeProgress.challengeId,
+          db.legacyChallengesPreV17.id,
+          db.legacyChallengeProgressPreV17.challengeId,
         ),
       );
 
-  $$ChallengeProgressTableProcessedTableManager get challengeProgressRefs {
-    final manager = $$ChallengeProgressTableTableManager(
+  $$LegacyChallengeProgressPreV17TableProcessedTableManager
+  get legacyChallengeProgressPreV17Refs {
+    final manager = $$LegacyChallengeProgressPreV17TableTableManager(
       $_db,
-      $_db.challengeProgress,
+      $_db.legacyChallengeProgressPreV17,
     ).filter((f) => f.challengeId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(
-      _challengeProgressRefsTable($_db),
+      _legacyChallengeProgressPreV17RefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -11868,9 +11893,9 @@ final class $$ChallengesTableReferences
   }
 }
 
-class $$ChallengesTableFilterComposer
-    extends Composer<_$LegacyAppDatabaseV14, $ChallengesTable> {
-  $$ChallengesTableFilterComposer({
+class $$LegacyChallengesPreV17TableFilterComposer
+    extends Composer<_$LegacyAppDatabaseV14, $LegacyChallengesPreV17Table> {
+  $$LegacyChallengesPreV17TableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -11937,35 +11962,39 @@ class $$ChallengesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  Expression<bool> challengeProgressRefs(
-    Expression<bool> Function($$ChallengeProgressTableFilterComposer f) f,
+  Expression<bool> legacyChallengeProgressPreV17Refs(
+    Expression<bool> Function(
+      $$LegacyChallengeProgressPreV17TableFilterComposer f,
+    )
+    f,
   ) {
-    final $$ChallengeProgressTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.challengeProgress,
-      getReferencedColumn: (t) => t.challengeId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ChallengeProgressTableFilterComposer(
-            $db: $db,
-            $table: $db.challengeProgress,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
+    final $$LegacyChallengeProgressPreV17TableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.legacyChallengeProgressPreV17,
+          getReferencedColumn: (t) => t.challengeId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer,
-          ),
-    );
+              }) => $$LegacyChallengeProgressPreV17TableFilterComposer(
+                $db: $db,
+                $table: $db.legacyChallengeProgressPreV17,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return f(composer);
   }
 }
 
-class $$ChallengesTableOrderingComposer
-    extends Composer<_$LegacyAppDatabaseV14, $ChallengesTable> {
-  $$ChallengesTableOrderingComposer({
+class $$LegacyChallengesPreV17TableOrderingComposer
+    extends Composer<_$LegacyAppDatabaseV14, $LegacyChallengesPreV17Table> {
+  $$LegacyChallengesPreV17TableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -12033,9 +12062,9 @@ class $$ChallengesTableOrderingComposer
   );
 }
 
-class $$ChallengesTableAnnotationComposer
-    extends Composer<_$LegacyAppDatabaseV14, $ChallengesTable> {
-  $$ChallengesTableAnnotationComposer({
+class $$LegacyChallengesPreV17TableAnnotationComposer
+    extends Composer<_$LegacyAppDatabaseV14, $LegacyChallengesPreV17Table> {
+  $$LegacyChallengesPreV17TableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -12084,23 +12113,26 @@ class $$ChallengesTableAnnotationComposer
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
-  Expression<T> challengeProgressRefs<T extends Object>(
-    Expression<T> Function($$ChallengeProgressTableAnnotationComposer a) f,
+  Expression<T> legacyChallengeProgressPreV17Refs<T extends Object>(
+    Expression<T> Function(
+      $$LegacyChallengeProgressPreV17TableAnnotationComposer a,
+    )
+    f,
   ) {
-    final $$ChallengeProgressTableAnnotationComposer composer =
+    final $$LegacyChallengeProgressPreV17TableAnnotationComposer composer =
         $composerBuilder(
           composer: this,
           getCurrentColumn: (t) => t.id,
-          referencedTable: $db.challengeProgress,
+          referencedTable: $db.legacyChallengeProgressPreV17,
           getReferencedColumn: (t) => t.challengeId,
           builder:
               (
                 joinBuilder, {
                 $addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer,
-              }) => $$ChallengeProgressTableAnnotationComposer(
+              }) => $$LegacyChallengeProgressPreV17TableAnnotationComposer(
                 $db: $db,
-                $table: $db.challengeProgress,
+                $table: $db.legacyChallengeProgressPreV17,
                 $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
                 joinBuilder: joinBuilder,
                 $removeJoinBuilderFromRootComposer:
@@ -12111,34 +12143,43 @@ class $$ChallengesTableAnnotationComposer
   }
 }
 
-class $$ChallengesTableTableManager
+class $$LegacyChallengesPreV17TableTableManager
     extends
         RootTableManager<
           _$LegacyAppDatabaseV14,
-          $ChallengesTable,
-          ChallengeRow,
-          $$ChallengesTableFilterComposer,
-          $$ChallengesTableOrderingComposer,
-          $$ChallengesTableAnnotationComposer,
-          $$ChallengesTableCreateCompanionBuilder,
-          $$ChallengesTableUpdateCompanionBuilder,
-          (ChallengeRow, $$ChallengesTableReferences),
-          ChallengeRow,
-          PrefetchHooks Function({bool challengeProgressRefs})
+          $LegacyChallengesPreV17Table,
+          LegacyChallengePreV17Row,
+          $$LegacyChallengesPreV17TableFilterComposer,
+          $$LegacyChallengesPreV17TableOrderingComposer,
+          $$LegacyChallengesPreV17TableAnnotationComposer,
+          $$LegacyChallengesPreV17TableCreateCompanionBuilder,
+          $$LegacyChallengesPreV17TableUpdateCompanionBuilder,
+          (LegacyChallengePreV17Row, $$LegacyChallengesPreV17TableReferences),
+          LegacyChallengePreV17Row,
+          PrefetchHooks Function({bool legacyChallengeProgressPreV17Refs})
         > {
-  $$ChallengesTableTableManager(
+  $$LegacyChallengesPreV17TableTableManager(
     _$LegacyAppDatabaseV14 db,
-    $ChallengesTable table,
+    $LegacyChallengesPreV17Table table,
   ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$ChallengesTableFilterComposer($db: db, $table: table),
+              $$LegacyChallengesPreV17TableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
           createOrderingComposer: () =>
-              $$ChallengesTableOrderingComposer($db: db, $table: table),
+              $$LegacyChallengesPreV17TableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
           createComputedFieldComposer: () =>
-              $$ChallengesTableAnnotationComposer($db: db, $table: table),
+              $$LegacyChallengesPreV17TableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
@@ -12153,7 +12194,7 @@ class $$ChallengesTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
-              }) => ChallengesCompanion(
+              }) => LegacyChallengesPreV17Companion(
                 id: id,
                 remoteId: remoteId,
                 creatorUid: creatorUid,
@@ -12181,7 +12222,7 @@ class $$ChallengesTableTableManager
                 Value<String> status = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
-              }) => ChallengesCompanion.insert(
+              }) => LegacyChallengesPreV17Companion.insert(
                 id: id,
                 remoteId: remoteId,
                 creatorUid: creatorUid,
@@ -12199,34 +12240,35 @@ class $$ChallengesTableTableManager
               .map(
                 (e) => (
                   e.readTable(table),
-                  $$ChallengesTableReferences(db, table, e),
+                  $$LegacyChallengesPreV17TableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({challengeProgressRefs = false}) {
+          prefetchHooksCallback: ({legacyChallengeProgressPreV17Refs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
-                if (challengeProgressRefs) db.challengeProgress,
+                if (legacyChallengeProgressPreV17Refs)
+                  db.legacyChallengeProgressPreV17,
               ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
-                  if (challengeProgressRefs)
+                  if (legacyChallengeProgressPreV17Refs)
                     await $_getPrefetchedData<
-                      ChallengeRow,
-                      $ChallengesTable,
-                      ChallengeProgressRow
+                      LegacyChallengePreV17Row,
+                      $LegacyChallengesPreV17Table,
+                      LegacyChallengeProgressPreV17Row
                     >(
                       currentTable: table,
-                      referencedTable: $$ChallengesTableReferences
-                          ._challengeProgressRefsTable(db),
+                      referencedTable: $$LegacyChallengesPreV17TableReferences
+                          ._legacyChallengeProgressPreV17RefsTable(db),
                       managerFromTypedResult: (p0) =>
-                          $$ChallengesTableReferences(
+                          $$LegacyChallengesPreV17TableReferences(
                             db,
                             table,
                             p0,
-                          ).challengeProgressRefs,
+                          ).legacyChallengeProgressPreV17Refs,
                       referencedItemsForCurrentItem: (item, referencedItems) =>
                           referencedItems.where(
                             (e) => e.challengeId == item.id,
@@ -12241,22 +12283,22 @@ class $$ChallengesTableTableManager
       );
 }
 
-typedef $$ChallengesTableProcessedTableManager =
+typedef $$LegacyChallengesPreV17TableProcessedTableManager =
     ProcessedTableManager<
       _$LegacyAppDatabaseV14,
-      $ChallengesTable,
-      ChallengeRow,
-      $$ChallengesTableFilterComposer,
-      $$ChallengesTableOrderingComposer,
-      $$ChallengesTableAnnotationComposer,
-      $$ChallengesTableCreateCompanionBuilder,
-      $$ChallengesTableUpdateCompanionBuilder,
-      (ChallengeRow, $$ChallengesTableReferences),
-      ChallengeRow,
-      PrefetchHooks Function({bool challengeProgressRefs})
+      $LegacyChallengesPreV17Table,
+      LegacyChallengePreV17Row,
+      $$LegacyChallengesPreV17TableFilterComposer,
+      $$LegacyChallengesPreV17TableOrderingComposer,
+      $$LegacyChallengesPreV17TableAnnotationComposer,
+      $$LegacyChallengesPreV17TableCreateCompanionBuilder,
+      $$LegacyChallengesPreV17TableUpdateCompanionBuilder,
+      (LegacyChallengePreV17Row, $$LegacyChallengesPreV17TableReferences),
+      LegacyChallengePreV17Row,
+      PrefetchHooks Function({bool legacyChallengeProgressPreV17Refs})
     >;
-typedef $$ChallengeProgressTableCreateCompanionBuilder =
-    ChallengeProgressCompanion Function({
+typedef $$LegacyChallengeProgressPreV17TableCreateCompanionBuilder =
+    LegacyChallengeProgressPreV17Companion Function({
       required int challengeId,
       required String uid,
       Value<double> currentValue,
@@ -12265,8 +12307,8 @@ typedef $$ChallengeProgressTableCreateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<int> rowid,
     });
-typedef $$ChallengeProgressTableUpdateCompanionBuilder =
-    ChallengeProgressCompanion Function({
+typedef $$LegacyChallengeProgressPreV17TableUpdateCompanionBuilder =
+    LegacyChallengeProgressPreV17Companion Function({
       Value<int> challengeId,
       Value<String> uid,
       Value<double> currentValue,
@@ -12276,33 +12318,34 @@ typedef $$ChallengeProgressTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
-final class $$ChallengeProgressTableReferences
+final class $$LegacyChallengeProgressPreV17TableReferences
     extends
         BaseReferences<
           _$LegacyAppDatabaseV14,
-          $ChallengeProgressTable,
-          ChallengeProgressRow
+          $LegacyChallengeProgressPreV17Table,
+          LegacyChallengeProgressPreV17Row
         > {
-  $$ChallengeProgressTableReferences(
+  $$LegacyChallengeProgressPreV17TableReferences(
     super.$_db,
     super.$_table,
     super.$_typedResult,
   );
 
-  static $ChallengesTable _challengeIdTable(_$LegacyAppDatabaseV14 db) =>
-      db.challenges.createAlias(
-        $_aliasNameGenerator(
-          db.challengeProgress.challengeId,
-          db.challenges.id,
-        ),
-      );
+  static $LegacyChallengesPreV17Table _challengeIdTable(
+    _$LegacyAppDatabaseV14 db,
+  ) => db.legacyChallengesPreV17.createAlias(
+    $_aliasNameGenerator(
+      db.legacyChallengeProgressPreV17.challengeId,
+      db.legacyChallengesPreV17.id,
+    ),
+  );
 
-  $$ChallengesTableProcessedTableManager get challengeId {
+  $$LegacyChallengesPreV17TableProcessedTableManager get challengeId {
     final $_column = $_itemColumn<int>('challenge_id')!;
 
-    final manager = $$ChallengesTableTableManager(
+    final manager = $$LegacyChallengesPreV17TableTableManager(
       $_db,
-      $_db.challenges,
+      $_db.legacyChallengesPreV17,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_challengeIdTable($_db));
     if (item == null) return manager;
@@ -12312,9 +12355,10 @@ final class $$ChallengeProgressTableReferences
   }
 }
 
-class $$ChallengeProgressTableFilterComposer
-    extends Composer<_$LegacyAppDatabaseV14, $ChallengeProgressTable> {
-  $$ChallengeProgressTableFilterComposer({
+class $$LegacyChallengeProgressPreV17TableFilterComposer
+    extends
+        Composer<_$LegacyAppDatabaseV14, $LegacyChallengeProgressPreV17Table> {
+  $$LegacyChallengeProgressPreV17TableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -12346,33 +12390,35 @@ class $$ChallengeProgressTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  $$ChallengesTableFilterComposer get challengeId {
-    final $$ChallengesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.challengeId,
-      referencedTable: $db.challenges,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ChallengesTableFilterComposer(
-            $db: $db,
-            $table: $db.challenges,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
+  $$LegacyChallengesPreV17TableFilterComposer get challengeId {
+    final $$LegacyChallengesPreV17TableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.challengeId,
+          referencedTable: $db.legacyChallengesPreV17,
+          getReferencedColumn: (t) => t.id,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer,
-          ),
-    );
+              }) => $$LegacyChallengesPreV17TableFilterComposer(
+                $db: $db,
+                $table: $db.legacyChallengesPreV17,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return composer;
   }
 }
 
-class $$ChallengeProgressTableOrderingComposer
-    extends Composer<_$LegacyAppDatabaseV14, $ChallengeProgressTable> {
-  $$ChallengeProgressTableOrderingComposer({
+class $$LegacyChallengeProgressPreV17TableOrderingComposer
+    extends
+        Composer<_$LegacyAppDatabaseV14, $LegacyChallengeProgressPreV17Table> {
+  $$LegacyChallengeProgressPreV17TableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -12404,33 +12450,35 @@ class $$ChallengeProgressTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  $$ChallengesTableOrderingComposer get challengeId {
-    final $$ChallengesTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.challengeId,
-      referencedTable: $db.challenges,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ChallengesTableOrderingComposer(
-            $db: $db,
-            $table: $db.challenges,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
+  $$LegacyChallengesPreV17TableOrderingComposer get challengeId {
+    final $$LegacyChallengesPreV17TableOrderingComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.challengeId,
+          referencedTable: $db.legacyChallengesPreV17,
+          getReferencedColumn: (t) => t.id,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer,
-          ),
-    );
+              }) => $$LegacyChallengesPreV17TableOrderingComposer(
+                $db: $db,
+                $table: $db.legacyChallengesPreV17,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return composer;
   }
 }
 
-class $$ChallengeProgressTableAnnotationComposer
-    extends Composer<_$LegacyAppDatabaseV14, $ChallengeProgressTable> {
-  $$ChallengeProgressTableAnnotationComposer({
+class $$LegacyChallengeProgressPreV17TableAnnotationComposer
+    extends
+        Composer<_$LegacyAppDatabaseV14, $LegacyChallengeProgressPreV17Table> {
+  $$LegacyChallengeProgressPreV17TableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
@@ -12460,58 +12508,68 @@ class $$ChallengeProgressTableAnnotationComposer
     builder: (column) => column,
   );
 
-  $$ChallengesTableAnnotationComposer get challengeId {
-    final $$ChallengesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.challengeId,
-      referencedTable: $db.challenges,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ChallengesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.challenges,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
+  $$LegacyChallengesPreV17TableAnnotationComposer get challengeId {
+    final $$LegacyChallengesPreV17TableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.challengeId,
+          referencedTable: $db.legacyChallengesPreV17,
+          getReferencedColumn: (t) => t.id,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer,
-          ),
-    );
+              }) => $$LegacyChallengesPreV17TableAnnotationComposer(
+                $db: $db,
+                $table: $db.legacyChallengesPreV17,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return composer;
   }
 }
 
-class $$ChallengeProgressTableTableManager
+class $$LegacyChallengeProgressPreV17TableTableManager
     extends
         RootTableManager<
           _$LegacyAppDatabaseV14,
-          $ChallengeProgressTable,
-          ChallengeProgressRow,
-          $$ChallengeProgressTableFilterComposer,
-          $$ChallengeProgressTableOrderingComposer,
-          $$ChallengeProgressTableAnnotationComposer,
-          $$ChallengeProgressTableCreateCompanionBuilder,
-          $$ChallengeProgressTableUpdateCompanionBuilder,
-          (ChallengeProgressRow, $$ChallengeProgressTableReferences),
-          ChallengeProgressRow,
+          $LegacyChallengeProgressPreV17Table,
+          LegacyChallengeProgressPreV17Row,
+          $$LegacyChallengeProgressPreV17TableFilterComposer,
+          $$LegacyChallengeProgressPreV17TableOrderingComposer,
+          $$LegacyChallengeProgressPreV17TableAnnotationComposer,
+          $$LegacyChallengeProgressPreV17TableCreateCompanionBuilder,
+          $$LegacyChallengeProgressPreV17TableUpdateCompanionBuilder,
+          (
+            LegacyChallengeProgressPreV17Row,
+            $$LegacyChallengeProgressPreV17TableReferences,
+          ),
+          LegacyChallengeProgressPreV17Row,
           PrefetchHooks Function({bool challengeId})
         > {
-  $$ChallengeProgressTableTableManager(
+  $$LegacyChallengeProgressPreV17TableTableManager(
     _$LegacyAppDatabaseV14 db,
-    $ChallengeProgressTable table,
+    $LegacyChallengeProgressPreV17Table table,
   ) : super(
         TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$ChallengeProgressTableFilterComposer($db: db, $table: table),
+              $$LegacyChallengeProgressPreV17TableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
           createOrderingComposer: () =>
-              $$ChallengeProgressTableOrderingComposer($db: db, $table: table),
+              $$LegacyChallengeProgressPreV17TableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
           createComputedFieldComposer: () =>
-              $$ChallengeProgressTableAnnotationComposer(
+              $$LegacyChallengeProgressPreV17TableAnnotationComposer(
                 $db: db,
                 $table: table,
               ),
@@ -12524,7 +12582,7 @@ class $$ChallengeProgressTableTableManager
                 Value<DateTime?> lastCalculatedAt = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => ChallengeProgressCompanion(
+              }) => LegacyChallengeProgressPreV17Companion(
                 challengeId: challengeId,
                 uid: uid,
                 currentValue: currentValue,
@@ -12542,7 +12600,7 @@ class $$ChallengeProgressTableTableManager
                 Value<DateTime?> lastCalculatedAt = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => ChallengeProgressCompanion.insert(
+              }) => LegacyChallengeProgressPreV17Companion.insert(
                 challengeId: challengeId,
                 uid: uid,
                 currentValue: currentValue,
@@ -12555,7 +12613,7 @@ class $$ChallengeProgressTableTableManager
               .map(
                 (e) => (
                   e.readTable(table),
-                  $$ChallengeProgressTableReferences(db, table, e),
+                  $$LegacyChallengeProgressPreV17TableReferences(db, table, e),
                 ),
               )
               .toList(),
@@ -12585,10 +12643,10 @@ class $$ChallengeProgressTableTableManager
                                 currentTable: table,
                                 currentColumn: table.challengeId,
                                 referencedTable:
-                                    $$ChallengeProgressTableReferences
+                                    $$LegacyChallengeProgressPreV17TableReferences
                                         ._challengeIdTable(db),
                                 referencedColumn:
-                                    $$ChallengeProgressTableReferences
+                                    $$LegacyChallengeProgressPreV17TableReferences
                                         ._challengeIdTable(db)
                                         .id,
                               )
@@ -12606,18 +12664,21 @@ class $$ChallengeProgressTableTableManager
       );
 }
 
-typedef $$ChallengeProgressTableProcessedTableManager =
+typedef $$LegacyChallengeProgressPreV17TableProcessedTableManager =
     ProcessedTableManager<
       _$LegacyAppDatabaseV14,
-      $ChallengeProgressTable,
-      ChallengeProgressRow,
-      $$ChallengeProgressTableFilterComposer,
-      $$ChallengeProgressTableOrderingComposer,
-      $$ChallengeProgressTableAnnotationComposer,
-      $$ChallengeProgressTableCreateCompanionBuilder,
-      $$ChallengeProgressTableUpdateCompanionBuilder,
-      (ChallengeProgressRow, $$ChallengeProgressTableReferences),
-      ChallengeProgressRow,
+      $LegacyChallengeProgressPreV17Table,
+      LegacyChallengeProgressPreV17Row,
+      $$LegacyChallengeProgressPreV17TableFilterComposer,
+      $$LegacyChallengeProgressPreV17TableOrderingComposer,
+      $$LegacyChallengeProgressPreV17TableAnnotationComposer,
+      $$LegacyChallengeProgressPreV17TableCreateCompanionBuilder,
+      $$LegacyChallengeProgressPreV17TableUpdateCompanionBuilder,
+      (
+        LegacyChallengeProgressPreV17Row,
+        $$LegacyChallengeProgressPreV17TableReferences,
+      ),
+      LegacyChallengeProgressPreV17Row,
       PrefetchHooks Function({bool challengeId})
     >;
 typedef $$TrophiesTableCreateCompanionBuilder =
@@ -13408,10 +13469,17 @@ class $LegacyAppDatabaseV14Manager {
         _db,
         _db.legacyFriendRequestsPreV16,
       );
-  $$ChallengesTableTableManager get challenges =>
-      $$ChallengesTableTableManager(_db, _db.challenges);
-  $$ChallengeProgressTableTableManager get challengeProgress =>
-      $$ChallengeProgressTableTableManager(_db, _db.challengeProgress);
+  $$LegacyChallengesPreV17TableTableManager get legacyChallengesPreV17 =>
+      $$LegacyChallengesPreV17TableTableManager(
+        _db,
+        _db.legacyChallengesPreV17,
+      );
+  $$LegacyChallengeProgressPreV17TableTableManager
+  get legacyChallengeProgressPreV17 =>
+      $$LegacyChallengeProgressPreV17TableTableManager(
+        _db,
+        _db.legacyChallengeProgressPreV17,
+      );
   $$TrophiesTableTableManager get trophies =>
       $$TrophiesTableTableManager(_db, _db.trophies);
   $$TripEligibilityTableTableManager get tripEligibility =>

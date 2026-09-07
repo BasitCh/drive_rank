@@ -6,6 +6,13 @@ import 'package:drift/drift.dart';
 ///
 /// `metric` and `period` are stored as `CompetitionMetric.name` /
 /// `LeaderboardPeriod.name`.
+/// `remoteId` is the challenge's stable UUID and is **uniquely
+/// indexed**: from 4d a challenge can arrive from the opponent's
+/// device, and the sync upserts it by that id. Without the constraint
+/// every reconciliation pass appends another copy — the exact bug that
+/// `friend_requests` shipped with and had to be migrated out of in v16,
+/// caught here before it could happen twice.
+@TableIndex(name: 'idx_challenges_remote_id', columns: {#remoteId}, unique: true)
 @DataClassName('ChallengeRow')
 class Challenges extends Table {
   IntColumn get id => integer().autoIncrement()();

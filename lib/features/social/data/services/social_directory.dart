@@ -104,6 +104,41 @@ abstract class SocialDirectory {
   /// Live view of the requests waiting on this account's answer.
   Stream<List<FriendRequest>> watchIncomingRequests(String uid);
 
+  // Challenges. The first records here whose outcome depends on two
+  // people's writes — see the `challenges` block in `firestore.rules`
+  // for why no winner is ever stored.
+
+  /// Opens a challenge. The opponent must already be a friend, which
+  /// the rules check at the pair-derived friendship path.
+  Future<void> createChallenge(Challenge challenge);
+
+  /// Accepts or declines one. Acceptance is refused by the rules once
+  /// the window has closed — both people have to agree to compete
+  /// before the competition ends.
+  Future<void> respondToChallenge({
+    required String challengeId,
+    required ChallengeStatus response,
+  });
+
+  Future<List<Challenge>> challengesFor(String uid);
+
+  Stream<List<Challenge>> watchChallenges(String uid);
+
+  /// Publishes **this account's own** figure for a challenge.
+  ///
+  /// One document per participant, and the rules let nobody else write
+  /// it: that ownership is what makes a derived result trustworthy
+  /// without a server deciding it.
+  Future<void> publishProgress({
+    required String challengeId,
+    required String uid,
+    required double value,
+  });
+
+  /// Both participants' figures, keyed by uid. A uid absent from the
+  /// map has published nothing — **which is not a figure of zero.**
+  Stream<Map<String, double>> watchProgress(String challengeId);
+
   /// Live view of the requests this account sent.
   ///
   /// Added once sent requests became something the sender can *see*.
@@ -158,6 +193,73 @@ CompetitionMirror mirrorFromFirestore(String uid, Map<String, dynamic> data) {
         : publishedAt is DateTime
         ? publishedAt
         : null,
+  );
+}
+
+/// The remote shape of a challenge.
+///
+/// Top-level so it can be tested without a Firestore instance, like
+/// [mirrorFromFirestore]. `participants` is the sorted pair and exists
+/// purely so one `arrayContains` query finds both sides' challenges —
+/// the rules read it to decide who may see and write anything here, so
+/// it must always agree with `creatorUid`/`opponentUid`.
+Map<String, Object?> challengeToFirestore(Challenge challenge) {
+  final opponent = challenge.opponentUid;
+  if (opponent == null) {
+    // A personal target is nobody else's business and has no second
+    // party to authorise anything.
+    throw ArgumentError.value(
+      challenge,
+      'challenge',
+      'A personal target is never published.',
+    );
+  }
+  final participants = [challenge.creatorUid, opponent]..sort();
+  return {
+    'participants': participants,
+    'creatorUid': challenge.creatorUid,
+    'opponentUid': opponent,
+    'metric': challenge.metric.name,
+    'targetValue': challenge.targetValue,
+    'period': challenge.period.name,
+    'startAt': Timestamp.fromDate(challenge.startAt),
+    'endAt': Timestamp.fromDate(challenge.endAt),
+    'status': challenge.status.name,
+    'createdAt': Timestamp.fromDate(challenge.createdAt),
+    'updatedAt': Timestamp.fromDate(challenge.updatedAt),
+  };
+}
+
+/// Reads one `challenges/{id}` document back.
+///
+/// A status this client doesn't know falls back to `pending` via
+/// [ChallengeStatus.fromName], which is the safe direction: an
+/// unrecognised state must not read as a live competition.
+///
+/// The remote vocabulary is deliberately identical to
+/// [ChallengeStatus]'s — `pending`, `active`, `declined`, `cancelled`.
+/// The rules never see `completed` or `expired`, which are derived from
+/// the two frozen figures rather than written by anybody.
+Challenge challengeFromFirestore(String id, Map<String, dynamic> data) {
+  DateTime dateOr(Object? value, DateTime fallback) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return fallback;
+  }
+
+  final createdAt = dateOr(data['createdAt'], DateTime.now());
+  return Challenge(
+    id: id,
+    creatorUid: data['creatorUid'] as String? ?? '',
+    opponentUid: data['opponentUid'] as String?,
+    metric: CompetitionMetric.fromName(data['metric'] as String? ?? ''),
+    targetValue: (data['targetValue'] as num?)?.toDouble() ?? 0,
+    period: LeaderboardPeriod.fromName(data['period'] as String? ?? ''),
+    startAt: dateOr(data['startAt'], createdAt),
+    endAt: dateOr(data['endAt'], createdAt),
+    status: ChallengeStatus.fromName(data['status'] as String? ?? ''),
+    createdAt: createdAt,
+    updatedAt: dateOr(data['updatedAt'], createdAt),
   );
 }
 
@@ -232,6 +334,33 @@ class NoopSocialDirectory implements SocialDirectory {
   @override
   Stream<List<FriendRequest>> watchOutgoingRequests(String uid) =>
       const Stream.empty();
+
+  @override
+  Future<void> createChallenge(Challenge challenge) async {}
+
+  @override
+  Future<void> respondToChallenge({
+    required String challengeId,
+    required ChallengeStatus response,
+  }) async {}
+
+  @override
+  Future<List<Challenge>> challengesFor(String uid) async => const [];
+
+  @override
+  Stream<List<Challenge>> watchChallenges(String uid) =>
+      Stream.value(const []);
+
+  @override
+  Future<void> publishProgress({
+    required String challengeId,
+    required String uid,
+    required double value,
+  }) async {}
+
+  @override
+  Stream<Map<String, double>> watchProgress(String challengeId) =>
+      Stream.value(const {});
 }
 
 class FirestoreSocialDirectory implements SocialDirectory {
@@ -520,6 +649,94 @@ class FirestoreSocialDirectory implements SocialDirectory {
       createdAt: _dateFrom(data['createdAt']),
       updatedAt: _dateFrom(data['updatedAt']),
     );
+  }
+
+  CollectionReference<Map<String, dynamic>> get _challenges =>
+      _firestore.collection('challenges');
+
+  @override
+  Future<void> createChallenge(Challenge challenge) {
+    return _challenges
+        .doc(challenge.id)
+        .set(challengeToFirestore(challenge));
+  }
+
+  @override
+  Future<void> respondToChallenge({
+    required String challengeId,
+    required ChallengeStatus response,
+  }) {
+    // A status-only update. The rules refuse any write that touches the
+    // terms — the result is derived from them, so a mutable target or
+    // window would be a way to rewrite an outcome without touching a
+    // single figure — so they are deliberately absent rather than
+    // resent unchanged.
+    return _challenges.doc(challengeId).update({
+      'status': response.name,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
+  }
+
+  @override
+  Future<List<Challenge>> challengesFor(String uid) async {
+    if (uid.isEmpty) return const [];
+    final result = await _challenges
+        .where('participants', arrayContains: uid)
+        .get();
+    return [
+      for (final d in result.docs) challengeFromFirestore(d.id, d.data()),
+    ];
+  }
+
+  @override
+  Stream<List<Challenge>> watchChallenges(String uid) {
+    if (uid.isEmpty) return Stream.value(const []);
+    // One listener for both sides, which is the whole reason
+    // `participants` is stored as a sorted pair rather than being
+    // derived from creator/opponent at read time: Firestore has no OR
+    // across two fields.
+    return _challenges
+        .where('participants', arrayContains: uid)
+        .snapshots()
+        .map(
+          (snapshot) => [
+            for (final d in snapshot.docs)
+              challengeFromFirestore(d.id, d.data()),
+          ],
+        );
+  }
+
+  @override
+  Future<void> publishProgress({
+    required String challengeId,
+    required String uid,
+    required double value,
+  }) {
+    // One unconditional `set`, never a read first: a rules read of a
+    // document that does not exist is *denied* rather than answered
+    // empty, so "check whether my figure is there" cannot be asked.
+    return _challenges.doc(challengeId).collection('progress').doc(uid).set({
+      'value': value,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    });
+  }
+
+  @override
+  Stream<Map<String, double>> watchProgress(String challengeId) {
+    if (challengeId.isEmpty) return Stream.value(const {});
+    return _challenges
+        .doc(challengeId)
+        .collection('progress')
+        .snapshots()
+        .map(
+          (snapshot) => {
+            for (final d in snapshot.docs)
+              // A document id is the owner's uid. A uid absent from
+              // this map published nothing, which is not zero.
+              if (d.data()['value'] is num)
+                d.id: (d.data()['value'] as num).toDouble(),
+          },
+        );
   }
 
   DateTime _dateFrom(Object? value) {

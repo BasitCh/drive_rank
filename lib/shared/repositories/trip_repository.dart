@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/geocoding_service.dart';
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
@@ -285,8 +286,16 @@ class TripRepository {
   /// must not wait on a network round trip, and a failed publish costs
   /// freshness until the next launch rather than blocking the delete.
   void _republishCompetitionValues() {
-    if (!getIt.isRegistered<CompetitionValuePublisher>()) return;
-    unawaited(getIt<CompetitionValuePublisher>().publishNow());
+    if (getIt.isRegistered<CompetitionValuePublisher>()) {
+      unawaited(getIt<CompetitionValuePublisher>().publishNow());
+    }
+    // And any live challenge's figure, for the same reason and with
+    // more at stake: an opponent is watching that number, and a
+    // challenge the viewer is losing must not stay winnable by
+    // deleting the trip that lost it.
+    if (getIt.isRegistered<ChallengeProgressPublisher>()) {
+      unawaited(getIt<ChallengeProgressPublisher>().publishNow());
+    }
   }
 
   /// Trips deleted locally whose cloud copy is still to be removed.

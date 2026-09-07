@@ -14,6 +14,8 @@ import 'package:drive_rank/core/services/push_service.dart';
 import 'package:drive_rank/core/services/retention_notification_service.dart';
 import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
+import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart';
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
@@ -178,6 +180,13 @@ Future<void> _publishCompetitionValues() async {
     final claim = await settings.claimUsername();
     if (kDebugMode) debugPrint('[bootstrap] username claim: ${claim.name}');
     await getIt<CompetitionValuePublisher>().publishNow();
+    // Challenges opened on the opponent's device only exist locally
+    // once something pulls them in, and this driver's figures are only
+    // as fresh as the last publish. Both happen here for the same
+    // reason the mirror does: a cold launch is the one moment the app
+    // is certain to have a network and a signed-in uid.
+    await getIt<ChallengeSyncService>().syncNow();
+    await getIt<ChallengeProgressPublisher>().publishNow();
     // Pulls friendships and requests other people's devices created.
     await getIt<FriendsSyncService>().syncNow();
   } catch (e) {

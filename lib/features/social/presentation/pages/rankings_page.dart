@@ -273,7 +273,7 @@ Future<void> _openCompare(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => CompareSheet(
+    builder: (sheetContext) => CompareSheet(
       comparison: built,
       periodLabel: _BoardSelectors._periodLabel(state.period),
       metricLabel: _BoardSelectors._metricLabel,
@@ -282,6 +282,50 @@ Future<void> _openCompare(
         return '${format.value(value)} ${format.unit(value)}';
       },
       viewer: state.viewer,
+      // Only a person can be challenged, and only from the friends
+      // board — the sheet opens against a benchmark on the global one,
+      // and a published constant cannot agree to a contest.
+      onChallenge: entry.isBenchmark
+          ? null
+          : () {
+              Navigator.of(sheetContext).pop();
+              _openChallengeSheet(context, entry.id);
+            },
+    ),
+  );
+}
+
+/// Asks for the terms, then opens the challenge.
+///
+/// Reuses `CreateTargetSheet`'s pickers with all-time withheld: an
+/// all-time window has no end, and a race with no finish line cannot be
+/// settled, so offering it would be offering a button that throws.
+Future<void> _openChallengeSheet(
+  BuildContext context,
+  String opponentUid,
+) async {
+  final bloc = context.read<RankingsBloc>();
+  final request = await showModalBottomSheet<NewTargetRequest>(
+    context: context,
+    backgroundColor: AppColors.bg2,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => const CreateTargetSheet(
+      title: AppStrings.challengeCreateTitle,
+      ctaLabel: AppStrings.challengeCreateCta,
+      allowAllTime: false,
+      deadlineFor: _Targets._deadlineFor,
+    ),
+  );
+  if (request == null) return;
+  bloc.add(
+    RankingsChallengeCreated(
+      opponentUid: opponentUid,
+      metric: request.metric,
+      period: request.period,
+      value: request.value,
     ),
   );
 }
@@ -384,6 +428,22 @@ class _MetricFormat {
     final days = magnitude.ceil();
     return '$days ${_daysUnit(days).toLowerCase()}';
   }
+}
+
+/// "5 hours" / "40 minutes" — how long until a challenge's figures
+/// freeze.
+///
+/// Coarse on purpose: the grace is hours long, and a ticking countdown
+/// would imply the result is about to change when usually nothing more
+/// is coming.
+String _formatRemaining(Duration? left) {
+  if (left == null || left <= Duration.zero) return '';
+  if (left.inHours >= 1) {
+    final hours = left.inHours;
+    return hours == 1 ? '1 hour' : '$hours hours';
+  }
+  final minutes = left.inMinutes < 1 ? 1 : left.inMinutes;
+  return minutes == 1 ? '1 minute' : '$minutes minutes';
 }
 
 /// Weekday/date label for a deadline or an unlock date.
@@ -516,8 +576,37 @@ class _Targets extends StatelessWidget {
 
     return TargetsTab(
       targets: state.targets,
+      challenges: state.challenges,
       onCreate: () => _create(context),
       onCancel: (target) => _confirmCancel(context, target),
+      onAcceptChallenge: (view) => context.read<RankingsBloc>().add(
+        RankingsChallengeAnswered(view, accept: true),
+      ),
+      onDeclineChallenge: (view) => context.read<RankingsBloc>().add(
+        RankingsChallengeAnswered(view, accept: false),
+      ),
+      onWithdrawChallenge: (view) => context.read<RankingsBloc>().add(
+        RankingsChallengeWithdrawn(view),
+      ),
+      challengeMetricLabelFor: (view) =>
+          '${_metricLabel(view.challenge.metric)} \u00b7 '
+          '${_periodLabel(view.challenge.period)}',
+      formatChallengeValue: (view, value) {
+        final format = _MetricFormat.of(view.challenge.metric);
+        return '${format.compact(value)} ${format.unit(value)}';
+      },
+      // When driving stops counting.
+      challengeDeadlineFor: (view) => AppStrings.targetsEndsOn(
+        _formatDay(
+          view.challenge.endAt.subtract(const Duration(days: 1)),
+        ),
+      ),
+      // How long until the figures freeze — deliberately a different
+      // label from the deadline above, because they are different
+      // moments and the card must not blur them.
+      challengeRemainingFor: (view) => _formatRemaining(
+        view.settlement.remainingUntilFinal(DateTime.now()),
+      ),
       metricLabelFor: (t) =>
           '${_metricLabel(t.challenge.metric)} \u00b7 '
           '${_periodLabel(t.challenge.period)}',

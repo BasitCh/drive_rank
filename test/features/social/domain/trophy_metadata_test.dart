@@ -27,12 +27,17 @@ void main() {
     expect(bodies, hasLength(TrophyType.values.length));
   });
 
-  test('exactly the three locally computable trophies are earnable now', () {
+  test('exactly the trophies the app can compute are earnable now — 4d '
+      'added the two head-to-head ones, which are derived from two '
+      'frozen figures rather than needing a server to declare a '
+      'winner', () {
     final earnable = TrophyType.values.where((t) => t.isEarnableNow).toSet();
     expect(earnable, {
       TrophyType.firstTarget,
       TrophyType.roadWarrior,
       TrophyType.consistent,
+      TrophyType.firstChallenge,
+      TrophyType.firstWin,
     });
   });
 
@@ -57,15 +62,10 @@ void main() {
     }
   });
 
-  test('the opponent-dependent trophies are the ones blocked on friends', () {
-    for (final type in [
-      TrophyType.firstChallenge,
-      TrophyType.firstWin,
-      TrophyType.rivalHunter,
-    ]) {
-      expect(type.isEarnableNow, isFalse);
-      expect(type.unavailableReason, 'Needs friends');
-    }
+  test('rival hunter is still blocked on friends — it needs a '
+      'per-opponent win count, which nothing records', () {
+    expect(TrophyType.rivalHunter.isEarnableNow, isFalse);
+    expect(TrophyType.rivalHunter.unavailableReason, 'Needs friends');
   });
 
   test('rank climber is blocked on real competitors, not on friends', () {

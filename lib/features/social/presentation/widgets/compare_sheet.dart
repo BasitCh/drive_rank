@@ -4,6 +4,7 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsRow;
+import 'package:drive_rank/features/onboarding/presentation/widgets/teal_button.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/opponent.dart';
 import 'package:drive_rank/features/social/domain/usecases/compare_with_opponent.dart';
@@ -32,10 +33,17 @@ class CompareSheet extends StatelessWidget {
     required this.metricLabel,
     required this.formatValue,
     this.viewer,
+    this.onChallenge,
     super.key,
   });
 
   final Comparison comparison;
+
+  /// Offers to turn this comparison into a contest.
+  ///
+  /// Only ever supplied for a person: a benchmark cannot agree to
+  /// anything, and a challenge needs somebody to accept it.
+  final VoidCallback? onChallenge;
   final String periodLabel;
   final String Function(CompetitionMetric) metricLabel;
 
@@ -132,6 +140,13 @@ class CompareSheet extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
             ],
             const SizedBox(height: 2),
+            if (onChallenge != null && !comparison.opponent.isBenchmark) ...[
+              TealButton(
+                label: AppStrings.challengeFriendAction,
+                onPressed: onChallenge,
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             Center(
               child: Text(
                 led == 0

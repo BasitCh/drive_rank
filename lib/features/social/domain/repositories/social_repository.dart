@@ -64,6 +64,14 @@ abstract class SocialRepository {
   });
   Future<void> deleteChallenge(String challengeId);
 
+  /// Creates or updates a challenge that came from the cloud — one of
+  /// which may have been opened on the opponent's device.
+  Future<void> upsertChallenge(Challenge challenge);
+
+  /// Every challenge with an opponent this account is part of, whatever
+  /// its status.
+  Future<List<Challenge>> getHeadToHeadChallenges(String uid);
+
   /// The user's active challenges whose window contains [at], and those
   /// whose window has already closed — the two sets the competition
   /// engine acts on when a trip lands.

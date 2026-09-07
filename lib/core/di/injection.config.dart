@@ -63,6 +63,10 @@ import 'package:drive_rank/features/social/data/processors/local_social_trip_pro
     as _i319;
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart'
     as _i621;
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart'
+    as _i80;
+import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart'
+    as _i785;
 import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart'
     as _i800;
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart'
@@ -77,8 +81,12 @@ import 'package:drive_rank/features/social/domain/usecases/compare_with_opponent
     as _i989;
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart'
     as _i163;
+import 'package:drive_rank/features/social/domain/usecases/create_challenge.dart'
+    as _i669;
 import 'package:drive_rank/features/social/domain/usecases/create_target.dart'
     as _i302;
+import 'package:drive_rank/features/social/domain/usecases/get_challenges.dart'
+    as _i797;
 import 'package:drive_rank/features/social/domain/usecases/get_friends_leaderboard.dart'
     as _i108;
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart'
@@ -91,6 +99,8 @@ import 'package:drive_rank/features/social/domain/usecases/get_trip_rank_change.
     as _i593;
 import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart'
     as _i717;
+import 'package:drive_rank/features/social/domain/usecases/settle_challenge.dart'
+    as _i699;
 import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart'
     as _i804;
 import 'package:drive_rank/features/social/presentation/bloc/friends_bloc.dart'
@@ -135,6 +145,7 @@ _i174.GetIt $initGetIt(
 }) {
   final gh = _i526.GetItHelper(getIt, environment, environmentFilter);
   final injectionModule = _$InjectionModule();
+  gh.factory<_i699.SettleChallenge>(() => const _i699.SettleChallenge());
   gh.singleton<_i425.AppDatabase>(() => _i425.AppDatabase());
   gh.singleton<_i901.AppRouter>(() => _i901.AppRouter());
   gh.singleton<_i375.GpsService>(() => _i375.GpsService());
@@ -336,11 +347,31 @@ _i174.GetIt $initGetIt(
       gh<_i970.TerritoryStatsService>(),
     ),
   );
+  gh.factory<_i797.GetChallenges>(
+    () => _i797.GetChallenges(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+      gh<_i699.SettleChallenge>(),
+    ),
+  );
   gh.lazySingleton<_i1058.CompetitionValuePublisher>(
     () => _i1058.CompetitionValuePublisher(
       gh<_i727.UserSettingsRepository>(),
       gh<_i247.SocialRepository>(),
       gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.lazySingleton<_i80.ChallengeProgressPublisher>(
+    () => _i80.ChallengeProgressPublisher(
+      gh<_i247.SocialRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.lazySingleton<_i785.ChallengeSyncService>(
+    () => _i785.ChallengeSyncService(
+      gh<_i247.SocialRepository>(),
+      gh<_i727.UserSettingsRepository>(),
     ),
   );
   gh.factory<_i989.CompareWithOpponent>(
@@ -381,15 +412,19 @@ _i174.GetIt $initGetIt(
       gh<_i709.FriendsSyncService>(),
     ),
   );
+  gh.factory<_i669.CreateChallenge>(
+    () => _i669.CreateChallenge(gh<_i247.SocialRepository>()),
+  );
+  gh.factory<_i218.GetQualifyingDays>(
+    () => _i218.GetQualifyingDays(gh<_i247.SocialRepository>()),
+  );
   gh.lazySingleton<_i804.SocialTripProcessor>(
     () => _i319.LocalSocialTripProcessor(
       gh<_i247.SocialRepository>(),
       gh<_i163.CompetitionMetricCalculator>(),
       gh<_i717.RefreshTargetProgress>(),
+      gh<_i699.SettleChallenge>(),
     ),
-  );
-  gh.factory<_i218.GetQualifyingDays>(
-    () => _i218.GetQualifyingDays(gh<_i247.SocialRepository>()),
   );
   gh.factory<_i687.TrackingBloc>(
     () => _i687.TrackingBloc(
@@ -435,6 +470,10 @@ _i174.GetIt $initGetIt(
       gh<_i218.GetQualifyingDays>(),
       gh<_i108.GetFriendsLeaderboard>(),
       gh<_i408.SocialDirectory>(),
+      gh<_i797.GetChallenges>(),
+      gh<_i669.CreateChallenge>(),
+      gh<_i785.ChallengeSyncService>(),
+      gh<_i80.ChallengeProgressPublisher>(),
     ),
   );
   return getIt;

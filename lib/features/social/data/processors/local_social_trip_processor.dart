@@ -1,4 +1,5 @@
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge_settlement.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_update.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
@@ -7,6 +8,7 @@ import 'package:drive_rank/features/social/domain/repositories/social_repository
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
 import 'package:drive_rank/features/social/domain/usecases/evaluate_competition_eligibility.dart';
 import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart';
+import 'package:drive_rank/features/social/domain/usecases/settle_challenge.dart';
 import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart';
 import 'package:drive_rank/features/social/domain/usecases/trophy_ids.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
@@ -42,6 +44,7 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
     this._social,
     this._calculator,
     this._refreshTargets,
+    this._settle,
   );
 
   final SocialRepository _social;
@@ -50,6 +53,12 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
   /// Shared with target creation so both agree on when a target counts
   /// as complete — see `RefreshTargetProgress`.
   final RefreshTargetProgress _refreshTargets;
+
+  /// Reads a head-to-head result out of two frozen figures. The one
+  /// definition of the finalization boundary, shared with the UI, so a
+  /// trophy and a card can never disagree about whether a challenge is
+  /// over.
+  final SettleChallenge _settle;
 
   /// Serializes processing. Two trips saved back-to-back both arrive as
   /// unawaited read-modify-write passes, and the one that started first
@@ -175,10 +184,9 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
 
   /// Awards the trophies whose inputs exist locally.
   ///
-  /// The rest of `TrophyType` needs data this phase doesn't have:
-  /// `firstChallenge`/`firstWin`/`rivalHunter` need an opponent's
-  /// values, and `rankClimber` needs a ranking. They're awarded in the
-  /// phases that introduce those.
+  /// `rivalHunter` still needs a per-opponent win count and
+  /// `rankClimber` needs rank *history*, neither of which anything
+  /// records — they are awarded in the phases that introduce those.
   Future<List<Trophy>> _awardTrophies({
     required String uid,
     required DateTime now,
@@ -235,7 +243,75 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
       if (anyPersonal) await award(TrophyType.firstTarget);
     }
 
+    // Head-to-head results, which are *derived* rather than stored: a
+    // challenge is settled by reading two frozen figures, so this looks
+    // at every challenge rather than at a list of ones that "completed"
+    // — nothing ever writes that.
+    final settlements = await _settleAll(uid: uid, at: now);
+    if (settlements.any((s) => s.outcome.isFinishedContest)) {
+      // Turning up counts: a loss, a draw and an opponent who went
+      // quiet all mean the viewer competed. Only `expired` — nobody
+      // accepted — is excluded, because an invitation that lapsed is
+      // not a contest.
+      await award(TrophyType.firstChallenge);
+    }
+    if (settlements.any((s) => s.outcome == ChallengeOutcome.won)) {
+      await award(TrophyType.firstWin);
+    }
+
     return unlocked;
+  }
+
+  /// Settles every head-to-head challenge this account is part of.
+  ///
+  /// **Only final settlements are returned.** A `finalizing` challenge
+  /// has closed but its figures can still legally move, so awarding
+  /// from one would hand out a trophy for a result that might yet
+  /// reverse.
+  Future<List<ChallengeSettlement>> _settleAll({
+    required String uid,
+    required DateTime at,
+  }) async {
+    final challenges = await _social.getHeadToHeadChallenges(uid);
+    final settled = <ChallengeSettlement>[];
+
+    for (final challenge in challenges) {
+      if (challenge.status == ChallengeStatus.cancelled ||
+          challenge.status == ChallengeStatus.declined) {
+        continue;
+      }
+      final opponentUid = challenge.creatorUid == uid
+          ? (challenge.opponentUid ?? '')
+          : challenge.creatorUid;
+      if (opponentUid.isEmpty) continue;
+
+      final window = CompetitionWindow(
+        start: challenge.startAt,
+        end: challenge.endAt,
+      );
+      final trips = await _social.getCompetitionTrips(uid: uid, window: window);
+      final mine = _calculator.calculate(
+        metric: challenge.metric,
+        trips: trips,
+        window: window,
+      );
+      // Absent, not zero — a row the sync never wrote means they
+      // published nothing, and `SettleChallenge` must be told so.
+      final theirs = await _social.getProgress(
+        challengeId: challenge.id,
+        uid: opponentUid,
+      );
+
+      final settlement = _settle(
+        challenge: challenge,
+        mine: mine,
+        theirs: theirs?.currentValue,
+        now: at,
+      );
+      if (settlement.isFinal) settled.add(settlement);
+    }
+
+    return settled;
   }
 
   Future<bool> _anyPersonalTarget(List<String> challengeIds) async {

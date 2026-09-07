@@ -4,18 +4,22 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/features/onboarding/presentation/widgets/teal_button.dart';
 import 'package:drive_rank/features/social/domain/entities/target.dart';
+import 'package:drive_rank/features/social/domain/usecases/get_challenges.dart';
+import 'package:drive_rank/features/social/presentation/widgets/challenge_card.dart';
 import 'package:drive_rank/features/social/presentation/widgets/target_card.dart';
 import 'package:flutter/material.dart';
 
-/// Your personal targets.
+/// Your targets, and your challenges.
 ///
-/// Active ones first — the thing you're chasing matters more than the
-/// thing you finished — then a completed section, so the screen doubles
-/// as a record of what's been achieved.
+/// Both live here because a target *is* a challenge with no opponent —
+/// one table, one surface — and because a fourth segment in the tab
+/// bar would undo the vertical space 3c reclaimed by replacing two rows
+/// of pills with it.
 ///
-/// Targets need no friends by design, which is why this surface is
-/// complete today while the head-to-head half of the feature waits for
-/// the remote layer.
+/// Order follows what needs doing: a challenge waiting on the viewer's
+/// answer, then their own targets, then the challenges under way.
+/// Answering somebody who is waiting on you matters more than watching
+/// a number you cannot affect this second.
 class TargetsTab extends StatelessWidget {
   const TargetsTab({
     required this.targets,
@@ -25,12 +29,36 @@ class TargetsTab extends StatelessWidget {
     required this.formatTarget,
     required this.formatRemaining,
     required this.windowLabelFor,
+    this.challenges = const [],
+    this.challengeMetricLabelFor,
+    this.formatChallengeValue,
+    this.challengeDeadlineFor,
+    this.challengeRemainingFor,
+    this.onAcceptChallenge,
+    this.onDeclineChallenge,
+    this.onWithdrawChallenge,
     super.key,
   });
 
   final List<Target> targets;
   final VoidCallback onCreate;
   final ValueChanged<Target> onCancel;
+
+  /// Head-to-head challenges, already settled by `GetChallenges`.
+  final List<ChallengeView> challenges;
+  final String Function(ChallengeView)? challengeMetricLabelFor;
+  final String Function(ChallengeView, double)? formatChallengeValue;
+
+  /// When driving stops counting.
+  final String Function(ChallengeView)? challengeDeadlineFor;
+
+  /// How long until the figures freeze — a different moment, and the
+  /// card says so rather than conflating the two.
+  final String Function(ChallengeView)? challengeRemainingFor;
+
+  final ValueChanged<ChallengeView>? onAcceptChallenge;
+  final ValueChanged<ChallengeView>? onDeclineChallenge;
+  final ValueChanged<ChallengeView>? onWithdrawChallenge;
 
   /// "Distance · This week" — assembled by the caller so this widget
   /// never touches enums.
@@ -42,14 +70,26 @@ class TargetsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (targets.isEmpty) return _TargetsEmpty(onCreate: onCreate);
+    if (targets.isEmpty && challenges.isEmpty) {
+      return _TargetsEmpty(onCreate: onCreate);
+    }
 
     final active = targets.where((t) => !t.isComplete).toList();
     final done = targets.where((t) => t.isComplete).toList();
+    final waiting = challenges.where((c) => c.needsMyAnswer).toList();
+    final running = challenges.where((c) => !c.needsMyAnswer).toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
       children: [
+        if (waiting.isNotEmpty) ...[
+          const _SectionLabel(AppStrings.challengesIncomingLabel),
+          for (final view in waiting) ...[
+            _challengeCard(view),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+        ],
         if (active.isNotEmpty) ...[
           const _SectionLabel(AppStrings.targetsActiveLabel),
           for (final target in active) ...[
@@ -65,11 +105,39 @@ class TargetsTab extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
           ],
         ],
+        if (running.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          const _SectionLabel(AppStrings.challengesSectionLabel),
+          for (final view in running) ...[
+            _challengeCard(view),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ],
         const SizedBox(height: AppSpacing.sm),
         TealButton(label: AppStrings.targetsCreateCta, onPressed: onCreate),
       ],
     );
   }
+
+  Widget _challengeCard(ChallengeView view) => ChallengeCard(
+    view: view,
+    metricLabel: challengeMetricLabelFor?.call(view) ?? '',
+    formatValue: (value) =>
+        formatChallengeValue?.call(view, value) ?? value.toStringAsFixed(0),
+    deadlineLabel: challengeDeadlineFor?.call(view) ?? '',
+    remainingLabel: challengeRemainingFor?.call(view) ?? '',
+    // Only the person who was asked may answer, and only the person who
+    // asked may withdraw — the same split the security rules enforce.
+    onAccept: view.needsMyAnswer && onAcceptChallenge != null
+        ? () => onAcceptChallenge!(view)
+        : null,
+    onDecline: view.needsMyAnswer && onDeclineChallenge != null
+        ? () => onDeclineChallenge!(view)
+        : null,
+    onWithdraw: view.awaitingTheirAnswer && onWithdrawChallenge != null
+        ? () => onWithdrawChallenge!(view)
+        : null,
+  );
 
   Widget _card(Target target, {required bool cancellable}) => TargetCard(
     target: target,

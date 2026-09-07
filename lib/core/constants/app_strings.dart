@@ -487,6 +487,55 @@ class AppStrings {
       'Set yourself something to chase. A target is just for you — no '
       'friends needed.';
   static const String targetsCreateCta = 'Set a target';
+
+  // Challenges. The copy follows the three settlement states exactly,
+  // because the card is where a wrong boundary would be most visible:
+  // a challenge that named a winner the moment its window closed could
+  // then contradict itself when an honest late figure landed.
+  static const String challengesSectionLabel = 'Challenges';
+  static const String challengesIncomingLabel = 'Waiting on you';
+  static const String challengeVsPrefix = 'vs ';
+  static const String challengeYou = 'YOU';
+
+  // Provisional — while there is still driving to come.
+  static const String challengeLeading = "You're leading";
+  static const String challengeTrailing = "You're behind";
+  static const String challengeTied = 'Level';
+
+  /// The window has closed and the figures can still legally move, so
+  /// there is deliberately no winner here to name.
+  static const String challengeFinalizing = 'Finalizing…';
+
+  /// "Final in 5 hours" — how long until the figures freeze.
+  static String challengeFinalIn(String remaining) => 'Final in $remaining';
+
+  // Final.
+  static const String challengeWon = 'You won';
+  static const String challengeLost = 'You lost';
+  static const String challengeDrew = 'Draw';
+
+  /// Accepted, and the opponent never published a figure. Not a win —
+  /// absent is not zero.
+  static const String challengeUndecided = 'No result';
+  static const String challengeUndecidedBody =
+      'They never posted a figure for this one.';
+
+  /// Nobody accepted it before the window closed.
+  static const String challengeExpired = 'Never started';
+  static const String challengeExpiredBody = 'It was never accepted.';
+
+  static const String challengeAccept = 'Accept';
+  static const String challengeDecline = 'Decline';
+  static const String challengeWithdraw = 'Withdraw';
+  static const String challengeAwaitingReply = 'Waiting for their answer';
+
+  // Creating one.
+  static const String challengeCreateTitle = 'Challenge a friend';
+  static const String challengeCreateCta = 'Send challenge';
+  static const String challengeFriendAction = 'Challenge';
+  static const String challengeCreateFailed =
+      "Couldn't send the challenge — try again";
+  static const String challengeSent = 'Challenge sent';
   static const String targetsActiveLabel = 'ACTIVE';
   static const String targetsCompletedLabel = 'COMPLETED';
   static const String targetsCompletedOn = 'Completed';

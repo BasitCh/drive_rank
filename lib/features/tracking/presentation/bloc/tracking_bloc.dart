@@ -13,6 +13,7 @@ import 'package:drive_rank/core/services/retention_notification_copy.dart';
 import 'package:drive_rank/core/services/retention_notification_service.dart';
 import 'package:drive_rank/core/services/sensor_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
@@ -602,6 +603,11 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       // time if this attempt fails.
       if (getIt.isRegistered<CompetitionValuePublisher>()) {
         unawaited(getIt<CompetitionValuePublisher>().publishNow());
+      }
+      // …and this driver's figure in every live challenge, which an
+      // opponent is watching for the duration of the contest.
+      if (getIt.isRegistered<ChallengeProgressPublisher>()) {
+        unawaited(getIt<ChallengeProgressPublisher>().publishNow());
       }
 
       final after = await _settings.read();

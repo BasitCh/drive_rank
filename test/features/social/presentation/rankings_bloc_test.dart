@@ -4,23 +4,29 @@ import 'dart:ui';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/free_trip_counter_service.dart';
 import 'package:drive_rank/core/services/geocoding_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart';
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart';
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
+import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_scope.dart';
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
+import 'package:drive_rank/features/social/domain/usecases/create_challenge.dart';
 import 'package:drive_rank/features/social/domain/usecases/create_target.dart';
+import 'package:drive_rank/features/social/domain/usecases/get_challenges.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_friends_leaderboard.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_qualifying_days.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_targets.dart';
 import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart';
+import 'package:drive_rank/features/social/domain/usecases/settle_challenge.dart';
 import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
@@ -75,6 +81,23 @@ class _FakeDirectory implements SocialDirectory {
       if (uids.contains(mirror.uid)) mirror,
   ];
 
+  // The challenge sync asks for these the moment the bloc starts.
+  // Empty rather than unsupported: this suite is about the board, and a
+  // throw here would fail every test for a reason unrelated to it.
+  @override
+  Stream<List<Challenge>> watchChallenges(String uid) =>
+      Stream.value(const []);
+
+  @override
+  Future<List<Challenge>> challengesFor(String uid) async => const [];
+
+  @override
+  Stream<Map<String, double>> watchProgress(String challengeId) =>
+      Stream.value(const {});
+
+  @override
+  Future<CompetitionMirror?> profileFor(String uid) async => null;
+
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnsupportedError("${invocation.memberName} is not the board's");
@@ -98,6 +121,11 @@ void main() {
     trips = TripRepository(db, GeocodingService());
     repo = SocialRepositoryImpl(SocialLocalDataSource(db));
     directory = _FakeDirectory();
+    // `ChallengeSyncService` resolves the directory lazily through
+    // getIt rather than taking it in its constructor — see its doc for
+    // why — so it has to be registered even though the bloc is handed
+    // the same instance directly.
+    getIt.registerSingleton<SocialDirectory>(directory);
     const calculator = DefaultCompetitionMetricCalculator();
     bloc = RankingsBloc(
       settings,
@@ -109,12 +137,17 @@ void main() {
       GetQualifyingDays(repo),
       GetFriendsLeaderboard(repo, calculator),
       directory,
+      GetChallenges(repo, calculator, const SettleChallenge()),
+      CreateChallenge(repo),
+      ChallengeSyncService(repo, settings),
+      ChallengeProgressPublisher(repo, settings, calculator),
     );
   });
 
   tearDown(() async {
     await bloc.close();
     await directory.dispose();
+    await getIt.reset();
     await db.close();
   });
 

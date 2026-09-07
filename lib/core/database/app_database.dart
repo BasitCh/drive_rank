@@ -47,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -292,6 +292,35 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'CREATE UNIQUE INDEX IF NOT EXISTS idx_friend_requests_remote_id '
           'ON friend_requests (remote_id)',
+        );
+      }
+      if (from < 17) {
+        // v17 — one row per challenge, enforced.
+        //
+        // 4d lets a challenge arrive from the *opponent's* device, and
+        // the sync upserts it by its stable `remote_id`. Nothing
+        // constrained that id, so every reconciliation pass would have
+        // appended another copy — precisely the bug `friend_requests`
+        // shipped with and v16 had to migrate out of. Seen coming this
+        // time.
+        //
+        // Collapse before constrain, as in v16: nothing has ever
+        // written a challenge from a remote source, so duplicates
+        // cannot exist in the wild — but a restored or debug-seeded
+        // database costs nothing to be careful about, and an index that
+        // fails to build takes the whole upgrade with it.
+        await customStatement(
+          'DELETE FROM challenges WHERE id NOT IN ('
+          ' SELECT id FROM ('
+          ' SELECT id, ROW_NUMBER() OVER ('
+          ' PARTITION BY remote_id ORDER BY updated_at DESC, id DESC'
+          ' ) AS rn FROM challenges'
+          ' ) WHERE rn = 1'
+          ' )',
+        );
+        await customStatement(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_remote_id '
+          'ON challenges (remote_id)',
         );
       }
     },

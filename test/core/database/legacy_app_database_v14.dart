@@ -1,6 +1,4 @@
 import 'package:drift/drift.dart';
-import 'package:drive_rank/core/database/tables/challenge_progress_table.dart';
-import 'package:drive_rank/core/database/tables/challenges_table.dart';
 import 'package:drive_rank/core/database/tables/deleted_trips_table.dart';
 import 'package:drive_rank/core/database/tables/friends_table.dart';
 import 'package:drive_rank/core/database/tables/live_trips_table.dart'
@@ -12,6 +10,7 @@ import 'package:drive_rank/core/database/tables/waypoints_table.dart';
 
 import 'legacy_tables_pre_v15.dart';
 import 'legacy_tables_pre_v16.dart';
+import 'legacy_tables_pre_v17.dart';
 
 part 'legacy_app_database_v14.g.dart';
 
@@ -27,7 +26,8 @@ part 'legacy_app_database_v14.g.dart';
 /// `friend_requests` is frozen for the same reason, one version later:
 /// the live class gained a unique index on `remote_id` in v16, and with
 /// that index present the duplicate rows v16 exists to collapse cannot
-/// be written at all.
+/// be written at all. `challenges` is frozen for v17's index on the
+/// same grounds.
 @DriftDatabase(
   tables: [
     Trips,
@@ -37,8 +37,8 @@ part 'legacy_app_database_v14.g.dart';
     LiveWaypoints,
     Friends,
     LegacyFriendRequestsPreV16,
-    Challenges,
-    ChallengeProgress,
+    LegacyChallengesPreV17,
+    LegacyChallengeProgressPreV17,
     Trophies,
     TripEligibility,
     DeletedTrips,

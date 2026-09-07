@@ -350,6 +350,174 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // -----------------------------------------------------------------
+    // Challenges — the first record whose outcome depends on two
+    // people's writes.
+    //
+    // Everything else in this file has one shape: an account writes only
+    // its own values, and a reader *orders* independently-owned numbers.
+    // No document decides anything about anybody else. A challenge
+    // produces a result, so it gets its own reasoning:
+    //
+    //  * **No winner is stored.** Each participant owns
+    //    `progress/{their uid}` and nobody else may write it, so the
+    //    result is a reading of two numbers rather than a verdict one
+    //    client could forge and the other could only dispute.
+    //  * **The terms are immutable** once written. A mutable target or
+    //    window would let a creator move the goalposts after seeing how
+    //    it was going.
+    //  * **Progress freezes** at `endAt + 6h` (below), so a settled
+    //    result cannot be rewritten afterwards.
+    //
+    // What these rules do NOT do is make the figures true: progress is
+    // computed on the owner's device from the owner's trips, exactly as
+    // `public_profiles` totals are. A determined person can overstate
+    // their driving and win. That is acceptable at friends scale with
+    // nothing at stake, and ONLY there. **The moment a challenge carries
+    // a prize, a payment or public standing, progress must come from a
+    // server-authoritative path** — do not read this block as
+    // permission to widen that.
+    // -----------------------------------------------------------------
+    match /challenges/{challengeId} {
+      function data() { return request.resource.data; }
+      function existing() { return resource.data; }
+      function friendshipExists(a, b) {
+        return exists(/databases/$(database)/documents/friendships/$(a < b ? a + '_' + b : b + '_' + a));
+      }
+      // Terms may never change. The result is derived from them, so a
+      // mutable metric, target or window is a way to rewrite an outcome
+      // without touching a single progress figure.
+      function termsUnchanged() {
+        return data().participants == existing().participants
+               && data().creatorUid == existing().creatorUid
+               && data().opponentUid == existing().opponentUid
+               && data().metric == existing().metric
+               && data().targetValue == existing().targetValue
+               && data().period == existing().period
+               && data().startAt == existing().startAt
+               && data().endAt == existing().endAt
+               && data().createdAt == existing().createdAt;
+      }
+
+      allow read: if request.auth != null
+                  && request.auth.uid in resource.data.participants;
+
+      // The creator opens it, against somebody they are already friends
+      // with — the friendship document's id is derived from the sorted
+      // pair, which is what makes it nameable here at all, since rules
+      // have no query.
+      //
+      // **startAt must be roughly now.** A challenge measures
+      // `[creation, period end)`, NOT the period's own start — the
+      // window a target uses. `CompetitionWindow.forPeriod(weekly, …)`
+      // begins on Monday, so a challenge created on Thursday that
+      // inherited it would hand the creator every kilometre they had
+      // already driven that week as a head start the opponent cannot
+      // see. The creator chooses when to challenge; they must not also
+      // choose which of their past driving counts.
+      //
+      // endAt is bounded so a challenge cannot be given a window so
+      // long it never settles. 400 days covers the longest legitimate
+      // one (all-time targets are scoped to the year's end).
+      allow create: if request.auth != null
+                    && request.auth.uid == data().creatorUid
+                    && data().creatorUid != data().opponentUid
+                    && data().keys().hasOnly(
+                         ['participants', 'creatorUid', 'opponentUid',
+                          'metric', 'targetValue', 'period',
+                          'startAt', 'endAt', 'status',
+                          'createdAt', 'updatedAt'])
+                    && data().participants.size() == 2
+                    && data().participants[0] < data().participants[1]
+                    && data().creatorUid in data().participants
+                    && data().opponentUid in data().participants
+                    && data().status == 'pending'
+                    && data().targetValue > 0
+                    && data().startAt <= request.time + duration.value(10, 'm')
+                    && data().startAt >= request.time - duration.value(10, 'm')
+                    && data().endAt > data().startAt
+                    && data().endAt < data().startAt + duration.value(400, 'd')
+                    && friendshipExists(data().creatorUid, data().opponentUid);
+
+      // `active` is the accepted state, spelled the way
+      // `ChallengeStatus` spells it. One vocabulary across the rules,
+      // the entity and the database — a translation layer between two
+      // words for one state is a place for them to drift.
+      //
+      // Only the negotiation moves. `completed` and `expired` are
+      // deliberately absent: an outcome is derived from the two frozen
+      // figures, never written, so there is no terminal state here for
+      // anybody to fabricate.
+      //
+      // Acceptance additionally requires the window still to be open.
+      // Both participants must agree to compete BEFORE the competition
+      // ends — otherwise a challenge left pending until 23:59 Sunday
+      // could be accepted at 01:00 Monday and then have progress
+      // published during the finalization grace, competing entirely
+      // after the window it was meant to measure.
+      //
+      // Declining and cancelling stay allowed after `endAt`: they only
+      // tidy a dead challenge away and cannot manufacture a result.
+      allow update: if request.auth != null
+                    && termsUnchanged()
+                    && existing().status == 'pending'
+                    && (
+                      (request.auth.uid == existing().opponentUid
+                       && ((data().status == 'active'
+                            && request.time < existing().endAt)
+                           || data().status == 'declined'))
+                      ||
+                      (request.auth.uid == existing().creatorUid
+                       && data().status == 'cancelled')
+                    );
+
+      // History survives, exactly as it does for friend requests: a
+      // deletable challenge would make a loss disappear.
+      allow delete: if false;
+
+      // ---------------------------------------------------------------
+      // One document per participant, and only its owner may write it.
+      // This is the security boundary of the whole phase: B must not be
+      // able to write A's figure, in any shape.
+      // ---------------------------------------------------------------
+      match /progress/{ownerUid} {
+        function parent() {
+          return get(/databases/$(database)/documents/challenges/$(challengeId));
+        }
+
+        allow read: if request.auth != null
+                    && request.auth.uid in parent().data.participants;
+
+        // **The finalization boundary.** The competition ends at
+        // `endAt`; the figures freeze six hours later, and the result is
+        // only final at that freeze. The grace exists so a drive taken
+        // immediately before `endAt` can still be published once the app
+        // is next opened — bounded, so the result does become final.
+        //
+        // This 6h MUST equal `kChallengeFinalizationGrace` in
+        // `challenge_settlement.dart`; `challenge_rules_contract_test`
+        // parses it out of this file and fails if the two drift apart.
+        //
+        // Deliberately NOT monotonic: deleting a trip must lower the
+        // figure, which is this feature's load-bearing rule.
+        //
+        // The friendship is a creation-time precondition on the parent
+        // only. Nothing here consults it, so **unfriending does not
+        // cancel an accepted challenge** — an accidental unfriend, or a
+        // fallout mid-week, must not destroy a live competition or
+        // freeze one person's figure while the other's keeps moving. Do
+        // not "tighten" this into a continuous eligibility check.
+        allow write: if request.auth != null
+                     && request.auth.uid == ownerUid
+                     && ownerUid in parent().data.participants
+                     && parent().data.status == 'active'
+                     && request.time < parent().data.endAt + duration.value(6, 'h')
+                     && request.resource.data.keys().hasOnly(
+                          ['value', 'updatedAt'])
+                     && request.resource.data.value >= 0;
+      }
+    }
+
     // Anything else: locked.
     match /{document=**} {
       allow read, write: if false;

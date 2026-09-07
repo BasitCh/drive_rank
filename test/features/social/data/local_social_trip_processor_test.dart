@@ -5,12 +5,14 @@ import 'package:drive_rank/features/social/data/datasources/social_local_data_so
 import 'package:drive_rank/features/social/data/processors/local_social_trip_processor.dart';
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge_progress.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_eligibility.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_update.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/entities/trophy.dart';
 import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
 import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart';
+import 'package:drive_rank/features/social/domain/usecases/settle_challenge.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
@@ -37,6 +39,7 @@ void main() {
       repo,
       const DefaultCompetitionMetricCalculator(),
       RefreshTargetProgress(repo, const DefaultCompetitionMetricCalculator()),
+      const SettleChallenge(),
     );
   });
 
@@ -526,6 +529,162 @@ void main() {
       final update = await process(await saveTrip(distanceKm: 6));
       expect(
         update.unlockedTrophies.map((Trophy t) => t.type),
+        isNot(contains(TrophyType.firstTarget)),
+      );
+    });
+  });
+
+  group('head-to-head trophies', () {
+    // The challenge closed well before the pinned clock, so its figures
+    // are frozen and the result is final. `endAt` is a day back and the
+    // grace is six hours.
+    final closedAt = now.subtract(const Duration(days: 1));
+
+    Future<Challenge> settled({
+      required double mine,
+      required double? theirs,
+      ChallengeStatus status = ChallengeStatus.active,
+    }) async {
+      final challenge = await createTarget(
+        opponentUid: 'rival',
+        startAt: now.subtract(const Duration(days: 8)),
+        endAt: closedAt,
+        status: status,
+        targetValue: 1000,
+      );
+      // The viewer's own figure comes from their trips, so it is seeded
+      // as driving rather than as a progress row.
+      if (mine > 0) {
+        await process(
+          await saveTrip(
+            distanceKm: mine,
+            startedAt: now.subtract(const Duration(days: 2)),
+          ),
+        );
+      }
+      if (theirs != null) {
+        await repo.upsertProgressValue(
+          ChallengeProgress(
+            challengeId: challenge.id,
+            uid: 'rival',
+            currentValue: theirs,
+            targetValue: 1000,
+            lastCalculatedAt: closedAt,
+          ),
+        );
+      }
+      return challenge;
+    }
+
+    /// Drives once more, then reports every trophy the account holds.
+    ///
+    /// The stored set rather than one pass's `unlockedTrophies`:
+    /// seeding a settled challenge involves driving, so a trophy can
+    /// legitimately be awarded on that earlier pass, and asserting
+    /// against a single pass would be testing the order of the fixture
+    /// rather than the rule.
+    Future<Set<TrophyType>> allTrophies() async {
+      await process(await saveTrip(distanceKm: 1, startedAt: now));
+      final held = await repo.getTrophies(uid);
+      return held.map((Trophy t) => t.type).toSet();
+    }
+
+    test('winning awards both firstChallenge and firstWin', () async {
+      await settled(mine: 100, theirs: 40);
+      expect(
+        await allTrophies(),
+        containsAll([TrophyType.firstChallenge, TrophyType.firstWin]),
+      );
+    });
+
+    test('losing still awards firstChallenge — turning up counts, and '
+        'winning is a different trophy — but never firstWin', () async {
+      await settled(mine: 40, theirs: 100);
+      final unlocked = await allTrophies();
+      expect(unlocked, contains(TrophyType.firstChallenge));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('a draw awards firstChallenge and not firstWin', () async {
+      await settled(mine: 100, theirs: 100);
+      final unlocked = await allTrophies();
+      expect(unlocked, contains(TrophyType.firstChallenge));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('an opponent who never published still counts as a contest the '
+        'viewer took part in — but hands them no win, because absent is '
+        'not zero', () async {
+      await settled(mine: 100, theirs: null);
+      final unlocked = await allTrophies();
+      expect(unlocked, contains(TrophyType.firstChallenge));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('a challenge nobody ever accepted awards nothing — an '
+        'invitation that lapsed is not participation', () async {
+      await settled(
+        mine: 100,
+        theirs: null,
+        status: ChallengeStatus.pending,
+      );
+      final unlocked = await allTrophies();
+      expect(unlocked, isNot(contains(TrophyType.firstChallenge)));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('nothing is awarded while the figures can still move — a '
+        'challenge inside its finalization grace has closed but is not '
+        'decided, and a trophy for a result that might yet reverse is '
+        'the whole reason that state exists', () async {
+      await createTarget(
+        opponentUid: 'rival',
+        startAt: now.subtract(const Duration(days: 8)),
+        // Closed an hour ago: inside the six-hour grace.
+        endAt: now.subtract(const Duration(hours: 1)),
+        status: ChallengeStatus.active,
+        targetValue: 1000,
+      );
+      await process(
+        await saveTrip(
+          distanceKm: 100,
+          startedAt: now.subtract(const Duration(days: 2)),
+        ),
+      );
+
+      final unlocked = await allTrophies();
+      expect(unlocked, isNot(contains(TrophyType.firstChallenge)));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('neither is awarded twice — the ids carry no window, so they '
+        'are lifetime trophies and a second settled challenge collides '
+        'on the unique index rather than inserting again', () async {
+      await settled(mine: 100, theirs: 40);
+      await allTrophies();
+
+      final update = await process(
+        await saveTrip(distanceKm: 1, startedAt: now),
+      );
+      final newlyUnlocked = update.unlockedTrophies
+          .map((Trophy t) => t.type)
+          .toSet();
+      expect(newlyUnlocked, isNot(contains(TrophyType.firstChallenge)));
+      expect(newlyUnlocked, isNot(contains(TrophyType.firstWin)));
+
+      // …and exactly one of each is stored.
+      final held = await repo.getTrophies(uid);
+      expect(
+        held.where((Trophy t) => t.type == TrophyType.firstWin),
+        hasLength(1),
+      );
+    });
+
+    test('completing a head-to-head challenge still does not award '
+        'firstTarget', () async {
+      await settled(mine: 100, theirs: 40);
+      expect(
+        await allTrophies(),
         isNot(contains(TrophyType.firstTarget)),
       );
     });

@@ -572,4 +572,62 @@ void main() {
       );
     });
   });
+
+  group('v16 -> v17 — one row per challenge', () {
+    test('collapses duplicates and then makes them impossible — from 4d '
+        'a challenge can arrive from the opponent device and the sync '
+        'upserts it by its stable remote id, so an unconstrained id '
+        'means every reconciliation pass appends another copy. That is '
+        'the bug friend_requests shipped with; this one was seen '
+        'coming', () async {
+      final legacyDb = v14.LegacyAppDatabaseV14(NativeDatabase(dbFile));
+      for (final (i, status) in ['pending', 'accepted'].indexed) {
+        await legacyDb
+            .into(legacyDb.legacyChallengesPreV17)
+            .insert(
+              v14.LegacyChallengesPreV17Companion.insert(
+                remoteId: 'challenge-1',
+                creatorUid: 'alice',
+                opponentUid: const Value('bob'),
+                metric: 'distance',
+                targetValue: 100,
+                period: 'weekly',
+                startAt: DateTime(2026, 9, 7),
+                endAt: DateTime(2026, 9, 14),
+                status: Value(status),
+                createdAt: DateTime(2026, 9, 7),
+                updatedAt: DateTime(2026, 9, 7 + i),
+              ),
+            );
+      }
+      await legacyDb.close();
+
+      final db = openMigrated();
+      final rows = await db.select(db.challenges).get();
+      expect(rows, hasLength(1));
+      // The survivor is the most recently updated, which carries the
+      // furthest-along negotiation state.
+      expect(rows.single.status, 'accepted');
+
+      await expectLater(
+        db
+            .into(db.challenges)
+            .insert(
+              ChallengesCompanion.insert(
+                remoteId: 'challenge-1',
+                creatorUid: 'alice',
+                opponentUid: const Value('bob'),
+                metric: 'distance',
+                targetValue: 100,
+                period: 'weekly',
+                startAt: DateTime(2026, 9, 7),
+                endAt: DateTime(2026, 9, 14),
+                createdAt: DateTime(2026, 9, 7),
+                updatedAt: DateTime(2026, 9, 7),
+              ),
+            ),
+        throwsA(anything),
+      );
+    });
+  });
 }

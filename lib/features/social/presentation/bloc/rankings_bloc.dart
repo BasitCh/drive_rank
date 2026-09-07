@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/database/app_database.dart'
     show TripRow, UserSettingsRow;
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
+import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
@@ -14,7 +16,9 @@ import 'package:drive_rank/features/social/domain/entities/leaderboard_scope.dar
 import 'package:drive_rank/features/social/domain/entities/target.dart';
 import 'package:drive_rank/features/social/domain/entities/trophy.dart';
 import 'package:drive_rank/features/social/domain/repositories/social_repository.dart';
+import 'package:drive_rank/features/social/domain/usecases/create_challenge.dart';
 import 'package:drive_rank/features/social/domain/usecases/create_target.dart';
+import 'package:drive_rank/features/social/domain/usecases/get_challenges.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_friends_leaderboard.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart';
 import 'package:drive_rank/features/social/domain/usecases/get_qualifying_days.dart';
@@ -66,6 +70,32 @@ class RankingsTargetCreated extends RankingsEvent {
   final double value;
 }
 
+/// Answering a challenge somebody sent the viewer.
+class RankingsChallengeAnswered extends RankingsEvent {
+  const RankingsChallengeAnswered(this.view, {required this.accept});
+  final ChallengeView view;
+  final bool accept;
+}
+
+/// Withdrawing one the viewer sent that hasn't been answered.
+class RankingsChallengeWithdrawn extends RankingsEvent {
+  const RankingsChallengeWithdrawn(this.view);
+  final ChallengeView view;
+}
+
+class RankingsChallengeCreated extends RankingsEvent {
+  const RankingsChallengeCreated({
+    required this.opponentUid,
+    required this.metric,
+    required this.period,
+    required this.value,
+  });
+  final String opponentUid;
+  final CompetitionMetric metric;
+  final LeaderboardPeriod period;
+  final double value;
+}
+
 class RankingsTargetCancelled extends RankingsEvent {
   const RankingsTargetCancelled(this.targetId);
   final String targetId;
@@ -112,6 +142,7 @@ class RankingsState {
     this.qualifyingDayKeys = const {},
     this.friendProfiles = const [],
     this.hasFriends = false,
+    this.challenges = const [],
   });
 
   factory RankingsState.initial() => const RankingsState(
@@ -138,6 +169,14 @@ class RankingsState {
   /// to build a head-to-head, and re-fetching one document on a tap
   /// would make the sheet open slower than the row it came from.
   final List<CompetitionMirror> friendProfiles;
+
+  /// Head-to-head challenges, already settled.
+  ///
+  /// Settled here rather than in the widget so the boundary between
+  /// "the competition ended" and "the result is final" is decided once,
+  /// by `SettleChallenge`, and not re-derived by a card that could get
+  /// it wrong differently.
+  final List<ChallengeView> challenges;
 
   /// Whether the viewer has any accepted friendship at all.
   ///
@@ -192,6 +231,7 @@ class RankingsState {
     Set<int>? qualifyingDayKeys,
     List<CompetitionMirror>? friendProfiles,
     bool? hasFriends,
+    List<ChallengeView>? challenges,
   }) => RankingsState(
     isLoading: isLoading ?? this.isLoading,
     metric: metric ?? this.metric,
@@ -206,6 +246,7 @@ class RankingsState {
     qualifyingDayKeys: qualifyingDayKeys ?? this.qualifyingDayKeys,
     friendProfiles: friendProfiles ?? this.friendProfiles,
     hasFriends: hasFriends ?? this.hasFriends,
+    challenges: challenges ?? this.challenges,
   );
 }
 
@@ -232,6 +273,10 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     this._getQualifyingDays,
     this._getFriendsLeaderboard,
     this._directory,
+    this._getChallenges,
+    this._createChallenge,
+    this._challengeSync,
+    this._challengeProgress,
   ) : super(RankingsState.initial()) {
     on<RankingsStarted>(_onStarted);
     on<RankingsMetricChanged>(_onMetricChanged);
@@ -240,6 +285,9 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     on<RankingsTabChanged>(_onTabChanged);
     on<RankingsTargetCreated>(_onTargetCreated);
     on<RankingsTargetCancelled>(_onTargetCancelled);
+    on<RankingsChallengeAnswered>(_onChallengeAnswered);
+    on<RankingsChallengeWithdrawn>(_onChallengeWithdrawn);
+    on<RankingsChallengeCreated>(_onChallengeCreated);
     on<_RankingsSettingsChanged>(_onSettingsChanged);
     on<_RankingsTripsChanged>(_onTripsChanged);
     on<_RankingsFriendsChanged>(_onFriendsChanged);
@@ -255,6 +303,10 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
   final GetQualifyingDays _getQualifyingDays;
   final GetFriendsLeaderboard _getFriendsLeaderboard;
   final SocialDirectory _directory;
+  final GetChallenges _getChallenges;
+  final CreateChallenge _createChallenge;
+  final ChallengeSyncService _challengeSync;
+  final ChallengeProgressPublisher _challengeProgress;
 
   StreamSubscription<UserSettingsRow>? _settingsSub;
   StreamSubscription<List<TripRow>>? _tripsSub;
@@ -276,6 +328,9 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
   CompetitionMetric _metric = CompetitionMetric.distance;
   LeaderboardPeriod _period = LeaderboardPeriod.weekly;
   LeaderboardScope _scope = LeaderboardScope.global;
+
+  /// Published identities of anybody the viewer has a challenge with.
+  final Map<String, CompetitionMirror> _opponentProfiles = {};
 
   /// The friends the viewer actually has, from the local table.
   List<String> _friendUids = const [];
@@ -331,6 +386,13 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
       _friendsSub = _social
           .watchFriends(settings.uid)
           .listen((friends) => add(_RankingsFriendsChanged(friends)));
+
+      // Challenges are created by the *opponent's* device as often as
+      // by this one, so they need a listener rather than a poll — the
+      // same reasoning friendships needed in 4b. Started here and
+      // stopped in `close()`, so a Firestore subscription never
+      // outlives the screen that wanted it.
+      await _challengeSync.start();
     }
 
     await _rebuild(emit);
@@ -469,6 +531,95 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     await _rebuild(emit);
   }
 
+  Future<void> _onChallengeAnswered(
+    RankingsChallengeAnswered event,
+    Emitter<RankingsState> emit,
+  ) async {
+    final status = event.accept
+        // `active` is the accepted state — one vocabulary across the
+        // rules, the entity and the database.
+        ? ChallengeStatus.active
+        : ChallengeStatus.declined;
+    try {
+      // Local first, as everywhere else here: it is what the UI reads.
+      await _social.updateChallengeStatus(
+        challengeId: event.view.challenge.id,
+        status: status,
+      );
+      await _directory.respondToChallenge(
+        challengeId: event.view.challenge.id,
+        response: status,
+      );
+      if (event.accept) {
+        // Publish a figure straight away rather than waiting for the
+        // next drive: accepting mid-window with nothing published looks
+        // to the opponent exactly like an opponent who never answered.
+        await _challengeProgress.publishNow();
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Rankings] answering challenge: $e');
+    }
+    await _rebuild(emit);
+  }
+
+  Future<void> _onChallengeWithdrawn(
+    RankingsChallengeWithdrawn event,
+    Emitter<RankingsState> emit,
+  ) async {
+    try {
+      await _social.updateChallengeStatus(
+        challengeId: event.view.challenge.id,
+        status: ChallengeStatus.cancelled,
+      );
+      await _directory.respondToChallenge(
+        challengeId: event.view.challenge.id,
+        response: ChallengeStatus.cancelled,
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Rankings] withdrawing challenge: $e');
+    }
+    await _rebuild(emit);
+  }
+
+  Future<void> _onChallengeCreated(
+    RankingsChallengeCreated event,
+    Emitter<RankingsState> emit,
+  ) async {
+    final uid = _uid;
+    if (uid == null) return;
+
+    Challenge? local;
+    try {
+      local = await _createChallenge(
+        creatorUid: uid,
+        opponentUid: event.opponentUid,
+        metric: event.metric,
+        period: event.period,
+        targetValue: event.value,
+      );
+      await _directory.createChallenge(local);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Rankings] creating challenge: $e');
+      // **The local row must not outlive a failed remote write.** The
+      // remote create can be refused — no friendship, or a clock the
+      // rules disagree with — and a local-only challenge is invisible
+      // to the person it names, unanswerable, and sits on the viewer's
+      // screen forever waiting for a reply that cannot come. Exactly
+      // the trap a friend request fell into on a real device.
+      if (local != null) {
+        try {
+          await _social.updateChallengeStatus(
+            challengeId: local.id,
+            status: ChallengeStatus.cancelled,
+          );
+        } catch (rollback) {
+          if (kDebugMode) debugPrint('[Rankings] rollback: $rollback');
+        }
+      }
+    }
+    await _rebuild(emit);
+  }
+
   Future<void> _onMetricChanged(
     RankingsMetricChanged event,
     Emitter<RankingsState> emit,
@@ -533,6 +684,17 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
       ),
     };
     final targets = await _getTargets(uid: uid);
+    final challenges = await _getChallenges(
+      uid: uid,
+      opponentProfiles: _opponentProfiles,
+    );
+    // Names for anybody newly on the other side of a challenge. Fetched
+    // once each and kept, so a card never shows a raw uid twice.
+    for (final view in challenges) {
+      if (_opponentProfiles.containsKey(view.opponentUid)) continue;
+      final profile = await _directory.profileFor(view.opponentUid);
+      if (profile != null) _opponentProfiles[view.opponentUid] = profile;
+    }
     final trophies = await _social.getTrophies(uid);
     // Always this week's, whatever period the board is showing — the
     // strip describes a week by construction.
@@ -562,6 +724,7 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
         targets: targets,
         trophies: trophies,
         qualifyingDayKeys: days,
+        challenges: challenges,
       ),
     );
   }
@@ -572,6 +735,7 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     await _tripsSub?.cancel();
     await _friendsSub?.cancel();
     await _profilesSub?.cancel();
+    await _challengeSync.stop();
     return super.close();
   }
 }

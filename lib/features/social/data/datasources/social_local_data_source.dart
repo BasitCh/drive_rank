@@ -299,6 +299,68 @@ class SocialLocalDataSource {
         .watch();
   }
 
+  /// Writes one challenge by its stable remote id, creating or updating.
+  ///
+  /// One statement with the conflict target **named**: the primary key
+  /// is the autoincrement `id`, which never collides, so the unique
+  /// index on `remoteId` (v17) is the constraint that actually fires. A
+  /// read-then-insert would lose the race against a second listener,
+  /// which is how `friend_requests` ended up holding one request three
+  /// times on a real device.
+  ///
+  /// Only the negotiation state and `updatedAt` move on a conflict. The
+  /// terms are immutable remotely, so re-writing them locally could
+  /// only ever undo a hand-edit or a corruption — never a legitimate
+  /// change.
+  Future<void> upsertChallenge({
+    required String remoteId,
+    required String creatorUid,
+    required String? opponentUid,
+    required String metric,
+    required double targetValue,
+    required String period,
+    required DateTime startAt,
+    required DateTime endAt,
+    required String status,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+  }) {
+    return _db
+        .into(_db.challenges)
+        .insert(
+          ChallengesCompanion.insert(
+            remoteId: remoteId,
+            creatorUid: creatorUid,
+            opponentUid: Value(opponentUid),
+            metric: metric,
+            targetValue: targetValue,
+            period: period,
+            startAt: startAt,
+            endAt: endAt,
+            status: Value(status),
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          onConflict: DoUpdate(
+            (_) => ChallengesCompanion(
+              status: Value(status),
+              updatedAt: Value(updatedAt),
+            ),
+            target: [_db.challenges.remoteId],
+          ),
+        );
+  }
+
+  /// Every challenge with an opponent that this account is part of.
+  Future<List<ChallengeRow>> getHeadToHeadChallenges(String uid) {
+    return (_db.select(_db.challenges)..where(
+          (c) =>
+              c.opponentUid.isNotNull() &
+              (c.creatorUid.equals(uid) | c.opponentUid.equals(uid)),
+        ))
+        .get();
+  }
+
   Future<ChallengeRow?> getChallengeByRemoteId(String remoteId) {
     return (_db.select(_db.challenges)
           ..where((c) => c.remoteId.equals(remoteId))

@@ -7709,6 +7709,10 @@ abstract class _$LegacyAppDatabaseV11 extends GeneratedDatabase {
     'idx_friend_requests_remote_id',
     'CREATE UNIQUE INDEX idx_friend_requests_remote_id ON friend_requests (remote_id)',
   );
+  late final Index idxChallengesRemoteId = Index(
+    'idx_challenges_remote_id',
+    'CREATE UNIQUE INDEX idx_challenges_remote_id ON challenges (remote_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7725,6 +7729,7 @@ abstract class _$LegacyAppDatabaseV11 extends GeneratedDatabase {
     challengeProgress,
     legacyTrophiesV11,
     idxFriendRequestsRemoteId,
+    idxChallengesRemoteId,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([

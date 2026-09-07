@@ -261,6 +261,29 @@ class SocialRepositoryImpl implements SocialRepository {
   }
 
   @override
+  Future<void> upsertChallenge(Challenge challenge) {
+    return _local.upsertChallenge(
+      remoteId: challenge.id,
+      creatorUid: challenge.creatorUid,
+      opponentUid: challenge.opponentUid,
+      metric: challenge.metric.name,
+      targetValue: challenge.targetValue,
+      period: challenge.period.name,
+      startAt: challenge.startAt,
+      endAt: challenge.endAt,
+      status: challenge.status.name,
+      createdAt: challenge.createdAt,
+      updatedAt: challenge.updatedAt,
+    );
+  }
+
+  @override
+  Future<List<Challenge>> getHeadToHeadChallenges(String uid) async {
+    final rows = await _local.getHeadToHeadChallenges(uid);
+    return rows.map(_challengeFromRow).toList();
+  }
+
+  @override
   Future<bool> updateChallengeStatus({
     required String challengeId,
     required ChallengeStatus status,

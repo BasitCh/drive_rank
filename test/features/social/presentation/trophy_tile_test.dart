@@ -69,14 +69,14 @@ void main() {
         'capability flag', (tester) async {
       await pump(
         tester,
-        TrophyType.firstWin,
+        TrophyType.rivalHunter,
         unlockedAt: DateTime(2026, 9, 3),
         unlockedLabel: '3 Sep',
       );
       expect(find.byIcon(Icons.lock_rounded), findsNothing);
       expect(find.text('3 Sep'), findsOneWidget);
       expect(
-        find.text(TrophyType.firstWin.unavailableReason!),
+        find.text(TrophyType.rivalHunter.unavailableReason!),
         findsNothing,
       );
     });
@@ -94,7 +94,11 @@ void main() {
 
   group("a trophy that can't be earned yet", () {
     testWidgets('is locked and states the reason', (tester) async {
-      await pump(tester, TrophyType.firstWin);
+      // rivalHunter, not firstWin: 4d made the head-to-head result
+      // derivable, so firstWin is earnable now and rivalHunter — which
+      // needs a per-opponent win count nothing records — is the
+      // remaining friends-blocked one.
+      await pump(tester, TrophyType.rivalHunter);
       expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
       expect(find.text('Needs friends'), findsOneWidget);
     });
@@ -107,11 +111,11 @@ void main() {
     });
 
     testWidgets('is visually distinct from an earned one', (tester) async {
-      await pump(tester, TrophyType.firstWin);
+      await pump(tester, TrophyType.rivalHunter);
       final locked = decorationOf(tester).color;
       await pump(
         tester,
-        TrophyType.firstWin,
+        TrophyType.rivalHunter,
         unlockedAt: DateTime(2026, 9, 3),
         unlockedLabel: '3 Sep',
       );

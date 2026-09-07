@@ -14,6 +14,7 @@ import 'package:drive_rank/features/social/data/services/competition_mirror_sink
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/friend_request.dart';
 import 'package:drive_rank/features/social/domain/entities/invite_code.dart';
@@ -197,6 +198,35 @@ class _FakeDirectory implements SocialDirectory {
     requestEvents.add(requests.values.toList());
     sentEvents.add(requests.values.toList());
   }
+
+  // Challenges are not what this suite is about; the challenge suite
+  // has its own fake. These exist so the class stays concrete.
+  @override
+  Future<void> createChallenge(Challenge challenge) async {}
+
+  @override
+  Future<void> respondToChallenge({
+    required String challengeId,
+    required ChallengeStatus response,
+  }) async {}
+
+  @override
+  Future<List<Challenge>> challengesFor(String uid) async => const [];
+
+  @override
+  Stream<List<Challenge>> watchChallenges(String uid) =>
+      Stream.value(const []);
+
+  @override
+  Future<void> publishProgress({
+    required String challengeId,
+    required String uid,
+    required double value,
+  }) async {}
+
+  @override
+  Stream<Map<String, double>> watchProgress(String challengeId) =>
+      Stream.value(const {});
 
   /// Mimics a remote change arriving: mutate, then notify.
   void notify() {
