@@ -854,6 +854,25 @@ void main() {
       expect(state.lookupResult?.uid, bob);
     });
 
+    // Two accounts found this: the sheet was still open when the other
+    // person accepted, and went on offering WITHDRAW beside "asked —
+    // waiting for a reply" for a friendship that already existed.
+    test('an open sheet stops saying "waiting for a reply" once they '
+        'accept', () async {
+      await repo.sendFriendRequest(fromUid: alice, toUid: bob);
+      final asked = await lookUpBob();
+      expect(asked.lookupStatus, LookupStatus.requestSent);
+
+      // Their acceptance reaches this device as a friendship row, which
+      // is what the friends listener sees.
+      await repo.addFriend(ownerUid: alice, friendUid: bob);
+
+      final befriended = await bloc.stream.firstWhere(
+        (s) => s.lookupStatus == LookupStatus.alreadyFriend,
+      );
+      expect(befriended.sentTo, isNot(contains(bob)));
+    });
+
     test('a withdrawn request stops being outstanding, so they can be '
         'asked again', () async {
       final request = await repo.sendFriendRequest(fromUid: alice, toUid: bob);

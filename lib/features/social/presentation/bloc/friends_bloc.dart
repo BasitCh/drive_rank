@@ -298,6 +298,16 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
       if (profile != null) profiles[uid] = profile;
     }
 
+    // An open Add Friend sheet holds a snapshot of the moment somebody
+    // was looked up. Once they accept, that snapshot still reads "asked
+    // — waiting for a reply" beside a WITHDRAW button, which is a stale
+    // account of a friendship that already exists. Two accounts found
+    // it. Nothing else in the lookup is re-derived here: becoming
+    // friends is the one transition this page can see happening under
+    // an open sheet.
+    final lookedUp = state.lookupResult?.uid;
+    final nowFriends = lookedUp != null && friendUids.contains(lookedUp);
+
     emit(
       state.copyWith(
         isLoading: false,
@@ -305,6 +315,10 @@ class FriendsBloc extends Bloc<FriendsEvent, FriendsState> {
         friendProfiles: profiles,
         incoming: pending,
         outgoing: sent,
+        lookupStatus: nowFriends ? LookupStatus.alreadyFriend : null,
+        sentTo: nowFriends
+            ? ({...state.sentTo}..remove(lookedUp))
+            : null,
       ),
     );
   }

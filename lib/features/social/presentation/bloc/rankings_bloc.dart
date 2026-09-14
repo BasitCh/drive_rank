@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/database/app_database.dart'
     show TripRow, UserSettingsRow;
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
 import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart';
+import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
@@ -423,6 +425,18 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
       );
       await _challengeSync.start();
 
+      // One reconcile pass over the friendships, because this screen
+      // ranks them. `FriendsSyncService` keeps a live listener only
+      // while the Friends page is open, so an unfriend done on the
+      // other person's device otherwise went unnoticed for as long as
+      // this app stayed open — the board kept ranking somebody who had
+      // removed the viewer. Resolved through getIt, like the sinks the
+      // trip repository reaches for: the bloc's own tests construct it
+      // without one, and a missing sync must cost freshness, not the
+      // screen.
+      if (getIt.isRegistered<FriendsSyncService>()) {
+        unawaited(getIt<FriendsSyncService>().syncNow());
+      }
     }
 
     await _rebuild(emit);

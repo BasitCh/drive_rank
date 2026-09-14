@@ -12,6 +12,7 @@ import 'package:drive_rank/features/social/data/datasources/social_local_data_so
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart';
 import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
 import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart';
+import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge_progress.dart';
@@ -37,6 +38,16 @@ import 'package:mocktail/mocktail.dart';
 
 class _MockFreeTripCounterService extends Mock
     implements FreeTripCounterService {}
+
+/// Records the board's one reconcile pass over the friendships.
+class _SpyFriendsSync extends FriendsSyncService {
+  _SpyFriendsSync(super.local, super.settings);
+
+  int passes = 0;
+
+  @override
+  Future<void> syncNow() async => passes++;
+}
 
 /// Only the one method the board reads. Everything else on
 /// `SocialDirectory` belongs to the friends screens, which this bloc
@@ -633,6 +644,20 @@ void main() {
       // exists to show.
       await bobPublishes(10);
       await settle((s) => s.challenges.single.settlement.theirs == 10);
+    });
+
+    // `FriendsSyncService` listens live only while the Friends page is
+    // open, so an unfriend on the other person's device went unnoticed
+    // for as long as this app stayed open — and the board went on
+    // ranking somebody who had removed the viewer.
+    test('the board reconciles the friendships when it starts', () async {
+      final spy = _SpyFriendsSync(SocialLocalDataSource(db), settings);
+      getIt.registerSingleton<FriendsSyncService>(spy);
+
+      bloc.add(const RankingsStarted());
+      await loaded();
+
+      expect(spy.passes, 1);
     });
 
     // The rules only accept `pending -> active|declined`, so a second

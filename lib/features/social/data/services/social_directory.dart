@@ -580,7 +580,19 @@ class FirestoreSocialDirectory implements SocialDirectory {
     // could, so end whichever exist.
     for (final (from, to) in [(a, b), (b, a)]) {
       final ref = _requests.doc(friendRequestKey(fromUid: from, toUid: to));
-      final snapshot = await ref.get();
+      final DocumentSnapshot<Map<String, dynamic>> snapshot;
+      try {
+        snapshot = await ref.get();
+      } on FirebaseException catch (e) {
+        // The rules refuse reading a request that doesn't exist rather
+        // than answering "no such document" — and `a` is a party to
+        // both paths, so a refusal here can only mean this direction
+        // was never sent. Found on two accounts that became friends
+        // through one request: the throw skipped the commit, so every
+        // such unfriend landed locally and never in the cloud.
+        if (e.code == 'permission-denied') continue;
+        rethrow;
+      }
       if (snapshot.data()?['status'] == FriendRequestStatus.accepted.name) {
         batch.update(ref, {
           'status': FriendRequestStatus.ended.name,

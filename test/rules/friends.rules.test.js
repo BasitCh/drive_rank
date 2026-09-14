@@ -109,6 +109,20 @@ describe('friend requests', () => {
     );
   });
 
+  // `SocialDirectory.deleteFriendship` depends on this: reading the
+  // direction nobody ever sent is refused rather than answered empty,
+  // even to the two people it names. It checked both directions with a
+  // plain get and so threw on every friendship formed through a single
+  // request — the unfriend landed locally and never in the cloud.
+  it('refuses reading a request that does not exist, even to its parties',
+    async () => {
+      const ref = (uid) =>
+        doc(testEnv.authenticatedContext(uid).firestore(),
+          'friend_requests', requestId(B, A));
+      await assertFails(getDoc(ref(A)));
+      await assertFails(getDoc(ref(B)));
+    });
+
   it('lets both parties read it and nobody else', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(
