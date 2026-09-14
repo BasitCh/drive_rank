@@ -299,6 +299,20 @@ class SocialLocalDataSource {
         .watch();
   }
 
+  /// Fires on any write to a challenge or to anybody's progress in one.
+  ///
+  /// [watchChallenges] alone is not enough for a screen showing a
+  /// head-to-head card: the opponent's figure lives in
+  /// `challenge_progress`, and a query over `challenges` never re-emits
+  /// when only that table moves.
+  Stream<void> watchChallengeChanges() {
+    return _db
+        .tableUpdates(
+          TableUpdateQuery.onAllTables([_db.challenges, _db.challengeProgress]),
+        )
+        .map((_) {});
+  }
+
   /// Writes one challenge by its stable remote id, creating or updating.
   ///
   /// One statement with the conflict target **named**: the primary key

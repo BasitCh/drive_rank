@@ -20,6 +20,7 @@ import 'package:drive_rank/features/social/data/services/competition_mirror_sink
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
+import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/services/firestore_trip_sink.dart';
 import 'package:drive_rank/shared/services/public_profile_service.dart';
@@ -189,6 +190,16 @@ Future<void> _publishCompetitionValues() async {
     await getIt<ChallengeProgressPublisher>().publishNow();
     // Pulls friendships and requests other people's devices created.
     await getIt<FriendsSyncService>().syncNow();
+    // A challenge becomes final at a moment on the clock, not at a
+    // drive, so its trophies are checked here too — after the sync
+    // above has pulled the frozen figures they are settled from.
+    // Without this, a card said "You won" while `firstWin` waited for
+    // the next trip.
+    if (kSocialProcessingEnabled) {
+      await getIt<SocialTripProcessor>().awardSettledChallengeTrophies(
+        uid: (await settings.read()).uid,
+      );
+    }
   } catch (e) {
     if (kDebugMode) {
       debugPrint('[bootstrap] competition publish failed: $e');

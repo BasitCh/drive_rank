@@ -228,6 +228,10 @@ class _FakeDirectory implements SocialDirectory {
   Stream<Map<String, double>> watchProgress(String challengeId) =>
       Stream.value(const {});
 
+  @override
+  Future<Map<String, double>> progressFor(String challengeId) async =>
+      const {};
+
   /// Mimics a remote change arriving: mutate, then notify.
   void notify() {
     friendshipEvents.add(friendships.values.toList());

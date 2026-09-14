@@ -52,6 +52,10 @@ abstract class SocialRepository {
 
   // Challenges
   Stream<List<Challenge>> watchChallenges(String uid); // creator OR opponent
+
+  /// Emits whenever a challenge or anybody's progress in one is written
+  /// — including a challenge or an opponent's figure arriving from sync.
+  Stream<void> watchChallengeChanges();
   Future<Challenge?> getChallengeById(String id);
   Future<Challenge> createChallenge(Challenge challenge);
 

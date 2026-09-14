@@ -86,7 +86,10 @@ class ChallengeSyncService {
       final uid = (await _settings.read()).uid;
       if (_isPlaceholder(uid)) return;
       final remote = await _directory.challengesFor(uid);
-      await _serialised(() => _absorb(uid: uid, remote: remote));
+      await _serialised(() async {
+        await _absorb(uid: uid, remote: remote);
+        await _collectFrozenFigures(uid: uid, remote: remote);
+      });
     } catch (e, st) {
       // Same contract as a trip upload: a failed pass costs freshness,
       // and the next one recomputes from scratch.
@@ -140,6 +143,56 @@ class ChallengeSyncService {
               }
             },
           );
+    }
+  }
+
+  /// One server read of the frozen figures, for each accepted challenge
+  /// whose freeze has passed since this device last held its opponent's
+  /// figure.
+  ///
+  /// The live listeners stop at the freeze, which is right for a device
+  /// that was open through the grace — it already saw every late
+  /// publish. A device that was closed through it was not: it kept the
+  /// opponent's figure from before, missed the honest late upload the
+  /// grace exists for, and settled against that stale number, so the
+  /// two phones could disagree about a result that was supposed to be
+  /// the same reading of the same two frozen values.
+  ///
+  /// Bounded: once the opponent's row has been written after the
+  /// freeze it is final and never fetched again. A read that fails
+  /// (offline) leaves the row as it was, so the next launch retries.
+  Future<void> _collectFrozenFigures({
+    required String uid,
+    required List<Challenge> remote,
+  }) async {
+    final now = DateTime.now();
+    for (final challenge in remote) {
+      if (challenge.status != ChallengeStatus.active) continue;
+      final freezeAt = challenge.endAt.add(kChallengeFinalizationGrace);
+      if (now.isBefore(freezeAt)) continue;
+
+      final opponentUid = challenge.creatorUid == uid
+          ? (challenge.opponentUid ?? '')
+          : challenge.creatorUid;
+      if (opponentUid.isEmpty) continue;
+
+      final held = await _social.getProgress(
+        challengeId: challenge.id,
+        uid: opponentUid,
+      );
+      final heldAt = held?.lastCalculatedAt;
+      if (heldAt != null && !heldAt.isBefore(freezeAt)) continue;
+
+      final Map<String, double> figures;
+      try {
+        figures = await _directory.progressFor(challenge.id);
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[ChallengeSync] frozen figures ${challenge.id}: $e');
+        }
+        continue;
+      }
+      await _absorbProgress(uid: uid, challenge: challenge, figures: figures);
     }
   }
 

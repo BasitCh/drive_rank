@@ -243,10 +243,53 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
       if (anyPersonal) await award(TrophyType.firstTarget);
     }
 
-    // Head-to-head results, which are *derived* rather than stored: a
-    // challenge is settled by reading two frozen figures, so this looks
-    // at every challenge rather than at a list of ones that "completed"
-    // — nothing ever writes that.
+    unlocked.addAll(await _awardChallengeTrophies(uid: uid, now: now));
+
+    return unlocked;
+  }
+
+  @override
+  Future<List<Trophy>> awardSettledChallengeTrophies({
+    required String uid,
+    DateTime? now,
+  }) {
+    // Through the same queue as a trip, so an app-open pass and a drive
+    // finishing at the same moment can't both read "not yet awarded".
+    // The unique index would still stop a second row; this stops the
+    // two passes disagreeing about what was newly unlocked.
+    final result = _queue.then((_) async {
+      if (uid.isEmpty || uid == kLocalPlaceholderUid) return const <Trophy>[];
+      return _awardChallengeTrophies(uid: uid, now: now ?? DateTime.now());
+    });
+    _queue = _swallow(result);
+    return result;
+  }
+
+  /// `firstChallenge` and `firstWin`, from final settlements only.
+  ///
+  /// Head-to-head results are *derived* rather than stored: a challenge
+  /// is settled by reading two frozen figures, so this looks at every
+  /// challenge rather than at a list of ones that "completed" — nothing
+  /// ever writes that.
+  Future<List<Trophy>> _awardChallengeTrophies({
+    required String uid,
+    required DateTime now,
+  }) async {
+    final unlocked = <Trophy>[];
+    Future<void> award(TrophyType type) async {
+      final trophy = await _social.awardTrophy(
+        Trophy(
+          // Lifetime and deterministic: no window in the id, so every
+          // later award collides on the unique index.
+          id: trophyRemoteId(type: type, uid: uid),
+          uid: uid,
+          type: type,
+          unlockedAt: now,
+        ),
+      );
+      if (trophy != null) unlocked.add(trophy);
+    }
+
     final settlements = await _settleAll(uid: uid, at: now);
     if (settlements.any((s) => s.outcome.isFinishedContest)) {
       // Turning up counts: a loss, a draw and an opponent who went
@@ -258,7 +301,6 @@ class LocalSocialTripProcessor implements SocialTripProcessor {
     if (settlements.any((s) => s.outcome == ChallengeOutcome.won)) {
       await award(TrophyType.firstWin);
     }
-
     return unlocked;
   }
 

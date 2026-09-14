@@ -14,6 +14,8 @@ import 'package:drive_rank/features/social/data/services/challenge_progress_publ
 import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge_progress.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge_settlement.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_scope.dart';
@@ -88,6 +90,15 @@ class _FakeDirectory implements SocialDirectory {
   Stream<List<Challenge>> watchChallenges(String uid) =>
       Stream.value(const []);
 
+  /// Every answer that reached the cloud, in order.
+  final List<(String, ChallengeStatus)> answered = [];
+
+  @override
+  Future<void> respondToChallenge({
+    required String challengeId,
+    required ChallengeStatus response,
+  }) async => answered.add((challengeId, response));
+
   @override
   Future<List<Challenge>> challengesFor(String uid) async => const [];
 
@@ -96,7 +107,12 @@ class _FakeDirectory implements SocialDirectory {
       Stream.value(const {});
 
   @override
-  Future<CompetitionMirror?> profileFor(String uid) async => null;
+  Future<CompetitionMirror?> profileFor(String uid) async {
+    for (final mirror in published) {
+      if (mirror.uid == uid) return mirror;
+    }
+    return null;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -513,6 +529,160 @@ void main() {
       // Their cached mirror is still in state — it's the friendship that
       // ended, not the document — and it must not rank anyway.
       expect(gone.board!.positions.any((p) => p.entry.id == 'bob'), isFalse);
+    });
+  });
+
+  // Found on two simulators: the sync wrote incoming challenges into
+  // Drift and the Targets tab kept showing one card of three until the
+  // app was relaunched.
+  group('challenges arriving from the other device', () {
+    Challenge incoming({required String viewerUid, required String id}) {
+      final now = DateTime.now();
+      return Challenge(
+        id: id,
+        creatorUid: 'bob',
+        opponentUid: viewerUid,
+        metric: CompetitionMetric.distance,
+        targetValue: 50,
+        period: LeaderboardPeriod.weekly,
+        startAt: now.subtract(const Duration(minutes: 5)),
+        endAt: now.add(const Duration(days: 1)),
+        status: ChallengeStatus.pending,
+        createdAt: now,
+        updatedAt: now,
+      );
+    }
+
+    // Two phones left on the Targets tab over midnight kept saying
+    // "You're leading" after the competition had ended: a stage change
+    // happens on the clock, and nothing is written at that moment.
+    test('a challenge crossing its end while the screen is open turns to '
+        'finalizing, with no other event', () async {
+      final uid = (await settings.read()).uid;
+      final now = DateTime.now();
+      await repo.upsertChallenge(
+        Challenge(
+          id: 'c1',
+          creatorUid: 'bob',
+          opponentUid: uid,
+          metric: CompetitionMetric.distance,
+          targetValue: 50,
+          period: LeaderboardPeriod.weekly,
+          startAt: now.subtract(const Duration(hours: 1)),
+          // Far enough out that a slow first load still lands on the
+          // live side of it — 600 ms flaked under a loaded full suite.
+          endAt: now.add(const Duration(seconds: 3)),
+          status: ChallengeStatus.active,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      bloc.add(const RankingsStarted());
+      final live = await settle((s) => s.challenges.isNotEmpty);
+      expect(
+        live.challenges.single.settlement.outcome,
+        isNot(ChallengeOutcome.finalizing),
+      );
+
+      final ended = await settle(
+        (s) => s.challenges.single.settlement.outcome ==
+            ChallengeOutcome.finalizing,
+      ).timeout(const Duration(seconds: 10));
+      expect(ended.challenges.single.settlement.isFinal, isFalse);
+    });
+
+    test('a synced challenge appears without a reload', () async {
+      final uid = (await settings.read()).uid;
+      bloc.add(const RankingsStarted());
+      await loaded();
+      expect(bloc.state.challenges, isEmpty);
+
+      await repo.upsertChallenge(incoming(viewerUid: uid, id: 'c1'));
+      await settle((s) => s.challenges.length == 1);
+
+      await repo.upsertChallenge(incoming(viewerUid: uid, id: 'c2'));
+      final both = await settle((s) => s.challenges.length == 2);
+      expect(both.challenges.every((c) => c.needsMyAnswer), isTrue);
+    });
+
+    test("the opponent's figure moving updates the card without a reload",
+        () async {
+      final uid = (await settings.read()).uid;
+      final challenge = incoming(viewerUid: uid, id: 'c1');
+      await repo.upsertChallenge(challenge);
+
+      bloc.add(const RankingsStarted());
+      await settle((s) => s.challenges.length == 1);
+      expect(bloc.state.challenges.single.settlement.theirs, isNull);
+
+      Future<void> bobPublishes(double km) => repo.upsertProgressValue(
+        ChallengeProgress(
+          challengeId: challenge.id,
+          uid: 'bob',
+          currentValue: km,
+          targetValue: challenge.targetValue,
+          lastCalculatedAt: DateTime.now(),
+        ),
+      );
+
+      await bobPublishes(20);
+      await settle((s) => s.challenges.single.settlement.theirs == 20);
+
+      // Lower, as when bob deletes a trip — the case the opponent's card
+      // exists to show.
+      await bobPublishes(10);
+      await settle((s) => s.challenges.single.settlement.theirs == 10);
+    });
+
+    // The rules only accept `pending -> active|declined`, so a second
+    // answer is refused — which is what two accounts saw: cards that
+    // still offered Accept, a local row that had already moved, and
+    // permission-denied in the log.
+    test('a challenge is answered once, however many times the card is '
+        'tapped', () async {
+      final uid = (await settings.read()).uid;
+      await repo.upsertChallenge(incoming(viewerUid: uid, id: 'c1'));
+
+      bloc.add(const RankingsStarted());
+      final loaded = await settle((s) => s.challenges.isNotEmpty);
+      final view = loaded.challenges.single;
+
+      bloc
+        ..add(RankingsChallengeAnswered(view, accept: true))
+        ..add(RankingsChallengeAnswered(view, accept: true))
+        // The same stale card, now asking for the opposite answer.
+        ..add(RankingsChallengeAnswered(view, accept: false));
+      await settle((s) => s.challenges.single.challenge.status ==
+          ChallengeStatus.active);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(directory.answered, [('c1', ChallengeStatus.active)]);
+      final stored = await repo.getChallengeById('c1');
+      expect(stored!.status, ChallengeStatus.active);
+    });
+
+    test('the first state with a new opponent already carries their name — '
+        'not a raw uid waiting for some later rebuild', () async {
+      final uid = (await settings.read()).uid;
+      directory.published = [
+        CompetitionMirror(
+          uid: 'bob',
+          username: 'bobby',
+          carMake: 'Toyota',
+          carModel: 'Corolla',
+          countryCode: 'PK',
+          inviteCode: 'CODEBOB',
+          updatedAt: DateTime.now(),
+          totals: const {},
+        ),
+      ];
+      await repo.upsertChallenge(incoming(viewerUid: uid, id: 'c1'));
+
+      bloc.add(const RankingsStarted());
+      final first = await settle((s) => s.challenges.isNotEmpty);
+
+      expect(first.challenges.single.opponentName, 'bobby');
     });
   });
 

@@ -1,4 +1,5 @@
 import 'package:drive_rank/features/social/domain/entities/competition_update.dart';
+import 'package:drive_rank/features/social/domain/entities/trophy.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 
 /// Master switch for running the competition engine on trip completion.
@@ -24,7 +25,6 @@ const bool kSocialProcessingEnabled = true;
 /// `evaluateCompetitionEligibility` for why), and `uid` must be the uid
 /// the trip was saved under, not one resolved later — those can differ
 /// while sign-in is still settling.
-// ignore: one_member_abstracts
 abstract interface class SocialTripProcessor {
   Future<CompetitionUpdate> processCompletedTrip({
     required int tripId,
@@ -39,6 +39,21 @@ abstract interface class SocialTripProcessor {
     /// clock; tests pass one so that a fixture with a fixed challenge
     /// window doesn't start expiring itself the day the window's end
     /// date arrives in the real world.
+    DateTime? now,
+  });
+
+  /// Awards the head-to-head trophies whose challenges have become final
+  /// since they were last looked at — without a drive.
+  ///
+  /// A result becomes final at a moment on the clock, not at a trip, so
+  /// running this only from [processCompletedTrip] left the card saying
+  /// "You won" while `firstWin` waited for the next drive. Called when
+  /// the app opens, after the challenge sync has pulled the final
+  /// figures. Idempotent: trophy ids are deterministic, so repeated
+  /// calls never create a second row. Returns only what was newly
+  /// unlocked.
+  Future<List<Trophy>> awardSettledChallengeTrophies({
+    required String uid,
     DateTime? now,
   });
 }

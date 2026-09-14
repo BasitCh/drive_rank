@@ -113,6 +113,18 @@ class _RankingsTripsChanged extends RankingsEvent {
   const _RankingsTripsChanged();
 }
 
+/// A challenge crossed `endAt` or its freeze while the screen was open.
+class _RankingsClockTicked extends RankingsEvent {
+  const _RankingsClockTicked();
+}
+
+/// A challenge or somebody's progress in one was written locally — most
+/// often by the sync, for a challenge or a figure that came from the
+/// other participant's device.
+class _RankingsChallengesChanged extends RankingsEvent {
+  const _RankingsChallengesChanged();
+}
+
 /// The accepted friendships changed — somebody was added or removed.
 class _RankingsFriendsChanged extends RankingsEvent {
   const _RankingsFriendsChanged(this.friends);
@@ -290,6 +302,8 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     on<RankingsChallengeCreated>(_onChallengeCreated);
     on<_RankingsSettingsChanged>(_onSettingsChanged);
     on<_RankingsTripsChanged>(_onTripsChanged);
+    on<_RankingsChallengesChanged>(_onChallengesChanged);
+    on<_RankingsClockTicked>((_, emit) => _rebuild(emit));
     on<_RankingsFriendsChanged>(_onFriendsChanged);
     on<_RankingsFriendProfilesChanged>(_onFriendProfilesChanged);
   }
@@ -311,6 +325,8 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
   StreamSubscription<UserSettingsRow>? _settingsSub;
   StreamSubscription<List<TripRow>>? _tripsSub;
   StreamSubscription<List<Friend>>? _friendsSub;
+  StreamSubscription<void>? _challengesSub;
+  Timer? _boundaryTimer;
   StreamSubscription<List<CompetitionMirror>>? _profilesSub;
 
   String? _uid;
@@ -334,6 +350,10 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
 
   /// The friends the viewer actually has, from the local table.
   List<String> _friendUids = const [];
+
+  /// Challenges with an answer in flight, so a second tap on the same
+  /// card cannot race the first.
+  final Set<String> _answering = {};
 
   /// Which uid set [_profilesSub] is listening for, so a scope switch
   /// with nothing changed doesn't tear down a live listener and put the
@@ -392,7 +412,17 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
       // same reasoning friendships needed in 4b. Started here and
       // stopped in `close()`, so a Firestore subscription never
       // outlives the screen that wanted it.
+      //
+      // The sync only writes the local tables, though, so the cards need
+      // their own listener on those: without it a challenge sent from
+      // the other device, their answer, or their figure moving sat in
+      // Drift unrendered until something unrelated rebuilt the page.
+      await _challengesSub?.cancel();
+      _challengesSub = _social.watchChallengeChanges().listen(
+        (_) => add(const _RankingsChallengesChanged()),
+      );
       await _challengeSync.start();
+
     }
 
     await _rebuild(emit);
@@ -400,6 +430,11 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
 
   Future<void> _onTripsChanged(
     _RankingsTripsChanged event,
+    Emitter<RankingsState> emit,
+  ) => _rebuild(emit);
+
+  Future<void> _onChallengesChanged(
+    _RankingsChallengesChanged event,
     Emitter<RankingsState> emit,
   ) => _rebuild(emit);
 
@@ -540,7 +575,25 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
         // rules, the entity and the database.
         ? ChallengeStatus.active
         : ChallengeStatus.declined;
+    final id = event.view.challenge.id;
+    // Answer a challenge once. The card the tap came from is a snapshot,
+    // so a second tap — or a tap on a card that a sync has since moved
+    // on — used to write locally and then be refused by the rules, which
+    // only accept `pending -> active|declined`. Two accounts found it:
+    // the rules reported permission-denied while the local row had
+    // already moved, and an accept followed by a decline would have left
+    // the two devices disagreeing about a live challenge.
+    //
+    // Claimed synchronously, before the first await: handlers run
+    // concurrently, so two taps both read `pending` and both wrote when
+    // the check came after one.
+    if (!_answering.add(id)) return;
     try {
+      final current = await _social.getChallengeById(id);
+      if (current == null || current.status != ChallengeStatus.pending) {
+        await _rebuild(emit);
+        return;
+      }
       // Local first, as everywhere else here: it is what the UI reads.
       await _social.updateChallengeStatus(
         challengeId: event.view.challenge.id,
@@ -558,6 +611,8 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[Rankings] answering challenge: $e');
+    } finally {
+      _answering.remove(id);
     }
     await _rebuild(emit);
   }
@@ -684,17 +739,25 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
       ),
     };
     final targets = await _getTargets(uid: uid);
+    // Names for anybody newly on the other side of a challenge, fetched
+    // once each and kept. Fetched *before* the cards are built: fetched
+    // after, the first state with a new opponent showed their raw uid,
+    // and nothing re-emitted once the name arrived — on a real device the
+    // card stayed that way until something unrelated rebuilt the page.
+    for (final challenge in await _social.getHeadToHeadChallenges(uid)) {
+      final opponentUid = challenge.creatorUid == uid
+          ? (challenge.opponentUid ?? '')
+          : challenge.creatorUid;
+      if (opponentUid.isEmpty || _opponentProfiles.containsKey(opponentUid)) {
+        continue;
+      }
+      final profile = await _directory.profileFor(opponentUid);
+      if (profile != null) _opponentProfiles[opponentUid] = profile;
+    }
     final challenges = await _getChallenges(
       uid: uid,
       opponentProfiles: _opponentProfiles,
     );
-    // Names for anybody newly on the other side of a challenge. Fetched
-    // once each and kept, so a card never shows a raw uid twice.
-    for (final view in challenges) {
-      if (_opponentProfiles.containsKey(view.opponentUid)) continue;
-      final profile = await _directory.profileFor(view.opponentUid);
-      if (profile != null) _opponentProfiles[view.opponentUid] = profile;
-    }
     final trophies = await _social.getTrophies(uid);
     // Always this week's, whatever period the board is showing — the
     // strip describes a week by construction.
@@ -727,6 +790,36 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
         challenges: challenges,
       ),
     );
+    _scheduleNextBoundary(challenges);
+  }
+
+  /// Rebuilds the screen the moment a challenge changes stage.
+  ///
+  /// A challenge moves from live to finalizing at `endAt`, and to final
+  /// at the freeze, on the clock alone — nothing is written at either
+  /// moment, so no stream fires. Two phones left open over midnight
+  /// kept saying "You're leading" after the competition had ended,
+  /// until something unrelated rebuilt the page. One timer, for the
+  /// nearest boundary still ahead; each rebuild re-arms it.
+  void _scheduleNextBoundary(List<ChallengeView> challenges) {
+    _boundaryTimer?.cancel();
+    _boundaryTimer = null;
+    final now = DateTime.now();
+    DateTime? next;
+    for (final view in challenges) {
+      for (final at in [view.challenge.endAt, view.settlement.finalAt]) {
+        if (at.isAfter(now) && (next == null || at.isBefore(next))) next = at;
+      }
+    }
+    if (next == null) return;
+    // A beat past the boundary, so the rebuild's own clock reads the
+    // new side of it.
+    _boundaryTimer = Timer(
+      next.difference(now) + const Duration(milliseconds: 500),
+      () {
+        if (!isClosed) add(const _RankingsClockTicked());
+      },
+    );
   }
 
   @override
@@ -734,6 +827,8 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
     await _settingsSub?.cancel();
     await _tripsSub?.cancel();
     await _friendsSub?.cancel();
+    await _challengesSub?.cancel();
+    _boundaryTimer?.cancel();
     await _profilesSub?.cancel();
     await _challengeSync.stop();
     return super.close();

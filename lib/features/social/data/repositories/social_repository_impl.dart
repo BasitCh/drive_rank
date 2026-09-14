@@ -226,6 +226,9 @@ class SocialRepositoryImpl implements SocialRepository {
   }
 
   @override
+  Stream<void> watchChallengeChanges() => _local.watchChallengeChanges();
+
+  @override
   Future<Challenge?> getChallengeById(String id) async {
     final row = await _local.getChallengeByRemoteId(id);
     return row == null ? null : _challengeFromRow(row);

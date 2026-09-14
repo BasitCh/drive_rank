@@ -690,6 +690,158 @@ void main() {
     });
   });
 
+  // A result becomes final at a moment on the clock, not at a drive. The
+  // card said "You won" at once while the trophy waited for the next
+  // trip; these run the app-open pass with no trip processed at all.
+  group('on app open, with no drive', () {
+    final closedAt = now.subtract(const Duration(days: 1));
+
+    /// A head-to-head challenge whose figures froze before [now]. The
+    /// viewer's driving is saved but never processed, so nothing but
+    /// the app-open pass can award from it.
+    Future<Challenge> finalChallenge({
+      double mine = 0,
+      double? theirs,
+      ChallengeStatus status = ChallengeStatus.active,
+      DateTime? endAt,
+    }) async {
+      final challenge = await createTarget(
+        opponentUid: 'rival',
+        startAt: now.subtract(const Duration(days: 8)),
+        endAt: endAt ?? closedAt,
+        status: status,
+        targetValue: 1000,
+      );
+      if (mine > 0) {
+        await saveTrip(
+          distanceKm: mine,
+          startedAt: now.subtract(const Duration(days: 2)),
+        );
+      }
+      if (theirs != null) {
+        await repo.upsertProgressValue(
+          ChallengeProgress(
+            challengeId: challenge.id,
+            uid: 'rival',
+            currentValue: theirs,
+            targetValue: 1000,
+            lastCalculatedAt: closedAt,
+          ),
+        );
+      }
+      return challenge;
+    }
+
+    Future<Set<TrophyType>> held() async =>
+        (await repo.getTrophies(uid)).map((Trophy t) => t.type).toSet();
+
+    Future<Set<TrophyType>> openApp() async {
+      await processor.awardSettledChallengeTrophies(uid: uid, now: now);
+      return held();
+    }
+
+    test('a win awards firstChallenge and firstWin when the app opens — '
+        'nothing waits for a drive', () async {
+      await finalChallenge(mine: 100, theirs: 40);
+      expect(await held(), isEmpty);
+
+      expect(
+        await openApp(),
+        {TrophyType.firstChallenge, TrophyType.firstWin},
+      );
+    });
+
+    test('a loss awards firstChallenge only', () async {
+      await finalChallenge(mine: 40, theirs: 100);
+      expect(await openApp(), {TrophyType.firstChallenge});
+    });
+
+    test('a draw awards firstChallenge only', () async {
+      await finalChallenge(mine: 100, theirs: 100);
+      expect(await openApp(), {TrophyType.firstChallenge});
+    });
+
+    test('no result — accepted, but the opponent never published — awards '
+        'firstChallenge only', () async {
+      await finalChallenge(mine: 100);
+      expect(await openApp(), {TrophyType.firstChallenge});
+    });
+
+    test('never started — nobody accepted it — awards nothing', () async {
+      await finalChallenge(
+        mine: 100,
+        theirs: 40,
+        status: ChallengeStatus.pending,
+      );
+      expect(await openApp(), isEmpty);
+    });
+
+    test('finalizing awards nothing yet — the figures can still move',
+        () async {
+      await finalChallenge(
+        mine: 100,
+        theirs: 40,
+        // Closed an hour ago: inside the six-hour grace.
+        endAt: now.subtract(const Duration(hours: 1)),
+      );
+      expect(await openApp(), isEmpty);
+    });
+
+    test('repeated app opens never create a second trophy, and report '
+        'nothing as newly unlocked after the first', () async {
+      await finalChallenge(mine: 100, theirs: 40);
+
+      final first = await processor.awardSettledChallengeTrophies(
+        uid: uid,
+        now: now,
+      );
+      expect(first.map((Trophy t) => t.type).toSet(), {
+        TrophyType.firstChallenge,
+        TrophyType.firstWin,
+      });
+      for (var i = 0; i < 3; i++) {
+        final again = await processor.awardSettledChallengeTrophies(
+          uid: uid,
+          now: now,
+        );
+        expect(again, isEmpty);
+      }
+
+      final stored = await repo.getTrophies(uid);
+      expect(stored, hasLength(2));
+    });
+
+    test('an app open racing a drive still stores each trophy once',
+        () async {
+      await finalChallenge(mine: 100, theirs: 40);
+      final tripId = await saveTrip(distanceKm: 1, startedAt: now);
+
+      await Future.wait([
+        processor.awardSettledChallengeTrophies(uid: uid, now: now),
+        process(tripId),
+      ]);
+
+      final stored = await repo.getTrophies(uid);
+      expect(
+        stored.where((Trophy t) => t.type == TrophyType.firstWin),
+        hasLength(1),
+      );
+      expect(
+        stored.where((Trophy t) => t.type == TrophyType.firstChallenge),
+        hasLength(1),
+      );
+    });
+
+    test("the pre-auth 'local' uid is never awarded anything", () async {
+      await finalChallenge(mine: 100, theirs: 40);
+      final unlocked = await processor.awardSettledChallengeTrophies(
+        uid: kLocalPlaceholderUid,
+        now: now,
+      );
+      expect(unlocked, isEmpty);
+    });
+  });
+
   group('serialization', () {
     test('two trips processed concurrently both land, and the final tally '
         'reflects both — a skip-if-running mutex would drop one', () async {

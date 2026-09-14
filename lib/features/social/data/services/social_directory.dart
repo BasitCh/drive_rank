@@ -139,6 +139,14 @@ abstract class SocialDirectory {
   /// map has published nothing — **which is not a figure of zero.**
   Stream<Map<String, double>> watchProgress(String challengeId);
 
+  /// The same figures as [watchProgress], read once **from the server**.
+  ///
+  /// For a challenge past its freeze, whose figures can no longer move:
+  /// a device that was closed through the grace needs the frozen values
+  /// once, and a cached snapshot is exactly the stale copy it must not
+  /// settle from. Throws when the server can't be reached.
+  Future<Map<String, double>> progressFor(String challengeId);
+
   /// Live view of the requests this account sent.
   ///
   /// Added once sent requests became something the sender can *see*.
@@ -361,6 +369,10 @@ class NoopSocialDirectory implements SocialDirectory {
   @override
   Stream<Map<String, double>> watchProgress(String challengeId) =>
       Stream.value(const {});
+
+  @override
+  Future<Map<String, double>> progressFor(String challengeId) async =>
+      const {};
 }
 
 class FirestoreSocialDirectory implements SocialDirectory {
@@ -737,6 +749,19 @@ class FirestoreSocialDirectory implements SocialDirectory {
                 d.id: (d.data()['value'] as num).toDouble(),
           },
         );
+  }
+
+  @override
+  Future<Map<String, double>> progressFor(String challengeId) async {
+    if (challengeId.isEmpty) return const {};
+    final snapshot = await _challenges
+        .doc(challengeId)
+        .collection('progress')
+        .get(const GetOptions(source: Source.server));
+    return {
+      for (final d in snapshot.docs)
+        if (d.data()['value'] is num) d.id: (d.data()['value'] as num).toDouble(),
+    };
   }
 
   DateTime _dateFrom(Object? value) {
