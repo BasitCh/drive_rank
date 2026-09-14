@@ -283,6 +283,11 @@ class _Body extends StatelessWidget {
                 onTap: () => _seedMockData(context),
               ),
               _LinkRow(
+                label: 'Add eligible trip now (challenges)',
+                icon: Icons.add_road_rounded,
+                onTap: () => _seedTripNow(context),
+              ),
+              _LinkRow(
                 label: 'Reset to free tier',
                 icon: Icons.restart_alt_rounded,
                 onTap: () => _resetFreeTier(context),
@@ -421,6 +426,14 @@ class _Body extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Seeded $count test trips + enabled Pro.')),
+    );
+  }
+
+  Future<void> _seedTripNow(BuildContext context) async {
+    final tripId = await getIt<DebugSeedService>().seedEligibleTripNow();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Added eligible trip #$tripId starting now.')),
     );
   }
 
