@@ -49,6 +49,85 @@ void main() {
   // v10) will run: one hop to the current schema. Compares every column
   // of every pre-existing row, not a sample, and proves the upgraded file
   // is usable — the merge-review gate for the social branch.
+  // v10 -> v17 -> v10 -> v17: a tester goes back to an older build and
+  // then updates again. The older build leaves every newer table and
+  // column in place and only relabels the file. Replaying the upgrade
+  // failed with "duplicate column name: is_mocked" on a simulator, and
+  // every database call in the app threw from then on.
+  group('an upgrade over a downgraded database', () {
+    Future<int> seedCurrent() async {
+      final db = AppDatabase.forTesting(NativeDatabase(dbFile));
+      final tripId = await db
+          .into(db.trips)
+          .insert(
+            TripsCompanion.insert(
+              uid: 'user-1',
+              topSpeedKmh: 110,
+              avgSpeedKmh: 55,
+              distanceKm: 33.3,
+              durationSeconds: 1800,
+              startedAt: DateTime(2026, 3, 1),
+            ),
+          );
+      final now = DateTime(2026, 3, 1);
+      await db
+          .into(db.trophies)
+          .insert(
+            TrophiesCompanion.insert(
+              remoteId: 'trophy-1',
+              uid: 'user-1',
+              type: 'firstTarget',
+              unlockedAt: now,
+            ),
+          );
+      await db.close();
+      return tripId;
+    }
+
+    test(
+      'the real downgrade — the v10 build opens a v17 file, then the '
+      'current build upgrades it again — succeeds and keeps everything',
+      () async {
+        final tripId = await seedCurrent();
+
+        // What 1.2.3 leaves behind after opening a newer file: its upgrade
+        // steps are all for versions below 10, so none run, and drift
+        // writes its own version over the newer one. Nothing else moves.
+        final older = AppDatabase.forTesting(NativeDatabase(dbFile));
+        await older.customStatement('PRAGMA user_version = 10');
+        await older.close();
+
+        final db = openMigrated();
+        final version = await db
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+        expect(version.data.values.single, db.schemaVersion);
+        final trips = await db.select(db.trips).get();
+        expect(trips.single.id, tripId);
+        expect(trips.single.distanceKm, 33.3);
+        expect(await db.select(db.trophies).get(), hasLength(1));
+        final integrity = await db
+            .customSelect('PRAGMA integrity_check')
+            .getSingle();
+        expect(integrity.data.values.single, 'ok');
+      },
+    );
+
+    test('every step is safe to replay — a complete current database '
+        'labelled as far back as v3 upgrades without error', () async {
+      await seedCurrent();
+      final relabel = AppDatabase.forTesting(NativeDatabase(dbFile));
+      await relabel.customStatement('PRAGMA user_version = 3');
+      await relabel.close();
+
+      final db = openMigrated();
+      expect(await db.select(db.trips).get(), hasLength(1));
+      expect(await db.select(db.trophies).get(), hasLength(1));
+      final version = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(version.data.values.single, db.schemaVersion);
+    });
+  });
+
   group('v10 -> current in one hop — what a 1.2.3 user actually runs', () {
     test('every pre-existing value survives, byte for byte, and the new '
         'schema arrives with safe defaults', () async {

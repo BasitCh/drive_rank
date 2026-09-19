@@ -53,6 +53,20 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
+      // Every step below must tolerate schema that is already there.
+      // A database can carry a *newer* shape than its version says: an
+      // older build opened on a newer file (a tester going back to a
+      // previous TestFlight build, or a sideload) leaves the new tables
+      // and columns in place and only rewrites `user_version`. The next
+      // upgrade then replays steps whose work is already done, and a
+      // plain `ADD COLUMN` failed with "duplicate column name" — seen on
+      // a simulator, where it left every database call in the app
+      // throwing. So, within this callback, these two shadow the
+      // non-tolerant originals.
+      Future<void> customStatement(String sql) => _toleratingStatement(sql);
+      Future<void> createTable(TableInfo<Table, dynamic> table) =>
+          _createTableIfMissing(m, table);
+
       if (from < 2) {
         // v2 adds Trips.road_segment_ids — comma-separated famous-road
         // segment ids the trip's bounding box overlapped at save time.
@@ -68,8 +82,8 @@ class AppDatabase extends _$AppDatabase {
         // crash-recovery + service-isolate checkpoint flow. The
         // generated CREATE statements live on the migrator — no need
         // to hand-roll SQL.
-        await m.createTable(liveTrips);
-        await m.createTable(liveWaypoints);
+        await createTable(liveTrips);
+        await createTable(liveWaypoints);
       }
       if (from < 4) {
         // v4 adds UserSettings.oem_advice_shown — set once after the
@@ -190,11 +204,11 @@ class AppDatabase extends _$AppDatabase {
         // friends, friend requests, challenges (+ per-participant
         // progress), and trophies. Phase 1 scaffolding only — no
         // remote/Firestore sync yet.
-        await m.createTable(friends);
-        await m.createTable(friendRequests);
-        await m.createTable(challenges); // must precede challengeProgress
-        await m.createTable(challengeProgress);
-        await m.createTable(trophies);
+        await createTable(friends);
+        await createTable(friendRequests);
+        await createTable(challenges); // must precede challengeProgress
+        await createTable(challengeProgress);
+        await createTable(trophies);
       }
       if (from < 12) {
         // v12 — the competition engine's persistence.
@@ -207,7 +221,7 @@ class AppDatabase extends _$AppDatabase {
         // No backfill — an absent row reads as eligible, so existing
         // history keeps counting without re-walking every old trip's
         // waypoints.
-        await m.createTable(tripEligibility);
+        await createTable(tripEligibility);
 
         // Collapses a repeated trophy award to one row at the database
         // level, since trophy remote ids are deterministic (see
@@ -247,7 +261,7 @@ class AppDatabase extends _$AppDatabase {
         // the cloud copy came back on the next restore. No backfill is
         // possible or wanted — trips already deleted under the old
         // behaviour left no record of ever having existed.
-        await m.createTable(deletedTrips);
+        await createTable(deletedTrips);
       }
       if (from < 15) {
         // v15 — username_claimed: whether this account holds its
@@ -331,6 +345,40 @@ class AppDatabase extends _$AppDatabase {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+}
+
+/// Tolerance for re-running migration steps whose work is already done.
+extension on AppDatabase {
+  static final _addColumn = RegExp(
+    r'^\s*ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)',
+    caseSensitive: false,
+  );
+
+  /// Runs [sql], except an `ADD COLUMN` for a column that already
+  /// exists, which is skipped. Everything else the migrations run is
+  /// already safe to repeat (`IF NOT EXISTS` indexes, `UPDATE … WHERE
+  /// … IS NULL`, dedupes).
+  Future<void> _toleratingStatement(String sql) async {
+    final add = _addColumn.firstMatch(sql);
+    if (add != null && await _hasColumn(add.group(1)!, add.group(2)!)) return;
+    await customStatement(sql);
+  }
+
+  Future<bool> _hasColumn(String table, String column) async {
+    final columns = await customSelect('PRAGMA table_info("$table")').get();
+    return columns.any((c) => c.read<String>('name') == column);
+  }
+
+  Future<void> _createTableIfMissing(
+    Migrator m,
+    TableInfo<Table, dynamic> table,
+  ) async {
+    final existing = await customSelect(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable.withString(table.actualTableName)],
+    ).get();
+    if (existing.isEmpty) await m.createTable(table);
+  }
 }
 
 LazyDatabase _openConnection() {
