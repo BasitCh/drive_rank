@@ -45,6 +45,207 @@ void main() {
     expect(await db.select(db.tripEligibility).get(), isEmpty);
   }
 
+  // The upgrade every existing user of the store build (1.2.3, schema
+  // v10) will run: one hop to the current schema. Compares every column
+  // of every pre-existing row, not a sample, and proves the upgraded file
+  // is usable — the merge-review gate for the social branch.
+  group('v10 -> current in one hop — what a 1.2.3 user actually runs', () {
+    test('every pre-existing value survives, byte for byte, and the new '
+        'schema arrives with safe defaults', () async {
+      final legacy = v10.LegacyAppDatabaseV10(NativeDatabase(dbFile));
+      final tripIds = <int>[];
+      for (var i = 0; i < 3; i++) {
+        tripIds.add(
+          await legacy
+              .into(legacy.trips)
+              .insert(
+                v10.TripsCompanion.insert(
+                  uid: 'user-1',
+                  topSpeedKmh: 100.0 + i,
+                  avgSpeedKmh: 50.0 + i,
+                  distanceKm: 10.5 * (i + 1),
+                  durationSeconds: 600 * (i + 1),
+                  startedAt: DateTime(2026, 1, i + 1, 8),
+                  remoteId: Value('trip-remote-$i'),
+                  isSynced: Value(i.isEven),
+                ),
+              ),
+        );
+      }
+      for (final id in tripIds) {
+        for (var w = 0; w < 5; w++) {
+          await legacy
+              .into(legacy.waypoints)
+              .insert(
+                v10.WaypointsCompanion.insert(
+                  tripId: id,
+                  lat: 31.5 + w * 0.001,
+                  lng: 74.3,
+                  speedKmh: 40.0 + w,
+                  accuracyMeters: 5,
+                  timestamp: DateTime(2026, 1, 1, 8, 0, w),
+                ),
+              );
+        }
+      }
+      await legacy
+          .into(legacy.legacyUserSettingsPreV13)
+          .insert(
+            v10.LegacyUserSettingsPreV13Companion.insert(
+              uid: 'user-1',
+              createdAt: DateTime(2025, 12, 1),
+            ),
+          );
+      // Every setting a real user might have changed away from its
+      // default, so "survives" means something.
+      await legacy.customStatement(
+        "UPDATE user_settings SET username = 'basit', car_make = 'BMW', "
+        "car_model = 'M8', car_year = 2022, country = 'AT', "
+        "unit_system = 'imperial', is_pro = 1, onboarding_complete = 1, "
+        'free_trips_used = 7, speed_goal_kmh = 180, distance_goal_km = 500',
+      );
+
+      Future<List<Map<String, Object?>>> dump(String table) async => [
+        for (final r
+            in await legacy
+                .customSelect('SELECT * FROM $table ORDER BY 1')
+                .get())
+          r.data,
+      ];
+      final before = {
+        for (final t in ['trips', 'waypoints', 'user_settings', 'live_trips'])
+          t: await dump(t),
+      };
+      await legacy.close();
+
+      final db = openMigrated();
+
+      final version = await db.customSelect('PRAGMA user_version').getSingle();
+      expect(version.data.values.single, db.schemaVersion);
+      expect(db.schemaVersion, 17);
+
+      for (final entry in before.entries) {
+        final after = [
+          for (final r
+              in await db
+                  .customSelect('SELECT * FROM ${entry.key} ORDER BY 1')
+                  .get())
+            r.data,
+        ];
+        expect(after, hasLength(entry.value.length), reason: entry.key);
+        for (var i = 0; i < after.length; i++) {
+          for (final column in entry.value[i].keys) {
+            expect(
+              after[i][column],
+              entry.value[i][column],
+              reason: '${entry.key}[$i].$column changed in the upgrade',
+            );
+          }
+        }
+      }
+
+      // Columns added since v10 arrive with the defaults that keep an
+      // upgraded user exactly where they were.
+      final settings = await db.select(db.userSettings).getSingle();
+      expect(settings.rankingsEnabled, isTrue);
+      expect(settings.usernameClaimed, isFalse);
+
+      await expectSocialTablesExistAndAreEmpty(db);
+      expect(await db.select(db.deletedTrips).get(), isEmpty);
+
+      final indexes = {
+        for (final r
+            in await db
+                .customSelect(
+                  "SELECT name FROM sqlite_master WHERE type = 'index'",
+                )
+                .get())
+          r.data['name'],
+      };
+      expect(
+        indexes,
+        containsAll([
+          'idx_trophies_remote_id',
+          'idx_friend_requests_remote_id',
+          'idx_challenges_remote_id',
+        ]),
+      );
+
+      final integrity = await db
+          .customSelect('PRAGMA integrity_check')
+          .getSingle();
+      expect(integrity.data.values.single, 'ok');
+      final foreignKeys = await db
+          .customSelect('PRAGMA foreign_key_check')
+          .get();
+      expect(foreignKeys, isEmpty);
+    });
+
+    test('the upgraded file is fully usable — new trips, deletions and '
+        'social rows all write, and the constraints hold', () async {
+      final legacy = v10.LegacyAppDatabaseV10(NativeDatabase(dbFile));
+      final oldTrip = await legacy
+          .into(legacy.trips)
+          .insert(
+            v10.TripsCompanion.insert(
+              uid: 'user-1',
+              topSpeedKmh: 90,
+              avgSpeedKmh: 45,
+              distanceKm: 12,
+              durationSeconds: 900,
+              startedAt: DateTime(2026, 1, 3),
+            ),
+          );
+      await legacy.close();
+
+      final db = openMigrated();
+      final newTrip = await db
+          .into(db.trips)
+          .insert(
+            TripsCompanion.insert(
+              uid: 'user-1',
+              topSpeedKmh: 80,
+              avgSpeedKmh: 40,
+              distanceKm: 8,
+              durationSeconds: 700,
+              startedAt: DateTime(2026, 2, 1),
+            ),
+          );
+      expect(newTrip, greaterThan(oldTrip));
+
+      final now = DateTime(2026, 2, 1);
+      await db
+          .into(db.trophies)
+          .insert(
+            TrophiesCompanion.insert(
+              remoteId: 'trophy-1',
+              uid: 'user-1',
+              type: 'firstTarget',
+              unlockedAt: now,
+            ),
+          );
+      await expectLater(
+        db
+            .into(db.trophies)
+            .insert(
+              TrophiesCompanion.insert(
+                remoteId: 'trophy-1',
+                uid: 'user-1',
+                type: 'firstTarget',
+                unlockedAt: now,
+              ),
+            ),
+        throwsA(anything),
+        reason: 'the unique index the upgrade created must hold',
+      );
+
+      // An old trip can still be deleted, and its eligibility (none) and
+      // waypoints go with it.
+      await (db.delete(db.trips)..where((t) => t.id.equals(oldTrip))).go();
+      expect(await db.select(db.trips).get(), hasLength(1));
+    });
+  });
+
   group('v10 -> v12 — the real production upgrade path', () {
     // v11 was never released, so every install in the wild jumps
     // straight from 10 to 12.
@@ -284,12 +485,14 @@ void main() {
     // Catches a table added to the migration but not to the
     // `@DriftDatabase` tables list — `createAll` would skip it and only
     // upgraded databases would have it.
-    test('onCreate builds the whole schema, including trip_eligibility',
-        () async {
-      final db = openMigrated();
-      expect(await db.select(db.trips).get(), isEmpty);
-      await expectSocialTablesExistAndAreEmpty(db);
-    });
+    test(
+      'onCreate builds the whole schema, including trip_eligibility',
+      () async {
+        final db = openMigrated();
+        expect(await db.select(db.trips).get(), isEmpty);
+        await expectSocialTablesExistAndAreEmpty(db);
+      },
+    );
 
     Future<int> insertTrip(AppDatabase db) {
       return db
@@ -451,8 +654,7 @@ void main() {
 
   group('v14 -> v15 — a username you actually hold', () {
     test('adds username_claimed defaulting to false, because nobody holds '
-        'a name yet — usernames were never checked for uniqueness',
-        () async {
+        'a name yet — usernames were never checked for uniqueness', () async {
       final legacyDb = v14.LegacyAppDatabaseV14(NativeDatabase(dbFile));
       await legacyDb
           .into(legacyDb.legacyUserSettingsPreV15)
@@ -510,11 +712,7 @@ void main() {
         'times', () async {
       final legacyDb = v14.LegacyAppDatabaseV14(NativeDatabase(dbFile));
       // The same logical request, three times, as found on device.
-      for (final (i, status) in [
-        'pending',
-        'accepted',
-        'ended',
-      ].indexed) {
+      for (final (i, status) in ['pending', 'accepted', 'ended'].indexed) {
         await legacyDb
             .into(legacyDb.legacyFriendRequestsPreV16)
             .insert(
