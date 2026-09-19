@@ -75,6 +75,16 @@ class TopThreePodium extends StatelessWidget {
     final second = positions.length > 1 ? positions[1] : null;
     final third = positions.length > 2 ? positions[2] : null;
     if (first == null) return const SizedBox.shrink();
+    // The label slot under each name is kept for all three places when
+    // any of them has a label, so the circles stay level — and dropped
+    // when none does, so the figure sits right under the name.
+    final reserveBadge = [
+      first,
+      ?second,
+      ?third,
+    ].any((p) => p.entry.isBenchmark || p.entry.isStale);
+    final sideHead = reserveBadge ? _sideHeadHeight : _sideHeadHeight - 19;
+    final leadHead = reserveBadge ? _leadHeadHeight : _leadHeadHeight - 19;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -91,7 +101,8 @@ class TopThreePodium extends StatelessWidget {
                     unitFor: unitFor,
                     viewer: viewer,
                     diameter: 68,
-                    headHeight: _sideHeadHeight,
+                    headHeight: sideHead,
+                    reserveBadge: reserveBadge,
                     plinthHeight: 72,
                     plinthColor: _silver.withValues(alpha: 0.10),
                     plinthBorder: _silver.withValues(alpha: 0.30),
@@ -108,7 +119,8 @@ class TopThreePodium extends StatelessWidget {
               unitFor: unitFor,
               viewer: viewer,
               diameter: 88,
-              headHeight: _leadHeadHeight,
+              headHeight: leadHead,
+              reserveBadge: reserveBadge,
               plinthHeight: 104,
               plinthColor: _gold.withValues(alpha: 0.16),
               plinthBorder: _gold.withValues(alpha: 0.45),
@@ -128,7 +140,8 @@ class TopThreePodium extends StatelessWidget {
                     unitFor: unitFor,
                     viewer: viewer,
                     diameter: 68,
-                    headHeight: _sideHeadHeight,
+                    headHeight: sideHead,
+                    reserveBadge: reserveBadge,
                     plinthHeight: 54,
                     plinthColor: _bronze.withValues(alpha: 0.14),
                     plinthBorder: _bronze.withValues(alpha: 0.40),
@@ -154,10 +167,14 @@ class _PodiumTile extends StatelessWidget {
     required this.plinthBorder,
     required this.rankColor,
     required this.medal,
+    required this.reserveBadge,
     this.viewer,
     this.onTap,
     this.showTrophy = false,
   });
+
+  /// Whether to keep the label slot under the name — see the podium.
+  final bool reserveBadge;
 
   final LeaderboardPosition position;
   final String Function(double) formatValue;
@@ -230,20 +247,21 @@ class _PodiumTile extends StatelessWidget {
               // as a misaligned podium rather than a stepped one — the
               // only thing that should differ between places is the
               // plinth.
-              SizedBox(
-                height: 19,
-                child: entry.isBenchmark
-                    ? const Padding(
-                        padding: EdgeInsets.only(top: 3),
-                        child: BenchmarkBadge(),
-                      )
-                    : entry.isStale
-                    ? const Padding(
-                        padding: EdgeInsets.only(top: 3),
-                        child: StaleBadge(),
-                      )
-                    : null,
-              ),
+              if (reserveBadge)
+                SizedBox(
+                  height: 19,
+                  child: entry.isBenchmark
+                      ? const Padding(
+                          padding: EdgeInsets.only(top: 3),
+                          child: BenchmarkBadge(),
+                        )
+                      : entry.isStale
+                      ? const Padding(
+                          padding: EdgeInsets.only(top: 3),
+                          child: StaleBadge(),
+                        )
+                      : null,
+                ),
               const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -289,9 +307,7 @@ class _PodiumTile extends StatelessWidget {
               colors: [plinthColor, plinthColor.withValues(alpha: 0.02)],
             ),
             border: Border.all(color: plinthBorder, width: 1.2),
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(14),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
           ),
           alignment: Alignment.center,
           child: Text(

@@ -1,5 +1,3 @@
-import 'package:drive_rank/features/social/domain/entities/benchmark_catalog.dart';
-import 'package:drive_rank/features/social/domain/entities/benchmark_visibility_policy.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
@@ -47,8 +45,6 @@ class GetFriendsLeaderboard {
     required LeaderboardPeriod period,
     required List<CompetitionMirror> friendProfiles,
     DateTime? now,
-    BenchmarkVisibilityPolicy policy =
-        const BenchmarkVisibilityPolicy.friends(),
   }) async {
     final at = now ?? DateTime.now();
     final window = CompetitionWindow.forPeriod(period, at);
@@ -91,32 +87,15 @@ class GetFriendsLeaderboard {
       );
     }
 
+    // Real people only. A friends board is the people you chose, so a
+    // published constant has no place among them — and the podium it
+    // leaves always holds somebody who actually drove.
     final realCompetitors = [me, ...friends];
-    // The same mechanism the global board uses, on a threshold suited
-    // to this scope — so benchmarks retire on their own as friends
-    // arrive, with no second rule about when they should disappear. One
-    // friend still leaves something to chase; four means the paces have
-    // done their job.
-    final showBenchmarks = policy.showBenchmarks(
-      realCompetitors: realCompetitors.length,
-    );
-
-    final entries = [
-      ...realCompetitors,
-      if (showBenchmarks)
-        for (final benchmark in benchmarksFor(metric: metric, period: period))
-          LeaderboardEntry(
-            id: benchmark.id,
-            displayName: benchmark.displayName,
-            value: benchmark.value,
-            participantType: LeaderboardParticipantType.benchmark,
-          ),
-    ];
 
     return Leaderboard(
-      positions: rankEntries(entries),
+      positions: rankEntries(realCompetitors),
       realCompetitorCount: realCompetitors.length,
-      benchmarksShown: showBenchmarks,
+      benchmarksShown: false,
     );
   }
 }

@@ -2,7 +2,6 @@ import 'package:drift/native.dart';
 import 'package:drive_rank/core/database/app_database.dart';
 import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart';
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart';
-import 'package:drive_rank/features/social/domain/entities/benchmark_visibility_policy.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_eligibility.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
@@ -76,18 +75,13 @@ void main() {
     },
   );
 
-  Future<Leaderboard> weeklyBoard(
-    List<CompetitionMirror> friends, {
-    BenchmarkVisibilityPolicy policy =
-        const BenchmarkVisibilityPolicy.friends(),
-  }) => board(
+  Future<Leaderboard> weeklyBoard(List<CompetitionMirror> friends) => board(
     uid: me,
     displayName: 'You',
     metric: CompetitionMetric.distance,
     period: LeaderboardPeriod.weekly,
     friendProfiles: friends,
     now: now,
-    policy: policy,
   );
 
   test("the viewer's own value is computed from local trips, never read "
@@ -174,8 +168,8 @@ void main() {
     );
   });
 
-  test('a friend carries their country and car so the row can name them, '
-      'and a benchmark carries neither', () async {
+  test('a friend carries their country and car so the row can name them',
+      () async {
     await addTrip(distanceKm: 100);
     final result = await weeklyBoard([friend(uid: 'bob')]);
 
@@ -183,11 +177,6 @@ void main() {
     expect(bob.entry.countryCode, 'PK');
     expect(bob.entry.carMake, 'BMW');
     expect(bob.entry.hasPublishedIdentity, isTrue);
-
-    final benchmark = result.positions.firstWhere((p) => p.entry.isBenchmark);
-    expect(benchmark.entry.countryCode, isEmpty);
-    expect(benchmark.entry.carMake, isEmpty);
-    expect(benchmark.entry.hasPublishedIdentity, isFalse);
   });
 
   test('ranks are assigned after sorting, best first', () async {
@@ -204,36 +193,22 @@ void main() {
     expect(result.positions.last.rank, result.positions.length);
   });
 
-  test('benchmarks stay while the board is thin, and retire on their own '
-      'once enough friends are on it — the scope has its own threshold '
-      'because ten friends who all publish is not a board that ever '
-      'arrives', () async {
+  // A friends board is the people you chose. A published constant
+  // standing among them made its podium show gauges and a muted trophy
+  // instead of the people it is about.
+  test('never shows a benchmark, however thin the board', () async {
     await addTrip(distanceKm: 100);
 
-    final thin = await weeklyBoard([friend(uid: 'bob')]);
-    expect(thin.benchmarksShown, isTrue);
-
-    // The viewer plus three friends: a ranking in its own right.
-    final crowded = await weeklyBoard([
-      for (var i = 0; i < 3; i++) friend(uid: 'f$i', username: 'f$i'),
-    ]);
-    expect(crowded.realCompetitorCount, 4);
-    expect(crowded.benchmarksShown, isFalse);
-    expect(crowded.positions.any((p) => p.entry.isBenchmark), isFalse);
-  });
-
-  test('a friend omitted for want of a figure does not count towards '
-      'retiring the benchmarks — the board is as thin as it looks',
-      () async {
-    await addTrip(distanceKm: 100);
-
-    final result = await weeklyBoard([
-      for (var i = 0; i < 3; i++)
-        friend(uid: 'f$i', username: 'f$i', omitField: true),
-    ]);
-
-    expect(result.realCompetitorCount, 1);
-    expect(result.benchmarksShown, isTrue);
+    for (final friends in [
+      <CompetitionMirror>[],
+      [friend(uid: 'bob')],
+      [for (var i = 0; i < 3; i++) friend(uid: 'f$i', username: 'f$i')],
+      [friend(uid: 'quiet', omitField: true)],
+    ]) {
+      final result = await weeklyBoard(friends);
+      expect(result.benchmarksShown, isFalse);
+      expect(result.positions.any((p) => p.entry.isBenchmark), isFalse);
+    }
   });
 
   test('with no friends the viewer is still on their own board rather '

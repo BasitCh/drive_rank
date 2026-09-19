@@ -19,26 +19,12 @@ import 'package:flutter/foundation.dart';
 /// benchmarks disappear early rather than lingering as decoration.
 const int kBenchmarkHiddenAtRealCompetitors = 10;
 
-/// The same threshold for a **friends** board, which fills up far more
-/// slowly.
-///
-/// Ten is right for a global board, where the population is everyone;
-/// on a friends board it would mean benchmarks effectively never retire,
-/// because ten friends who all publish is a lot of friends. Four — the
-/// viewer plus three people they chose — is a ranking in its own right,
-/// and past that a published constant standing between two friends is
-/// clutter rather than a pace.
-const int kBenchmarkHiddenAtFriendCompetitors = 4;
-
 @immutable
 class BenchmarkVisibilityPolicy {
   const BenchmarkVisibilityPolicy({
     this.hiddenAtRealCompetitors = kBenchmarkHiddenAtRealCompetitors,
   });
 
-  /// The policy for a friends-scoped board.
-  const BenchmarkVisibilityPolicy.friends()
-    : hiddenAtRealCompetitors = kBenchmarkHiddenAtFriendCompetitors;
 
   final int hiddenAtRealCompetitors;
 
