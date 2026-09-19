@@ -33,6 +33,9 @@ class _RecordingSink implements CompetitionMirrorSink {
 
   @override
   Future<void> write(CompetitionMirror mirror) async => written.add(mirror);
+
+  @override
+  Future<void> delete(String uid) async {}
 }
 
 /// An in-memory stand-in for the shared collections.
@@ -771,6 +774,7 @@ void main() {
     test('publishes nothing before there is a username — a nameless '
         'public profile renders as a raw uid to whoever finds it',
         () async {
+      await settings.setCompetitionOptIn(optIn: true);
       final publisher = CompetitionValuePublisher(
         settings,
         repo,

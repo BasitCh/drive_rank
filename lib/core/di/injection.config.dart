@@ -71,6 +71,8 @@ import 'package:drive_rank/features/social/data/services/competition_mirror_sink
     as _i800;
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart'
     as _i1058;
+import 'package:drive_rank/features/social/data/services/competition_visibility.dart'
+    as _i1006;
 import 'package:drive_rank/features/social/data/services/friends_sync_service.dart'
     as _i709;
 import 'package:drive_rank/features/social/data/services/social_directory.dart'
@@ -402,6 +404,12 @@ _i174.GetIt $initGetIt(
     () => _i717.RefreshTargetProgress(
       gh<_i247.SocialRepository>(),
       gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.lazySingleton<_i1006.CompetitionVisibility>(
+    () => _i1006.CompetitionVisibility(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i1058.CompetitionValuePublisher>(),
     ),
   );
   gh.factory<_i593.FriendsBloc>(

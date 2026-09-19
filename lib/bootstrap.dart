@@ -18,6 +18,7 @@ import 'package:drive_rank/features/social/data/services/challenge_progress_publ
 import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart';
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
+import 'package:drive_rank/features/social/data/services/competition_visibility.dart';
 import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
 import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart';
@@ -178,6 +179,9 @@ Future<void> _initRetentionNotifications() async {
 Future<void> _publishCompetitionValues() async {
   try {
     final settings = getIt<UserSettingsRepository>();
+    // Someone who said no to the competition has no public profile —
+    // this repeats the removal in case the last attempt never landed.
+    await getIt<CompetitionVisibility>().enforceOnLaunch();
     final claim = await settings.claimUsername();
     if (kDebugMode) debugPrint('[bootstrap] username claim: ${claim.name}');
     await getIt<CompetitionValuePublisher>().publishNow();

@@ -840,6 +840,26 @@ class AppStrings {
   static const String settingsFuelTypeElectric = 'Electric';
   static const String settingsMapTheme = 'Map Theme';
   static const String settingsAccount = 'Account';
+
+  // Competition visibility — the one-time "Join the Competition" notice
+  // and its Settings switch. Nothing public is written until the user
+  // joins.
+  static const String competitionJoinTitle = 'Join the Competition';
+  static const String competitionJoinBody =
+      'DriveRank now lets you compete with friends. To appear on friend '
+      'leaderboards, your username, car, country and competition stats '
+      'will be visible to other DriveRank users. You can change your '
+      'competition visibility in Settings.';
+  static const String competitionJoinAction = 'Join Competition';
+  static const String competitionNotNow = 'Not now';
+  static const String settingsCompetitionVisibility = 'Competition visibility';
+  static const String settingsCompetitionHidden = 'Hidden';
+  static const String settingsCompetitionVisible = 'Visible';
+  static const String friendsJoinFirstTitle = 'Join the competition first';
+  static const String friendsJoinFirstBody =
+      'Friends find you by your username or code, which only works once '
+      'you appear in the competition. Your username, car, country and '
+      'competition stats become visible to other DriveRank users.';
   static const String settingsUsername = 'Username';
   static const String settingsCountry = 'Country';
   static const String settingsUnitSystemMetric = 'Metric (km, km/h, L/100km)';

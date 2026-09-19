@@ -57,6 +57,15 @@ class CompetitionValuePublisher {
     try {
       final row = await _settings.read();
       final uid = row.uid;
+      // Nothing public until the user has said yes. Not asked yet is
+      // treated as no: an upgrade used to publish every existing user
+      // the moment it launched, without telling them.
+      if (row.competitionOptIn != true) {
+        if (kDebugMode) {
+          debugPrint('[CompetitionMirror] skip — not opted in');
+        }
+        return;
+      }
       if (uid.isEmpty || _placeholderUids.contains(uid)) {
         if (kDebugMode) {
           debugPrint('[CompetitionMirror] skip — placeholder uid "$uid"');
@@ -112,5 +121,14 @@ class CompetitionValuePublisher {
         debugPrint('[CompetitionMirror] publish failed: $e\n$st');
       }
     }
+  }
+
+  /// Removes this user's public profile, for someone who has chosen not
+  /// to appear. Their friends then see them as not publishing — absent,
+  /// never zero — and nobody can find them by name or code.
+  Future<void> withdraw() async {
+    final uid = (await _settings.read()).uid;
+    if (uid.isEmpty || _placeholderUids.contains(uid)) return;
+    await _sink.delete(uid);
   }
 }

@@ -11,6 +11,7 @@ import 'package:drive_rank/features/social/data/datasources/social_local_data_so
 import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart';
 import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart';
 import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
+import 'package:drive_rank/features/social/data/services/competition_visibility.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
@@ -35,6 +36,11 @@ class _RecordingSink implements CompetitionMirrorSink {
     if (fail) throw StateError('offline');
     writes.add(mirror);
   }
+
+  final List<String> deletes = [];
+
+  @override
+  Future<void> delete(String uid) async => deletes.add(uid);
 }
 
 /// An in-memory namespace, so the claim logic is tested without Firestore.
@@ -105,12 +111,15 @@ void main() {
     await db.close();
   });
 
-  /// Signing in also names the account: the publisher refuses to write
-  /// a nameless public profile, so a fixture without a username would
-  /// be testing a path the product deliberately skips.
+  /// Signing in also names the account and joins the competition: the
+  /// publisher refuses to write a nameless public profile, and nothing
+  /// public is written for somebody who hasn't joined — so a fixture
+  /// without either would be testing a path the product deliberately
+  /// skips. The not-joined path has its own group below.
   Future<void> signIn(String uid) async {
     await settings.syncUid(uid);
     await settings.patch(const UserSettingsCompanion(username: Value('basit')));
+    await settings.setCompetitionOptIn(optIn: true);
   }
 
   Future<int> addTrip({double distanceKm = 100, DateTime? startedAt}) {
@@ -284,6 +293,104 @@ void main() {
       await publisher.publishNow();
 
       expect(sink.writes, isEmpty);
+    });
+  });
+
+  // An upgrade used to publish every existing user the moment it
+  // launched, without telling them. Nothing public happens now until
+  // the user has joined the competition — not asked yet counts as no.
+  group('before joining the competition', () {
+    Future<void> signInWithoutJoining(String uid, {bool? answer}) async {
+      await settings.syncUid(uid);
+      await settings.patch(
+        const UserSettingsCompanion(username: Value('basit')),
+      );
+      if (answer != null) await settings.setCompetitionOptIn(optIn: answer);
+    }
+
+    test('not asked yet: no public profile and no username claim', () async {
+      await signInWithoutJoining('user-1');
+      await addTrip();
+
+      await publisher.publishNow();
+      expect(sink.writes, isEmpty);
+      expect(await settings.claimUsername(), UsernameClaim.unknown);
+      expect(reservations.holders, isEmpty);
+      expect((await settings.read()).usernameClaimed, isFalse);
+    });
+
+    test('answered not now: the same — nothing public is written', () async {
+      await signInWithoutJoining('user-1', answer: false);
+      await addTrip();
+
+      await publisher.publishNow();
+      expect(sink.writes, isEmpty);
+      expect(await settings.claimUsername(), UsernameClaim.unknown);
+    });
+
+    test('joining publishes and claims; leaving removes the public '
+        'profile', () async {
+      await signInWithoutJoining('user-1', answer: true);
+      await publisher.publishNow();
+      expect(sink.writes, hasLength(1));
+      expect(await settings.claimUsername(), UsernameClaim.claimed);
+
+      await settings.setCompetitionOptIn(optIn: false);
+      await publisher.withdraw();
+      expect(sink.deletes, ['user-1']);
+
+      // …and nothing is republished afterwards, on any trigger.
+      await addTrip();
+      await publisher.publishNow();
+      expect(sink.writes, hasLength(1));
+    });
+
+    test('a placeholder account has nothing to withdraw', () async {
+      await publisher.withdraw();
+      expect(sink.deletes, isEmpty);
+    });
+  });
+
+  group('joining and leaving the competition', () {
+    late CompetitionVisibility visibility;
+
+    setUp(() async {
+      visibility = CompetitionVisibility(settings, publisher);
+      await settings.syncUid('user-1');
+      await settings.patch(
+        const UserSettingsCompanion(username: Value('basit')),
+      );
+    });
+
+    test('joining records the yes, claims the name and publishes',
+        () async {
+      await visibility.join();
+      expect((await settings.read()).competitionOptIn, isTrue);
+      expect((await settings.read()).usernameClaimed, isTrue);
+      expect(sink.writes, hasLength(1));
+    });
+
+    test('leaving records the no and removes the public profile', () async {
+      await visibility.join();
+      await visibility.leave();
+      await Future<void>.delayed(Duration.zero);
+      expect((await settings.read()).competitionOptIn, isFalse);
+      expect(sink.deletes, ['user-1']);
+    });
+
+    test('on launch, someone who said no has their profile removed again — '
+        'an interrupted removal cannot leave them public', () async {
+      await settings.setCompetitionOptIn(optIn: false);
+      await visibility.enforceOnLaunch();
+      expect(sink.deletes, ['user-1']);
+    });
+
+    test('on launch, nothing is removed for someone who joined or has not '
+        'been asked', () async {
+      await visibility.enforceOnLaunch();
+      await settings.setCompetitionOptIn(optIn: true);
+      await visibility.enforceOnLaunch();
+      expect(sink.deletes, isEmpty);
     });
   });
 

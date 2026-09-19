@@ -47,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -335,6 +335,16 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_remote_id '
           'ON challenges (remote_id)',
+        );
+      }
+      if (from < 18) {
+        // v18 — competition_opt_in: whether the user agreed to be
+        // publicly visible in the competition. Null for everybody
+        // upgrading — "not asked" — so nobody becomes public by
+        // updating the app; the one-time notice asks them.
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN competition_opt_in '
+          'INTEGER NULL CHECK ("competition_opt_in" IN (0, 1))',
         );
       }
     },

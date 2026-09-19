@@ -117,5 +117,16 @@ class UserSettings extends Table {
   RealColumn get speedGoalKmh => real().nullable()();
   RealColumn get distanceGoalKm => real().nullable()();
 
+  /// Whether this user has agreed to appear in the competition —
+  /// their username, car, country and competition totals visible to
+  /// other DriveRank users, and findable by name or code.
+  ///
+  /// **Null means not asked yet**, and is treated exactly like "no":
+  /// nothing public is claimed or published until this is true. An
+  /// upgrade used to publish every existing user the moment it
+  /// launched, without telling them. Asked once, by the "Join the
+  /// Competition" notice; changeable in Settings.
+  BoolColumn get competitionOptIn => boolean().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
 }

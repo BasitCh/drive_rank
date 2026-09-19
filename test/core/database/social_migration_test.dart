@@ -201,7 +201,7 @@ void main() {
 
       final version = await db.customSelect('PRAGMA user_version').getSingle();
       expect(version.data.values.single, db.schemaVersion);
-      expect(db.schemaVersion, 17);
+      expect(db.schemaVersion, 18);
 
       for (final entry in before.entries) {
         final after = [
@@ -228,6 +228,8 @@ void main() {
       final settings = await db.select(db.userSettings).getSingle();
       expect(settings.rankingsEnabled, isTrue);
       expect(settings.usernameClaimed, isFalse);
+      // Not asked yet — so nobody becomes public just by updating.
+      expect(settings.competitionOptIn, isNull);
 
       await expectSocialTablesExistAndAreEmpty(db);
       expect(await db.select(db.deletedTrips).get(), isEmpty);
@@ -645,8 +647,9 @@ void main() {
       final columns = await db
           .customSelect('PRAGMA table_info(user_settings)')
           .get();
-      // 26 at v12, plus rankings_enabled (v13) and username_claimed (v15).
-      expect(columns, hasLength(28));
+      // 26 at v12, plus rankings_enabled (v13), username_claimed (v15)
+      // and competition_opt_in (v18).
+      expect(columns, hasLength(29));
     });
   });
 

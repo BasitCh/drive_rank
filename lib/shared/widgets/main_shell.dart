@@ -4,6 +4,7 @@ import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
+import 'package:drive_rank/features/social/presentation/widgets/join_competition_prompt.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/widgets/connectivity_banner.dart';
 import 'package:flutter/material.dart';
@@ -88,7 +89,7 @@ class MainShell extends StatelessWidget {
       body: Column(
         children: [
           const ConnectivityBanner(),
-          Expanded(child: child),
+          Expanded(child: CompetitionInvite(child: child)),
         ],
       ),
       bottomNavigationBar: SafeArea(

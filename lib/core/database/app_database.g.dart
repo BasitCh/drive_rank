@@ -2806,6 +2806,20 @@ class $UserSettingsTable extends UserSettings
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _competitionOptInMeta = const VerificationMeta(
+    'competitionOptIn',
+  );
+  @override
+  late final GeneratedColumn<bool> competitionOptIn = GeneratedColumn<bool>(
+    'competition_opt_in',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("competition_opt_in" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -2846,6 +2860,7 @@ class $UserSettingsTable extends UserSettings
     bgLocationDisclosureAcked,
     speedGoalKmh,
     distanceGoalKm,
+    competitionOptIn,
     createdAt,
   ];
   @override
@@ -3069,6 +3084,15 @@ class $UserSettingsTable extends UserSettings
         ),
       );
     }
+    if (data.containsKey('competition_opt_in')) {
+      context.handle(
+        _competitionOptInMeta,
+        competitionOptIn.isAcceptableOrUnknown(
+          data['competition_opt_in']!,
+          _competitionOptInMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -3194,6 +3218,10 @@ class $UserSettingsTable extends UserSettings
         DriftSqlType.double,
         data['${effectivePrefix}distance_goal_km'],
       ),
+      competitionOptIn: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}competition_opt_in'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -3295,6 +3323,17 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
   /// of what was actually driven.
   final double? speedGoalKmh;
   final double? distanceGoalKm;
+
+  /// Whether this user has agreed to appear in the competition —
+  /// their username, car, country and competition totals visible to
+  /// other DriveRank users, and findable by name or code.
+  ///
+  /// **Null means not asked yet**, and is treated exactly like "no":
+  /// nothing public is claimed or published until this is true. An
+  /// upgrade used to publish every existing user the moment it
+  /// launched, without telling them. Asked once, by the "Join the
+  /// Competition" notice; changeable in Settings.
+  final bool? competitionOptIn;
   final DateTime createdAt;
   const UserSettingsRow({
     required this.id,
@@ -3324,6 +3363,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     required this.bgLocationDisclosureAcked,
     this.speedGoalKmh,
     this.distanceGoalKm,
+    this.competitionOptIn,
     required this.createdAt,
   });
   @override
@@ -3380,6 +3420,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     if (!nullToAbsent || distanceGoalKm != null) {
       map['distance_goal_km'] = Variable<double>(distanceGoalKm);
     }
+    if (!nullToAbsent || competitionOptIn != null) {
+      map['competition_opt_in'] = Variable<bool>(competitionOptIn);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -3435,6 +3478,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       distanceGoalKm: distanceGoalKm == null && nullToAbsent
           ? const Value.absent()
           : Value(distanceGoalKm),
+      competitionOptIn: competitionOptIn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(competitionOptIn),
       createdAt: Value(createdAt),
     );
   }
@@ -3476,6 +3522,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       ),
       speedGoalKmh: serializer.fromJson<double?>(json['speedGoalKmh']),
       distanceGoalKm: serializer.fromJson<double?>(json['distanceGoalKm']),
+      competitionOptIn: serializer.fromJson<bool?>(json['competitionOptIn']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -3512,6 +3559,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       ),
       'speedGoalKmh': serializer.toJson<double?>(speedGoalKmh),
       'distanceGoalKm': serializer.toJson<double?>(distanceGoalKm),
+      'competitionOptIn': serializer.toJson<bool?>(competitionOptIn),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -3544,6 +3592,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     bool? bgLocationDisclosureAcked,
     Value<double?> speedGoalKmh = const Value.absent(),
     Value<double?> distanceGoalKm = const Value.absent(),
+    Value<bool?> competitionOptIn = const Value.absent(),
     DateTime? createdAt,
   }) => UserSettingsRow(
     id: id ?? this.id,
@@ -3582,6 +3631,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     distanceGoalKm: distanceGoalKm.present
         ? distanceGoalKm.value
         : this.distanceGoalKm,
+    competitionOptIn: competitionOptIn.present
+        ? competitionOptIn.value
+        : this.competitionOptIn,
     createdAt: createdAt ?? this.createdAt,
   );
   UserSettingsRow copyWithCompanion(UserSettingsCompanion data) {
@@ -3647,6 +3699,9 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
       distanceGoalKm: data.distanceGoalKm.present
           ? data.distanceGoalKm.value
           : this.distanceGoalKm,
+      competitionOptIn: data.competitionOptIn.present
+          ? data.competitionOptIn.value
+          : this.competitionOptIn,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -3681,6 +3736,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           ..write('bgLocationDisclosureAcked: $bgLocationDisclosureAcked, ')
           ..write('speedGoalKmh: $speedGoalKmh, ')
           ..write('distanceGoalKm: $distanceGoalKm, ')
+          ..write('competitionOptIn: $competitionOptIn, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -3715,6 +3771,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
     bgLocationDisclosureAcked,
     speedGoalKmh,
     distanceGoalKm,
+    competitionOptIn,
     createdAt,
   ]);
   @override
@@ -3748,6 +3805,7 @@ class UserSettingsRow extends DataClass implements Insertable<UserSettingsRow> {
           other.bgLocationDisclosureAcked == this.bgLocationDisclosureAcked &&
           other.speedGoalKmh == this.speedGoalKmh &&
           other.distanceGoalKm == this.distanceGoalKm &&
+          other.competitionOptIn == this.competitionOptIn &&
           other.createdAt == this.createdAt);
 }
 
@@ -3779,6 +3837,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
   final Value<bool> bgLocationDisclosureAcked;
   final Value<double?> speedGoalKmh;
   final Value<double?> distanceGoalKm;
+  final Value<bool?> competitionOptIn;
   final Value<DateTime> createdAt;
   const UserSettingsCompanion({
     this.id = const Value.absent(),
@@ -3808,6 +3867,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.bgLocationDisclosureAcked = const Value.absent(),
     this.speedGoalKmh = const Value.absent(),
     this.distanceGoalKm = const Value.absent(),
+    this.competitionOptIn = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   UserSettingsCompanion.insert({
@@ -3838,6 +3898,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     this.bgLocationDisclosureAcked = const Value.absent(),
     this.speedGoalKmh = const Value.absent(),
     this.distanceGoalKm = const Value.absent(),
+    this.competitionOptIn = const Value.absent(),
     required DateTime createdAt,
   }) : uid = Value(uid),
        createdAt = Value(createdAt);
@@ -3869,6 +3930,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Expression<bool>? bgLocationDisclosureAcked,
     Expression<double>? speedGoalKmh,
     Expression<double>? distanceGoalKm,
+    Expression<bool>? competitionOptIn,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -3901,6 +3963,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
         'bg_location_disclosure_acked': bgLocationDisclosureAcked,
       if (speedGoalKmh != null) 'speed_goal_kmh': speedGoalKmh,
       if (distanceGoalKm != null) 'distance_goal_km': distanceGoalKm,
+      if (competitionOptIn != null) 'competition_opt_in': competitionOptIn,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -3933,6 +3996,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     Value<bool>? bgLocationDisclosureAcked,
     Value<double?>? speedGoalKmh,
     Value<double?>? distanceGoalKm,
+    Value<bool?>? competitionOptIn,
     Value<DateTime>? createdAt,
   }) {
     return UserSettingsCompanion(
@@ -3964,6 +4028,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
           bgLocationDisclosureAcked ?? this.bgLocationDisclosureAcked,
       speedGoalKmh: speedGoalKmh ?? this.speedGoalKmh,
       distanceGoalKm: distanceGoalKm ?? this.distanceGoalKm,
+      competitionOptIn: competitionOptIn ?? this.competitionOptIn,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -4056,6 +4121,9 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
     if (distanceGoalKm.present) {
       map['distance_goal_km'] = Variable<double>(distanceGoalKm.value);
     }
+    if (competitionOptIn.present) {
+      map['competition_opt_in'] = Variable<bool>(competitionOptIn.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -4092,6 +4160,7 @@ class UserSettingsCompanion extends UpdateCompanion<UserSettingsRow> {
           ..write('bgLocationDisclosureAcked: $bgLocationDisclosureAcked, ')
           ..write('speedGoalKmh: $speedGoalKmh, ')
           ..write('distanceGoalKm: $distanceGoalKm, ')
+          ..write('competitionOptIn: $competitionOptIn, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -10139,6 +10208,7 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<bool> bgLocationDisclosureAcked,
       Value<double?> speedGoalKmh,
       Value<double?> distanceGoalKm,
+      Value<bool?> competitionOptIn,
       required DateTime createdAt,
     });
 typedef $$UserSettingsTableUpdateCompanionBuilder =
@@ -10170,6 +10240,7 @@ typedef $$UserSettingsTableUpdateCompanionBuilder =
       Value<bool> bgLocationDisclosureAcked,
       Value<double?> speedGoalKmh,
       Value<double?> distanceGoalKm,
+      Value<bool?> competitionOptIn,
       Value<DateTime> createdAt,
     });
 
@@ -10314,6 +10385,11 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<double> get distanceGoalKm => $composableBuilder(
     column: $table.distanceGoalKm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get competitionOptIn => $composableBuilder(
+    column: $table.competitionOptIn,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10467,6 +10543,11 @@ class $$UserSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get competitionOptIn => $composableBuilder(
+    column: $table.competitionOptIn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -10597,6 +10678,11 @@ class $$UserSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get competitionOptIn => $composableBuilder(
+    column: $table.competitionOptIn,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
@@ -10659,6 +10745,7 @@ class $$UserSettingsTableTableManager
                 Value<bool> bgLocationDisclosureAcked = const Value.absent(),
                 Value<double?> speedGoalKmh = const Value.absent(),
                 Value<double?> distanceGoalKm = const Value.absent(),
+                Value<bool?> competitionOptIn = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => UserSettingsCompanion(
                 id: id,
@@ -10688,6 +10775,7 @@ class $$UserSettingsTableTableManager
                 bgLocationDisclosureAcked: bgLocationDisclosureAcked,
                 speedGoalKmh: speedGoalKmh,
                 distanceGoalKm: distanceGoalKm,
+                competitionOptIn: competitionOptIn,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -10719,6 +10807,7 @@ class $$UserSettingsTableTableManager
                 Value<bool> bgLocationDisclosureAcked = const Value.absent(),
                 Value<double?> speedGoalKmh = const Value.absent(),
                 Value<double?> distanceGoalKm = const Value.absent(),
+                Value<bool?> competitionOptIn = const Value.absent(),
                 required DateTime createdAt,
               }) => UserSettingsCompanion.insert(
                 id: id,
@@ -10748,6 +10837,7 @@ class $$UserSettingsTableTableManager
                 bgLocationDisclosureAcked: bgLocationDisclosureAcked,
                 speedGoalKmh: speedGoalKmh,
                 distanceGoalKm: distanceGoalKm,
+                competitionOptIn: competitionOptIn,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

@@ -233,6 +233,9 @@ class UserSettingsRepository {
   /// name until the user picks a free one.
   Future<UsernameClaim> claimUsername() async {
     final row = await read();
+    // Holding a name makes the account findable by it, so it waits for
+    // the user to join the competition — not asked yet counts as no.
+    if (row.competitionOptIn != true) return UsernameClaim.unknown;
     if (row.username.isEmpty) return UsernameClaim.unknown;
     if (row.uid.isEmpty || row.uid == _initialUid) return UsernameClaim.unknown;
 
@@ -389,6 +392,11 @@ class UserSettingsRepository {
 
   Future<void> setMapTheme(MapTheme theme) =>
       patch(UserSettingsCompanion(selectedMapTheme: Value(theme.id)));
+
+  /// Records the answer to "Join the Competition". See
+  /// `CompetitionVisibility` for what joining and leaving actually do.
+  Future<void> setCompetitionOptIn({required bool optIn}) =>
+      patch(UserSettingsCompanion(competitionOptIn: Value(optIn)));
 
   Future<void> setUnitSystem(UnitSystem unit) => patch(
     UserSettingsCompanion(

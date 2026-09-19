@@ -18,12 +18,18 @@ abstract class CompetitionMirrorSink {
   /// Writes the mirror. Throwing means "failed, try again later" — the
   /// caller does not retry inline.
   Future<void> write(CompetitionMirror mirror);
+
+  /// Removes [uid]'s public profile, if there is one.
+  Future<void> delete(String uid);
 }
 
 /// Default when Firebase isn't initialised.
 @LazySingleton(as: CompetitionMirrorSink)
 class NoopCompetitionMirrorSink implements CompetitionMirrorSink {
   const NoopCompetitionMirrorSink();
+
+  @override
+  Future<void> delete(String uid) async {}
 
   @override
   Future<void> write(CompetitionMirror mirror) async {
@@ -74,5 +80,10 @@ class FirestoreCompetitionMirrorSink implements CompetitionMirrorSink {
     if (kDebugMode) {
       debugPrint('[CompetitionMirror] ✓ /public_profiles/${mirror.uid}');
     }
+  }
+  @override
+  Future<void> delete(String uid) async {
+    await _firestore.collection('public_profiles').doc(uid).delete();
+    if (kDebugMode) debugPrint('[CompetitionMirror] ✗ /public_profiles/$uid');
   }
 }

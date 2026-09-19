@@ -15,6 +15,7 @@ import 'package:drive_rank/core/services/auth_service.dart';
 import 'package:drive_rank/core/services/debug_seed_service.dart';
 import 'package:drive_rank/core/services/locale_service.dart' show UnitSystem;
 import 'package:drive_rank/core/services/paywall_service.dart';
+import 'package:drive_rank/features/social/data/services/competition_visibility.dart';
 import 'package:drive_rank/shared/models/car_category.dart';
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/map_theme.dart';
@@ -140,6 +141,18 @@ class _Body extends StatelessWidget {
                 final picked = await _pickCountry(context);
                 if (picked != null) await repo.setCountry(picked.code);
               },
+            ),
+            // Whether other DriveRank users can see and find this
+            // account. Not asked yet reads as Hidden, because nothing
+            // public is written until it is Visible.
+            _ToggleRow(
+              label: AppStrings.settingsCompetitionVisibility,
+              metricLabel: AppStrings.settingsCompetitionHidden,
+              imperialLabel: AppStrings.settingsCompetitionVisible,
+              isImperial: settings.competitionOptIn ?? false,
+              onChanged: (visible) => visible
+                  ? getIt<CompetitionVisibility>().join()
+                  : getIt<CompetitionVisibility>().leave(),
             ),
           ],
         ),

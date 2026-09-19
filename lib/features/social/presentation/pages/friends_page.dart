@@ -2,13 +2,17 @@ import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
+import 'package:drive_rank/core/database/app_database.dart' show UserSettingsRow;
 import 'package:drive_rank/core/di/injection.dart';
+import 'package:drive_rank/features/onboarding/presentation/widgets/teal_button.dart';
+import 'package:drive_rank/features/social/data/services/competition_visibility.dart';
 import 'package:drive_rank/features/social/domain/entities/account_label.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/friend.dart';
 import 'package:drive_rank/features/social/domain/entities/friend_request.dart';
 import 'package:drive_rank/features/social/presentation/bloc/friends_bloc.dart';
 import 'package:drive_rank/features/social/presentation/widgets/add_friend_sheet.dart';
+import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
@@ -32,9 +36,76 @@ class FriendsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!_providesBloc) return const _FriendsBody();
-    return BlocProvider<FriendsBloc>(
-      create: (_) => getIt<FriendsBloc>()..add(const FriendsStarted()),
-      child: const _FriendsBody(),
+    // Friends find you through your public profile — your username or
+    // code — which only exists once you have joined the competition.
+    // Until then this page asks, rather than offering a search that
+    // could never find you back.
+    return StreamBuilder<UserSettingsRow>(
+      stream: getIt<UserSettingsRepository>().watch(),
+      builder: (context, snapshot) {
+        final row = snapshot.data;
+        if (row == null) {
+          return const Scaffold(backgroundColor: AppColors.bg);
+        }
+        if (row.competitionOptIn != true) return const _JoinFirst();
+        return BlocProvider<FriendsBloc>(
+          create: (_) => getIt<FriendsBloc>()..add(const FriendsStarted()),
+          child: const _FriendsBody(),
+        );
+      },
+    );
+  }
+}
+
+/// Shown in place of the friends list to somebody who hasn't joined the
+/// competition. Says what joining makes visible before offering it.
+class _JoinFirst extends StatelessWidget {
+  const _JoinFirst();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.bg,
+        title: const Text(AppStrings.friendsTitle),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Spacer(),
+              const Icon(
+                Icons.group_add_rounded,
+                size: 44,
+                color: AppColors.teal,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                AppStrings.friendsJoinFirstTitle,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.title,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                AppStrings.friendsJoinFirstBody,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.45,
+                ),
+              ),
+              const Spacer(),
+              TealButton(
+                label: AppStrings.competitionJoinAction,
+                onPressed: () => getIt<CompetitionVisibility>().join(),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
