@@ -6,6 +6,7 @@ import 'package:drive_rank/features/social/data/services/social_directory.dart'
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge_progress.dart'
     as domain;
+import 'package:drive_rank/features/social/domain/entities/challenge_settlement.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_eligibility.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_trip.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
@@ -346,6 +347,46 @@ class SocialRepositoryImpl implements SocialRepository {
       uid: uid,
     );
     return row == null ? null : _progressFromRow(row, challengeId);
+  }
+
+  @override
+  Future<void> storeFrozenFigures({
+    required String challengeId,
+    required Map<String, double> figures,
+  }) async {
+    final row = await _local.getChallengeByRemoteId(challengeId);
+    if (row == null) {
+      throw ArgumentError('No challenge found for id $challengeId');
+    }
+    await _local.storeFrozenFigures(
+      challengeRowId: row.id,
+      participants: [row.creatorUid, ?row.opponentUid],
+      figures: figures,
+      targetValue: row.targetValue,
+      readAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<FrozenFigures?> getFrozenFigures({
+    required String challengeId,
+    required String viewerUid,
+    required String opponentUid,
+  }) async {
+    final row = await _local.getChallengeByRemoteId(challengeId);
+    if (row == null || !await _local.hasFrozenFigures(row.id)) return null;
+    final mine = await _local.getProgress(
+      challengeRowId: row.id,
+      uid: viewerUid,
+    );
+    final theirs = await _local.getProgress(
+      challengeRowId: row.id,
+      uid: opponentUid,
+    );
+    return FrozenFigures(
+      mine: mine?.currentValue,
+      theirs: theirs?.currentValue,
+    );
   }
 
   @override

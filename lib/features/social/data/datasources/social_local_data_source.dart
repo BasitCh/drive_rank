@@ -3,6 +3,10 @@ import 'package:drive_rank/core/database/app_database.dart';
 import 'package:injectable/injectable.dart';
 import 'package:uuid/uuid.dart';
 
+/// The progress-row key that records "the frozen figures have been read"
+/// for a challenge. Not a uid any account can have.
+const String kFrozenFiguresMarkerUid = '__frozen__';
+
 /// Thin Drift CRUD wrapper over the social tables (`friends`,
 /// `friend_requests`, `challenges`, `challenge_progress`, `trophies`).
 ///
@@ -468,9 +472,69 @@ class SocialLocalDataSource {
     int challengeRowId,
   ) {
     return (_db.select(_db.challengeProgress)
-          ..where((p) => p.challengeId.equals(challengeRowId)))
+          ..where(
+            (p) =>
+                p.challengeId.equals(challengeRowId) &
+                p.uid.equals(kFrozenFiguresMarkerUid).not(),
+          ))
         .get();
   }
+
+  /// Stores both participants' figures exactly as the server held them
+  /// after the freeze, and marks the challenge as read.
+  ///
+  /// One transaction, so "read" is never recorded without the figures
+  /// it was read with. A participant absent from [figures] published
+  /// nothing: their row is **removed**, not written as zero, so a stale
+  /// local recompute can never stand in for a published figure.
+  ///
+  /// The marker is a progress row under [kFrozenFiguresMarkerUid] — a
+  /// key no account can have — rather than a new column, so this needs
+  /// no schema change; every reader asks for a specific uid, and the one
+  /// that lists rows filters it out.
+  Future<void> storeFrozenFigures({
+    required int challengeRowId,
+    required List<String> participants,
+    required Map<String, double> figures,
+    required double targetValue,
+    required DateTime readAt,
+  }) {
+    return _db.transaction(() async {
+      for (final uid in participants) {
+        final value = figures[uid];
+        if (value == null) {
+          await (_db.delete(_db.challengeProgress)..where(
+                (p) =>
+                    p.challengeId.equals(challengeRowId) & p.uid.equals(uid),
+              ))
+              .go();
+        } else {
+          await upsertProgressValue(
+            challengeRowId: challengeRowId,
+            uid: uid,
+            currentValue: value,
+            targetValue: targetValue,
+            lastCalculatedAt: readAt,
+          );
+        }
+      }
+      await upsertProgressValue(
+        challengeRowId: challengeRowId,
+        uid: kFrozenFiguresMarkerUid,
+        currentValue: 1,
+        targetValue: targetValue,
+        lastCalculatedAt: readAt,
+      );
+    });
+  }
+
+  /// Whether [storeFrozenFigures] has run for this challenge.
+  Future<bool> hasFrozenFigures(int challengeRowId) async =>
+      await getProgress(
+        challengeRowId: challengeRowId,
+        uid: kFrozenFiguresMarkerUid,
+      ) !=
+      null;
 
   Future<ChallengeProgressRow?> getProgress({
     required int challengeRowId,

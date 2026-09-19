@@ -167,8 +167,11 @@ class ChallengeCard extends StatelessWidget {
         : deadlineLabel,
     // Once it has closed, the one that matters is when the figures
     // freeze — a different moment, and saying so is the whole point.
-    ChallengeOutcome.finalizing =>
-      AppStrings.challengeFinalIn(remainingLabel),
+    // Past the freeze with the frozen figures not read yet, there is no
+    // time left to count down — say what is actually happening.
+    ChallengeOutcome.finalizing => remainingLabel.isEmpty
+        ? AppStrings.challengeConfirming
+        : AppStrings.challengeFinalIn(remainingLabel),
     ChallengeOutcome.undecided => AppStrings.challengeUndecidedBody,
     ChallengeOutcome.expired => AppStrings.challengeExpiredBody,
     ChallengeOutcome.won ||
@@ -187,7 +190,8 @@ class _Figures extends StatelessWidget {
     required this.emphasiseMine,
   });
 
-  final double mine;
+  /// Null only on a final result where the viewer never published.
+  final double? mine;
   final double? theirs;
   final String opponentName;
   final String Function(double) formatValue;
@@ -198,9 +202,10 @@ class _Figures extends StatelessWidget {
     // A missing figure draws no bar at all rather than an empty one at
     // zero: the opponent has not reported, which is not the same as
     // having reported nothing.
+    final me = mine;
     final them = theirs;
-    final total = mine + (them ?? 0);
-    final myShare = total <= 0 ? 0.5 : mine / total;
+    final total = (me ?? 0) + (them ?? 0);
+    final myShare = total <= 0 ? 0.5 : (me ?? 0) / total;
 
     return Column(
       children: [
@@ -210,7 +215,7 @@ class _Figures extends StatelessWidget {
             Expanded(
               child: _Side(
                 label: AppStrings.challengeYou,
-                value: formatValue(mine),
+                value: me == null ? '—' : formatValue(me),
                 emphasised: emphasiseMine,
               ),
             ),

@@ -184,6 +184,50 @@ void main() {
     });
   });
 
+  test("the viewer's own side is what they published — a local "
+      'recompute that never reached the server is replaced, not kept',
+      () async {
+    final c = challenge(
+      endAt: DateTime.now().subtract(const Duration(hours: 8)),
+    );
+    directory.challenges = [c];
+    await repo.upsertChallenge(c);
+    // This phone computed 80 locally; nothing of it was ever published.
+    await repo.upsertProgressValue(
+      ChallengeProgress(
+        challengeId: c.id,
+        uid: me,
+        currentValue: 80,
+        targetValue: c.targetValue,
+      ),
+    );
+    directory.server['c1'] = {rival: 50};
+
+    await sync.syncNow();
+
+    final frozen = await repo.getFrozenFigures(
+      challengeId: 'c1',
+      viewerUid: me,
+      opponentUid: rival,
+    );
+    expect(frozen, isNotNull);
+    expect(frozen!.mine, isNull);
+    expect(frozen.theirs, 50);
+  });
+
+  test("the read-marker never shows up as somebody's progress", () async {
+    final c = challenge(
+      endAt: DateTime.now().subtract(const Duration(hours: 8)),
+    );
+    directory.challenges = [c];
+    directory.server['c1'] = {rival: 50, me: 20};
+
+    await sync.syncNow();
+
+    final rows = await repo.getProgressForChallenge('c1');
+    expect(rows.map((r) => r.uid).toSet(), {rival, me});
+  });
+
   group('no extra reads where the listeners already cover it', () {
     test('a challenge still inside its grace is left to the listener',
         () async {

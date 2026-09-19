@@ -26,20 +26,38 @@ class SettleChallenge {
 
   /// [mine] is the viewer's figure, recomputed from their own trips.
   /// [theirs] is what the opponent published, or null if they published
-  /// nothing — **null is not zero**.
+  /// nothing — **null is not zero**. Both drive the live and finalizing
+  /// readings only.
+  ///
+  /// [frozen] is what the server held for both of them after the
+  /// freeze, and the only thing a final result is read from — so two
+  /// phones compare the same two numbers whatever each of them computed
+  /// locally. Null means this device hasn't read them yet: the result
+  /// stays [ChallengeOutcome.finalizing] rather than be guessed at.
   ChallengeSettlement call({
     required Challenge challenge,
     required double mine,
     required double? theirs,
+    FrozenFigures? frozen,
     DateTime? now,
   }) {
     final at = now ?? DateTime.now();
     final finalAt = challenge.endAt.add(kChallengeFinalizationGrace);
-
-    return ChallengeSettlement(
-      outcome: _outcome(challenge: challenge, at: at, mine: mine, theirs: theirs),
+    final outcome = _outcome(
+      challenge: challenge,
+      at: at,
       mine: mine,
       theirs: theirs,
+      frozen: frozen,
+    );
+    // A final contest shows the figures it was decided on.
+    final decidedOnFrozen =
+        outcome.isFinishedContest && frozen != null;
+
+    return ChallengeSettlement(
+      outcome: outcome,
+      mine: decidedOnFrozen ? frozen.mine : mine,
+      theirs: decidedOnFrozen ? frozen.theirs : theirs,
       finalAt: finalAt,
     );
   }
@@ -49,6 +67,7 @@ class SettleChallenge {
     required DateTime at,
     required double mine,
     required double? theirs,
+    required FrozenFigures? frozen,
   }) {
     // Never accepted, and — since acceptance is refused once the window
     // has closed — never acceptable again. There was no contest.
@@ -75,12 +94,20 @@ class SettleChallenge {
       return ChallengeOutcome.finalizing;
     }
 
-    // Final. Absent is not zero: an opponent who published nothing at
-    // all leaves no result, rather than losing 0 to whatever the viewer
-    // drove.
-    if (theirs == null) return ChallengeOutcome.undecided;
-    if (mine > theirs) return ChallengeOutcome.won;
-    if (mine < theirs) return ChallengeOutcome.lost;
+    // Frozen, but this device hasn't read the frozen figures yet. Still
+    // no winner: naming one from anything else is how two phones came
+    // to disagree.
+    if (frozen == null) return ChallengeOutcome.finalizing;
+
+    // Final, from the published figures on both sides. Absent is not
+    // zero: either person publishing nothing leaves no result — for
+    // both of them — rather than a win or a draw against a figure
+    // nobody reported.
+    final me = frozen.mine;
+    final them = frozen.theirs;
+    if (me == null || them == null) return ChallengeOutcome.undecided;
+    if (me > them) return ChallengeOutcome.won;
+    if (me < them) return ChallengeOutcome.lost;
     return ChallengeOutcome.drew;
   }
 }

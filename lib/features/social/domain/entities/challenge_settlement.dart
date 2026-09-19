@@ -95,6 +95,23 @@ enum ChallengeOutcome {
   };
 }
 
+/// Both participants' figures as the server held them after the freeze.
+///
+/// A final result is read from these and nothing else. Settling the
+/// viewer's side from their own on-device recompute instead meant the
+/// two phones compared different numbers whenever a figure never
+/// reached the server — seen on two accounts: one phone said "No
+/// result" and the other "Draw" for the same challenge. Read once, from
+/// the server, after the freeze; either figure is null when that person
+/// never published one.
+@immutable
+class FrozenFigures {
+  const FrozenFigures({required this.mine, required this.theirs});
+
+  final double? mine;
+  final double? theirs;
+}
+
 /// The two sides of a challenge, plus what they add up to.
 @immutable
 class ChallengeSettlement {
@@ -107,9 +124,10 @@ class ChallengeSettlement {
 
   final ChallengeOutcome outcome;
 
-  /// The viewer's figure. Always known — it is computed from their own
-  /// trips.
-  final double mine;
+  /// The viewer's figure. While the challenge can still move it is the
+  /// live recompute from their own trips; once final it is what they
+  /// **published** — so null when they never published one.
+  final double? mine;
 
   /// The opponent's published figure, or null when they have not
   /// published one. **Null is not zero.**

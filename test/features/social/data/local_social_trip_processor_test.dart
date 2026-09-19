@@ -573,6 +573,12 @@ void main() {
           ),
         );
       }
+      // What the post-freeze server read stores, and all a final result
+      // is settled from: the figures each of them published.
+      await repo.storeFrozenFigures(
+        challengeId: challenge.id,
+        figures: {if (mine > 0) uid: mine, 'rival': ?theirs},
+      );
       return challenge;
     }
 
@@ -729,6 +735,12 @@ void main() {
           ),
         );
       }
+      // What the post-freeze server read stores, and all a final result
+      // is settled from: the figures each of them published.
+      await repo.storeFrozenFigures(
+        challengeId: challenge.id,
+        figures: {if (mine > 0) uid: mine, 'rival': ?theirs},
+      );
       return challenge;
     }
 
@@ -830,6 +842,35 @@ void main() {
         stored.where((Trophy t) => t.type == TrophyType.firstChallenge),
         hasLength(1),
       );
+    });
+
+    test('past the freeze but with the frozen figures not read yet, '
+        'nothing is awarded — a trophy is never decided on a guess',
+        () async {
+      await createTarget(
+        opponentUid: 'rival',
+        startAt: now.subtract(const Duration(days: 8)),
+        endAt: closedAt,
+        status: ChallengeStatus.active,
+        targetValue: 1000,
+      );
+      await saveTrip(
+        distanceKm: 100,
+        startedAt: now.subtract(const Duration(days: 2)),
+      );
+
+      expect(await openApp(), isEmpty);
+    });
+
+    test('the award follows what was published, not the local recompute '
+        '— driving that never reached the server wins nothing', () async {
+      final challenge = await finalChallenge(mine: 100, theirs: 40);
+      // Only 10 was ever published; 100 exists on this phone alone.
+      await repo.storeFrozenFigures(
+        challengeId: challenge.id,
+        figures: {uid: 10, 'rival': 40},
+      );
+      expect(await openApp(), {TrophyType.firstChallenge});
     });
 
     test("the pre-auth 'local' uid is never awarded anything", () async {

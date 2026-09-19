@@ -118,6 +118,13 @@ class GetChallenges {
             challenge: challenge,
             mine: mine,
             theirs: theirs?.currentValue,
+        // What a final result is read from: both published figures, as
+        // the server held them after the freeze.
+        frozen: await _social.getFrozenFigures(
+          challengeId: challenge.id,
+          viewerUid: uid,
+          opponentUid: opponentUid,
+        ),
             now: at,
           ),
           opponentUid: opponentUid,

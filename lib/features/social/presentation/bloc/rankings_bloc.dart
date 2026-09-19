@@ -9,6 +9,7 @@ import 'package:drive_rank/features/social/data/services/challenge_sync_service.
 import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
 import 'package:drive_rank/features/social/data/services/social_directory.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge_settlement.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_mirror.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
 import 'package:drive_rank/features/social/domain/entities/friend.dart';
@@ -329,6 +330,11 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
   StreamSubscription<List<Friend>>? _friendsSub;
   StreamSubscription<void>? _challengesSub;
   Timer? _boundaryTimer;
+
+  /// When this screen last asked for the frozen figures, and how soon it
+  /// may ask again while they still haven't arrived.
+  DateTime? _lastFrozenRead;
+  static const Duration _frozenReadRetry = Duration(seconds: 30);
   StreamSubscription<List<CompetitionMirror>>? _profilesSub;
 
   String? _uid;
@@ -825,11 +831,41 @@ class RankingsBloc extends Bloc<RankingsEvent, RankingsState> {
         if (at.isAfter(now) && (next == null || at.isBefore(next))) next = at;
       }
     }
+
+    // Frozen, but the final figures aren't read on this device yet — the
+    // card says it is confirming them. Read them now, whether the freeze
+    // passed a moment ago or while the app was closed; the write that
+    // read makes rebuilds the cards with the result. Checked on every
+    // rebuild rather than only at the freeze tick: a first rebuild that
+    // lands after the freeze has no boundary left to wait for, and the
+    // card sat on "confirming" until the next launch. Throttled, so an
+    // offline phone retries every [_frozenReadRetry] rather than in a
+    // loop.
+    final unread = challenges.any(
+      (view) =>
+          view.settlement.outcome == ChallengeOutcome.finalizing &&
+          !now.isBefore(view.settlement.finalAt),
+    );
+    if (unread) {
+      final last = _lastFrozenRead;
+      if (last == null || now.difference(last) >= _frozenReadRetry) {
+        _lastFrozenRead = now;
+        unawaited(_challengeSync.syncNow());
+      }
+      final retry = now.add(_frozenReadRetry);
+      if (next == null || retry.isBefore(next)) next = retry;
+    }
+
     if (next == null) return;
-    // A beat past the boundary, so the rebuild's own clock reads the
-    // new side of it.
+    // Past the boundary by more than a second, so the rebuild — and the
+    // frozen-figures read it may start — sees the new side of it. Drift
+    // stores times to the second while the cloud keeps the fraction, so
+    // the local freeze can read up to a second earlier than the one the
+    // sync checks against; firing half a second after the local one made
+    // the read decide it was still too early and back off for
+    // [_frozenReadRetry].
     _boundaryTimer = Timer(
-      next.difference(now) + const Duration(milliseconds: 500),
+      next.difference(now) + const Duration(seconds: 2),
       () {
         if (!isClosed) add(const _RankingsClockTicked());
       },

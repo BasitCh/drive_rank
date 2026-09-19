@@ -1,5 +1,6 @@
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge_progress.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge_settlement.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_eligibility.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_trip.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
@@ -100,6 +101,21 @@ abstract class SocialRepository {
   /// because a recompute can legitimately *lower* the value (the user
   /// deleted a trip) and that must not un-complete a finished target.
   Future<void> upsertProgressValue(ChallengeProgress progress);
+
+  /// Records both participants' figures as the server held them after
+  /// the freeze. A participant missing from [figures] published nothing.
+  Future<void> storeFrozenFigures({
+    required String challengeId,
+    required Map<String, double> figures,
+  });
+
+  /// The frozen figures from [viewerUid]'s side, or null if they have
+  /// not been read on this device yet.
+  Future<FrozenFigures?> getFrozenFigures({
+    required String challengeId,
+    required String viewerUid,
+    required String opponentUid,
+  });
   Future<void> markProgressComplete({
     required String challengeId,
     required String uid,

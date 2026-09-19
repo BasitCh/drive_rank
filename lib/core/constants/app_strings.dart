@@ -509,6 +509,9 @@ class AppStrings {
   /// "Final in 5 hours" — how long until the figures freeze.
   static String challengeFinalIn(String remaining) => 'Final in $remaining';
 
+  /// Frozen, but this phone hasn't read the final figures yet.
+  static const String challengeConfirming = 'Confirming the final figures…';
+
   // Final.
   static const String challengeWon = 'You won';
   static const String challengeLost = 'You lost';

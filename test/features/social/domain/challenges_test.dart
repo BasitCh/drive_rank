@@ -177,6 +177,11 @@ void main() {
         status: ChallengeStatus.active,
       );
       await addTrip(distanceKm: 80, startedAt: DateTime(2026, 9, 11));
+      // The post-freeze read found only the viewer's figure.
+      await repo.storeFrozenFigures(
+        challengeId: challenge.id,
+        figures: {me: 80},
+      );
 
       // Past the finalization boundary, where the distinction bites.
       final view = (await getChallenges(
@@ -185,6 +190,45 @@ void main() {
       )).single;
       expect(view.settlement.theirs, isNull);
       expect(view.settlement.outcome, ChallengeOutcome.undecided);
+    });
+
+    test('past the freeze, the card reads the published figures — the '
+        "same two numbers the opponent's phone reads", () async {
+      final challenge = await open();
+      await repo.updateChallengeStatus(
+        challengeId: challenge.id,
+        status: ChallengeStatus.active,
+      );
+      // 80 km on this phone, but only 30 ever reached the server.
+      await addTrip(distanceKm: 80, startedAt: DateTime(2026, 9, 11));
+      await repo.storeFrozenFigures(
+        challengeId: challenge.id,
+        figures: {me: 30, them: 50},
+      );
+
+      final view = (await getChallenges(
+        uid: me,
+        now: DateTime(2026, 9, 14).add(kChallengeFinalizationGrace),
+      )).single;
+      expect(view.settlement.outcome, ChallengeOutcome.lost);
+      expect(view.settlement.mine, 30);
+      expect(view.settlement.theirs, 50);
+    });
+
+    test('past the freeze but not yet read, the card names no winner',
+        () async {
+      final challenge = await open();
+      await repo.updateChallengeStatus(
+        challengeId: challenge.id,
+        status: ChallengeStatus.active,
+      );
+      await addTrip(distanceKm: 80, startedAt: DateTime(2026, 9, 11));
+
+      final view = (await getChallenges(
+        uid: me,
+        now: DateTime(2026, 9, 14).add(kChallengeFinalizationGrace),
+      )).single;
+      expect(view.settlement.outcome, ChallengeOutcome.finalizing);
     });
 
     test('names the opponent from their published profile, and falls '

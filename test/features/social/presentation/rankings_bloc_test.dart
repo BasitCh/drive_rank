@@ -110,8 +110,17 @@ class _FakeDirectory implements SocialDirectory {
     required ChallengeStatus response,
   }) async => answered.add((challengeId, response));
 
+  /// The cloud's challenges and, per challenge, the figures the server
+  /// holds once they have frozen.
+  List<Challenge> remote = const [];
+  final Map<String, Map<String, double>> serverFigures = {};
+
   @override
-  Future<List<Challenge>> challengesFor(String uid) async => const [];
+  Future<List<Challenge>> challengesFor(String uid) async => remote;
+
+  @override
+  Future<Map<String, double>> progressFor(String challengeId) async =>
+      serverFigures[challengeId] ?? const {};
 
   @override
   Stream<Map<String, double>> watchProgress(String challengeId) =>
@@ -601,6 +610,84 @@ void main() {
             ChallengeOutcome.finalizing,
       ).timeout(const Duration(seconds: 10));
       expect(ended.challenges.single.settlement.isFinal, isFalse);
+    });
+
+    test('left open over the freeze, the card reads the frozen figures and '
+        'names the result by itself', () async {
+      // A signed-in account: the sync, rightly, does nothing for the
+      // pre-auth placeholder.
+      await settings.syncUid('me-uid');
+      final uid = (await settings.read()).uid;
+      final now = DateTime.now();
+      // Freezes three seconds from now.
+      final endAt = now
+          .subtract(kChallengeFinalizationGrace)
+          .add(const Duration(seconds: 3));
+      final c = Challenge(
+        id: 'c1',
+        creatorUid: 'bob',
+        opponentUid: uid,
+        metric: CompetitionMetric.distance,
+        targetValue: 50,
+        period: LeaderboardPeriod.weekly,
+        startAt: endAt.subtract(const Duration(days: 2)),
+        endAt: endAt,
+        status: ChallengeStatus.active,
+        createdAt: endAt.subtract(const Duration(days: 2)),
+        updatedAt: endAt.subtract(const Duration(days: 2)),
+      );
+      await repo.upsertChallenge(c);
+      directory
+        ..remote = [c]
+        ..serverFigures['c1'] = {uid: 30, 'bob': 10};
+
+      bloc.add(const RankingsStarted());
+      final before = await settle((s) => s.challenges.isNotEmpty);
+      expect(
+        before.challenges.single.settlement.outcome,
+        ChallengeOutcome.finalizing,
+      );
+
+      final after = await settle(
+        (s) => s.challenges.single.settlement.isFinal,
+      ).timeout(const Duration(seconds: 12));
+      expect(after.challenges.single.settlement.outcome, ChallengeOutcome.won);
+      expect(after.challenges.single.settlement.mine, 30);
+    });
+
+    test('a challenge that froze before the screen opened is read and '
+        'settled without waiting for any boundary — there is none left',
+        () async {
+      await settings.syncUid('me-uid');
+      final uid = (await settings.read()).uid;
+      final endAt = DateTime.now()
+          .subtract(kChallengeFinalizationGrace)
+          .subtract(const Duration(hours: 1));
+      final c = Challenge(
+        id: 'c1',
+        creatorUid: 'bob',
+        opponentUid: uid,
+        metric: CompetitionMetric.distance,
+        targetValue: 50,
+        period: LeaderboardPeriod.weekly,
+        startAt: endAt.subtract(const Duration(days: 2)),
+        endAt: endAt,
+        status: ChallengeStatus.active,
+        createdAt: endAt.subtract(const Duration(days: 2)),
+        updatedAt: endAt.subtract(const Duration(days: 2)),
+      );
+      await repo.upsertChallenge(c);
+      directory
+        ..remote = [c]
+        ..serverFigures['c1'] = {uid: 10, 'bob': 10};
+
+      bloc.add(const RankingsStarted());
+      final settled = await settle(
+        (s) =>
+            s.challenges.isNotEmpty &&
+            s.challenges.single.settlement.isFinal,
+      ).timeout(const Duration(seconds: 10));
+      expect(settled.challenges.single.settlement.outcome, ChallengeOutcome.drew);
     });
 
     test('a synced challenge appears without a reload', () async {

@@ -35,6 +35,9 @@ void main() {
     updatedAt: DateTime(2026, 9, 7),
   );
 
+  /// Settles with the frozen figures already read, holding what was
+  /// published — the state every device reaches after the freeze. The
+  /// final-state tests below are about the boundary, not the read.
   ChallengeSettlement at(
     DateTime when, {
     double mine = 100,
@@ -44,6 +47,7 @@ void main() {
     challenge: challenge(status: status),
     mine: mine,
     theirs: theirs,
+    frozen: FrozenFigures(mine: mine, theirs: theirs),
     now: when,
   );
 
@@ -200,6 +204,95 @@ void main() {
     });
   });
 
+  // Two accounts saw one challenge read "No result" on one phone and
+  // "Draw" on the other: each settled its own side from its on-device
+  // recompute. A final result is now read from the published figures on
+  // both sides, and nothing else.
+  group('a final result is read from the frozen figures only', () {
+    final after = finalAt.add(const Duration(hours: 1));
+
+    test('both phones reach mirror-image answers from the same two '
+        'published numbers, whatever each computed locally', () {
+      final c = challenge();
+      // The viewer's phone holds 150 locally, but only 100 ever reached
+      // the server — that is the figure that counts.
+      final mine = settle(
+        challenge: c,
+        mine: 150,
+        theirs: 120,
+        frozen: const FrozenFigures(mine: 100, theirs: 120),
+        now: after,
+      );
+      final theirs = settle(
+        challenge: c,
+        mine: 120,
+        theirs: 100,
+        frozen: const FrozenFigures(mine: 120, theirs: 100),
+        now: after,
+      );
+      expect(mine.outcome, ChallengeOutcome.lost);
+      expect(theirs.outcome, ChallengeOutcome.won);
+      expect(mine.mine, 100, reason: 'shows the figure it was decided on');
+    });
+
+    test('the viewer never having published is no result — on their '
+        'phone too, not a result against a figure that never left it', () {
+      final c = challenge();
+      final viewer = settle(
+        challenge: c,
+        mine: 0,
+        theirs: 0,
+        frozen: const FrozenFigures(mine: null, theirs: 0),
+        now: after,
+      );
+      final opponent = settle(
+        challenge: c,
+        mine: 0,
+        theirs: null,
+        frozen: const FrozenFigures(mine: 0, theirs: null),
+        now: after,
+      );
+      expect(viewer.outcome, ChallengeOutcome.undecided);
+      expect(opponent.outcome, ChallengeOutcome.undecided);
+      expect(viewer.mine, isNull);
+    });
+
+    test('until this phone has read them, nothing is named — it stays '
+        'finalizing past the freeze rather than guess', () {
+      final c = challenge();
+      final unread = settle(challenge: c, mine: 100, theirs: 40, now: after);
+      expect(unread.outcome, ChallengeOutcome.finalizing);
+      expect(unread.isFinal, isFalse);
+      expect(unread.remainingUntilFinal(after), isNull);
+    });
+
+    test('before the freeze, frozen figures are ignored — the live '
+        'reading still comes from the live figures', () {
+      final c = challenge();
+      final live = settle(
+        challenge: c,
+        mine: 100,
+        theirs: 40,
+        frozen: const FrozenFigures(mine: 1, theirs: 999),
+        now: endAt.subtract(const Duration(hours: 2)),
+      );
+      expect(live.outcome, ChallengeOutcome.leading);
+    });
+
+    test('a challenge nobody accepted is never started, frozen figures '
+        'or not', () {
+      final c = challenge(status: ChallengeStatus.pending);
+      final settled = settle(
+        challenge: c,
+        mine: 100,
+        theirs: null,
+        frozen: const FrozenFigures(mine: null, theirs: null),
+        now: after,
+      );
+      expect(settled.outcome, ChallengeOutcome.expired);
+    });
+  });
+
   test('the whole sequence the boundary exists for: ahead at the close, '
       'overtaken by an honest late publish during the grace, and both '
       'devices agree on the loser afterwards', () {
@@ -240,6 +333,7 @@ void main() {
         challenge: c,
         mine: 100,
         theirs: 120,
+        frozen: const FrozenFigures(mine: 100, theirs: 120),
         now: when,
       );
       expect(settled.outcome, ChallengeOutcome.lost, reason: '$when');

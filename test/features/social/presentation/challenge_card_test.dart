@@ -33,7 +33,7 @@ void main() {
 
   ChallengeView view({
     required ChallengeOutcome outcome,
-    double mine = 420,
+    double? mine = 420,
     double? theirs = 385,
     bool isMine = true,
     ChallengeStatus status = ChallengeStatus.active,
@@ -55,6 +55,7 @@ void main() {
     VoidCallback? onAccept,
     VoidCallback? onDecline,
     VoidCallback? onWithdraw,
+    String remainingLabel = '5 hours',
   }) {
     return tester.pumpWidget(
       MaterialApp(
@@ -64,7 +65,7 @@ void main() {
             metricLabel: 'Distance · This week',
             formatValue: (value) => '${value.round()} km',
             deadlineLabel: 'Ends Sunday',
-            remainingLabel: '5 hours',
+            remainingLabel: remainingLabel,
             onAccept: onAccept,
             onDecline: onDecline,
             onWithdraw: onWithdraw,
@@ -127,9 +128,31 @@ void main() {
       );
       expect(find.text('Ends Sunday'), findsNothing);
     });
+
+    testWidgets('past the freeze with the final figures not read yet, it '
+        'says it is confirming them — not "Final in" nothing',
+        (tester) async {
+      await pump(
+        tester,
+        view(outcome: ChallengeOutcome.finalizing),
+        remainingLabel: '',
+      );
+      expect(find.text(AppStrings.challengeConfirming), findsOneWidget);
+      expect(find.text(AppStrings.challengeFinalIn('')), findsNothing);
+    });
   });
 
   group('once frozen', () {
+    testWidgets('a viewer who never published shows a dash, not a zero — '
+        'the result was read from published figures', (tester) async {
+      await pump(
+        tester,
+        view(outcome: ChallengeOutcome.undecided, mine: null, theirs: 0),
+      );
+      expect(find.text('—'), findsOneWidget);
+      expect(find.text(AppStrings.challengeUndecided), findsOneWidget);
+    });
+
     testWidgets('declares the result', (tester) async {
       await pump(tester, view(outcome: ChallengeOutcome.won));
       expect(find.text(AppStrings.challengeWon), findsOneWidget);
