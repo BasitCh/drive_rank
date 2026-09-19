@@ -82,13 +82,21 @@ class LeaderboardRow extends StatelessWidget {
         children: [
           // The driver's flag, faded out behind the rank — where they
           // drive, read before their name is.
-          if (flag != null)
+          // Where the driver is from, faded out behind the rank. A
+          // benchmark is from nowhere, so it flies the chequered flag
+          // instead — the racing mark for a pace to beat, and never a
+          // nationality.
+          if (flag != null || isBenchmark)
             Positioned(
               left: 0,
               top: 0,
               bottom: 0,
               width: 92,
-              child: _FlagWash(flag: flag),
+              child: _Wash(
+                child: isBenchmark
+                    ? const _ChequeredFlag()
+                    : _EmojiFlag(flag: flag!),
+              ),
             ),
           Row(
             children: [
@@ -208,12 +216,11 @@ class LeaderboardRow extends StatelessWidget {
   }
 }
 
-/// A country flag, blown up and faded out to the right — the backdrop
-/// behind a row's rank.
-class _FlagWash extends StatelessWidget {
-  const _FlagWash({required this.flag});
+/// Fades whatever flag sits behind a row's rank out to the right.
+class _Wash extends StatelessWidget {
+  const _Wash({required this.child});
 
-  final String flag;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -221,23 +228,78 @@ class _FlagWash extends StatelessWidget {
       blendMode: BlendMode.dstIn,
       shaderCallback: (bounds) => const LinearGradient(
         colors: [Color(0x99FFFFFF), Color(0x73FFFFFF), Color(0x00FFFFFF)],
-        // Fully faded well inside the wash, so the emoji's own edge
-        // never shows as a line.
+        // Fully faded well inside the wash, so the flag's own edge never
+        // shows as a line.
         stops: [0, 0.35, 0.8],
       ).createShader(bounds),
-      child: ClipRect(
-        child: OverflowBox(
-          maxWidth: double.infinity,
-          maxHeight: double.infinity,
-          child: Transform.scale(
-            // An emoji flag is drawn with rounded corners and a waving
-            // edge. Blown up well past the row and cropped, only its
-            // colours remain — a solid wash, like a printed flag.
-            scale: 2.2,
-            child: Text(flag, style: const TextStyle(fontSize: 60, height: 1)),
-          ),
+      child: ClipRect(child: child),
+    );
+  }
+}
+
+/// A country flag from its emoji, blown up and cropped.
+class _EmojiFlag extends StatelessWidget {
+  const _EmojiFlag({required this.flag});
+
+  final String flag;
+
+  @override
+  Widget build(BuildContext context) {
+    return OverflowBox(
+      maxWidth: double.infinity,
+      maxHeight: double.infinity,
+      child: Transform.scale(
+        // An emoji flag is drawn with rounded corners and a waving edge.
+        // Blown up well past the row and cropped, only its colours remain
+        // — a solid wash, like a printed flag.
+        scale: 2.2,
+        child: Text(flag, style: const TextStyle(fontSize: 60, height: 1)),
+      ),
+    );
+  }
+}
+
+/// The chequered racing flag, tilted as if flown.
+class _ChequeredFlag extends StatelessWidget {
+  const _ChequeredFlag();
+
+  @override
+  Widget build(BuildContext context) {
+    return OverflowBox(
+      maxWidth: 160,
+      maxHeight: 160,
+      child: Transform.rotate(
+        angle: -0.2,
+        child: const CustomPaint(
+          size: Size(160, 160),
+          painter: _ChequerPainter(),
         ),
       ),
     );
   }
+}
+
+class _ChequerPainter extends CustomPainter {
+  const _ChequerPainter();
+
+  static const double _square = 12;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final light = Paint()..color = const Color(0xFFF2F2F7);
+    final dark = Paint()..color = const Color(0xFF26262E);
+    final columns = (size.width / _square).ceil();
+    final rows = (size.height / _square).ceil();
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < columns; c++) {
+        canvas.drawRect(
+          Rect.fromLTWH(c * _square, r * _square, _square, _square),
+          (r + c).isEven ? light : dark,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChequerPainter oldDelegate) => false;
 }
