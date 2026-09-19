@@ -31,6 +31,11 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+
+# Xcode writes build artifacts here on some invocations; the root
+# /build/ rule above doesn't cover it, so 100+ PIFCache files kept
+# showing up as untracked changes.
+ios/build/
 /coverage/
 
 # Symbolication related
@@ -61,3 +66,6 @@ app.*.map.json
 .env.local
 .env.production
 .vscode/launch.json
+
+# Node dependencies for the Firestore rules test suite (test/rules).
+node_modules/

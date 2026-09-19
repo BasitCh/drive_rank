@@ -252,4 +252,143 @@ void main() {
       },
     );
   });
+
+  group('rankings kill switch — the single source of truth', () {
+    test('defaults to enabled, so upgrading or installing never takes '
+        'the feature away', () async {
+      expect(await repo.isRankingsEnabled(), isTrue);
+      expect(await repo.watchRankingsEnabled().first, isTrue);
+    });
+
+    test('the reactive and one-shot accessors always agree — the router '
+        'reads one and the UI the other, and a disagreement would mean '
+        'a hidden tab with a reachable route, or the reverse', () async {
+      await repo.setRankingsEnabled(enabled: false);
+      expect(await repo.isRankingsEnabled(), isFalse);
+      expect(await repo.watchRankingsEnabled().first, isFalse);
+
+      await repo.setRankingsEnabled(enabled: true);
+      expect(await repo.isRankingsEnabled(), isTrue);
+      expect(await repo.watchRankingsEnabled().first, isTrue);
+    });
+
+    test('the stream emits on a flip, so consumers need no restart',
+        () async {
+      final seen = <bool>[];
+      final sub = repo.watchRankingsEnabled().listen(seen.add);
+
+      await repo.setRankingsEnabled(enabled: false);
+      await repo.setRankingsEnabled(enabled: true);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await sub.cancel();
+
+      expect(seen, containsAllInOrder([true, false, true]));
+    });
+
+    test('reads as enabled when no settings row exists yet — a user '
+        'mid-first-launch should not momentarily lose the feature',
+        () async {
+      await db.delete(db.userSettings).go();
+      expect(await repo.isRankingsEnabled(), isTrue);
+    });
+
+    test('survives a uid migration, since the flag is per install rather '
+        'than per account', () async {
+      await repo.setRankingsEnabled(enabled: false);
+      await repo.syncUid('firebase-uid-1');
+      expect(await repo.isRankingsEnabled(), isFalse);
+    });
+  });
+
+  group('syncUid and the social tables', () {
+    test('leaves no social row stranded under the pre-auth placeholder — '
+        'the competition engine never writes them under it, which is why '
+        'syncUid has nothing social to migrate', () async {
+      await db
+          .into(db.trips)
+          .insert(
+            TripsCompanion.insert(
+              uid: 'local',
+              topSpeedKmh: 100,
+              avgSpeedKmh: 50,
+              distanceKm: 20,
+              durationSeconds: 900,
+              startedAt: DateTime(2026, 9, 3),
+            ),
+          );
+
+      await repo.syncUid('firebase-uid-1');
+
+      // The trips did migrate…
+      final trips = await db.select(db.trips).get();
+      expect(trips.single.uid, 'firebase-uid-1');
+
+      // …and there is nothing left behind in any uid-carrying social
+      // table, because nothing was ever written under 'local'.
+      expect(
+        await (db.select(db.trophies)..where((t) => t.uid.equals('local')))
+            .get(),
+        isEmpty,
+      );
+      expect(
+        await (db.select(
+          db.challengeProgress,
+        )..where((p) => p.uid.equals('local'))).get(),
+        isEmpty,
+      );
+      expect(
+        await (db.select(
+          db.challenges,
+        )..where((c) => c.creatorUid.equals('local'))).get(),
+        isEmpty,
+      );
+      expect(
+        await (db.select(
+          db.friends,
+        )..where((f) => f.ownerUid.equals('local'))).get(),
+        isEmpty,
+      );
+      expect(
+        await (db.select(
+          db.friendRequests,
+        )..where((r) => r.fromUid.equals('local'))).get(),
+        isEmpty,
+      );
+    });
+
+    test('trip eligibility survives the uid rewrite untouched, because '
+        'it is keyed on the trip rather than the user', () async {
+      final tripId = await db
+          .into(db.trips)
+          .insert(
+            TripsCompanion.insert(
+              uid: 'local',
+              topSpeedKmh: 100,
+              avgSpeedKmh: 50,
+              distanceKm: 20,
+              durationSeconds: 900,
+              startedAt: DateTime(2026, 9, 3),
+            ),
+          );
+      await db
+          .into(db.tripEligibility)
+          .insert(
+            TripEligibilityCompanion.insert(
+              tripId: Value(tripId),
+              eligible: false,
+              failureReasons: const Value('mockLocationDetected'),
+              startedAtUtcOffsetMinutes: 300,
+              evaluatedAt: DateTime(2026, 9, 3),
+            ),
+          );
+
+      await repo.syncUid('firebase-uid-1');
+
+      final eligibility = await db.select(db.tripEligibility).get();
+      expect(eligibility, hasLength(1));
+      expect(eligibility.single.tripId, tripId);
+      // Still ineligible — a uid migration must not launder a verdict.
+      expect(eligibility.single.eligible, isFalse);
+    });
+  });
 }

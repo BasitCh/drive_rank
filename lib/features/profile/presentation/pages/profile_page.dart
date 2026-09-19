@@ -332,7 +332,17 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          _SettingsButton(onTap: () => context.push(RouteNames.settings)),
+          // Friends is reached from the identity surface, not from
+          // Rankings: this is where you decide who you compete with.
+          _HeaderIconButton(
+            icon: Icons.people_alt_outlined,
+            onTap: () => context.push(RouteNames.friends),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          _HeaderIconButton(
+            icon: Icons.settings_outlined,
+            onTap: () => context.push(RouteNames.settings),
+          ),
         ],
       ),
     );
@@ -796,9 +806,13 @@ class _StatCard extends StatelessWidget {
 /// Top-right settings entry point on the header — replaces the old
 /// bottom-of-page "Edit Settings" row so there's a single, always-visible
 /// way in, matching the reference layout.
-class _SettingsButton extends StatelessWidget {
-  const _SettingsButton({required this.onTap});
+/// A round header action. Was `_SettingsButton`; generalised when
+/// Friends earned a place beside Settings rather than duplicating the
+/// same 36px circle twice.
+class _HeaderIconButton extends StatelessWidget {
+  const _HeaderIconButton({required this.icon, required this.onTap});
 
+  final IconData icon;
   final VoidCallback onTap;
 
   @override
@@ -809,14 +823,10 @@ class _SettingsButton extends StatelessWidget {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: const SizedBox(
+        child: SizedBox(
           width: 36,
           height: 36,
-          child: Icon(
-            Icons.settings_outlined,
-            color: AppColors.textSecondary,
-            size: 20,
-          ),
+          child: Icon(icon, color: AppColors.textSecondary, size: 20),
         ),
       ),
     );

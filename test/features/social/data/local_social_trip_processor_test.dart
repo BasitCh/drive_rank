@@ -1,0 +1,917 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
+import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart';
+import 'package:drive_rank/features/social/data/processors/local_social_trip_processor.dart';
+import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge.dart';
+import 'package:drive_rank/features/social/domain/entities/challenge_progress.dart';
+import 'package:drive_rank/features/social/domain/entities/competition_eligibility.dart';
+import 'package:drive_rank/features/social/domain/entities/competition_update.dart';
+import 'package:drive_rank/features/social/domain/entities/leaderboard_period.dart';
+import 'package:drive_rank/features/social/domain/entities/trophy.dart';
+import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart';
+import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart';
+import 'package:drive_rank/features/social/domain/usecases/settle_challenge.dart';
+import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:uuid/uuid.dart';
+
+void main() {
+  late AppDatabase db;
+  late SocialRepositoryImpl repo;
+  late LocalSocialTripProcessor processor;
+
+  const uid = 'user-1';
+  // A Thursday, mid-week, so a weekly window has room on both sides.
+  final tripStart = DateTime(2026, 9, 3, 9);
+  // The clock every test runs on: an hour after the drive, and inside
+  // the fixture challenge window below. Pinned rather than left to
+  // `DateTime.now()`, which made this whole file start failing the day
+  // the real world reached the fixtures' `endAt` — every target expired
+  // before its progress was computed.
+  final now = DateTime(2026, 9, 3, 10);
+
+  setUp(() {
+    db = AppDatabase.forTesting(NativeDatabase.memory());
+    repo = SocialRepositoryImpl(SocialLocalDataSource(db));
+    processor = LocalSocialTripProcessor(
+      repo,
+      const DefaultCompetitionMetricCalculator(),
+      RefreshTargetProgress(repo, const DefaultCompetitionMetricCalculator()),
+      const SettleChallenge(),
+    );
+  });
+
+  tearDown(() async => db.close());
+
+  /// A clean 1 Hz drive that passes every eligibility rule.
+  List<TripPoint> cleanPoints({DateTime? from, bool isMocked = false}) {
+    final base = from ?? tripStart;
+    return [
+      for (var i = 0; i < 30; i++)
+        TripPoint(
+          lat: 31.5 + i * 0.000135,
+          lng: 74.3,
+          speedKmh: 54,
+          accuracyMeters: 8,
+          timestamp: base.add(Duration(seconds: i)),
+          isMocked: isMocked,
+        ),
+    ];
+  }
+
+  Future<int> saveTrip({
+    DateTime? startedAt,
+    double distanceKm = 10,
+    int durationSeconds = 600,
+  }) {
+    return db
+        .into(db.trips)
+        .insert(
+          TripsCompanion.insert(
+            uid: uid,
+            topSpeedKmh: 90,
+            avgSpeedKmh: 54,
+            distanceKm: distanceKm,
+            durationSeconds: durationSeconds,
+            startedAt: startedAt ?? tripStart,
+            remoteId: Value(const Uuid().v4()),
+          ),
+        );
+  }
+
+  Future<Challenge> createTarget({
+    double targetValue = 20,
+    CompetitionMetric metric = CompetitionMetric.distance,
+    String? opponentUid,
+    DateTime? startAt,
+    DateTime? endAt,
+    ChallengeStatus status = ChallengeStatus.active,
+  }) {
+    final created = DateTime(2026, 9);
+    return repo.createChallenge(
+      Challenge(
+        id: const Uuid().v4(),
+        creatorUid: uid,
+        opponentUid: opponentUid,
+        metric: metric,
+        targetValue: targetValue,
+        period: LeaderboardPeriod.weekly,
+        startAt: startAt ?? DateTime(2026, 8, 31),
+        endAt: endAt ?? DateTime(2026, 9, 7),
+        status: status,
+        createdAt: created,
+        updatedAt: created,
+      ),
+    );
+  }
+
+  Future<CompetitionUpdate> process(
+    int tripId, {
+    String user = uid,
+    List<TripPoint>? points,
+  }) {
+    return processor.processCompletedTrip(
+      tripId: tripId,
+      uid: user,
+      points: points ?? cleanPoints(),
+      distanceKm: 10,
+      durationSeconds: 600,
+      startedAt: tripStart,
+      now: now,
+    );
+  }
+
+  group('eligibility', () {
+    test('records a verdict for a clean trip', () async {
+      final tripId = await saveTrip();
+      final update = await process(tripId);
+
+      expect(update.eligibility.eligible, isTrue);
+      final stored = await repo.getTripEligibility(tripId);
+      expect(stored, isNotNull);
+      expect(stored!.eligible, isTrue);
+    });
+
+    test('records the failure reasons for a spoofed trip, and the trip '
+        'itself stays in the database — recorded and leaderboard-eligible '
+        'are separate decisions', () async {
+      final tripId = await saveTrip();
+      await process(tripId, points: cleanPoints(isMocked: true));
+
+      final stored = await repo.getTripEligibility(tripId);
+      expect(stored!.eligible, isFalse);
+      expect(
+        stored.reasons,
+        contains(EligibilityFailureReason.mockLocationDetected),
+      );
+      expect(stored.mockedSampleCount, 30);
+      expect(await db.select(db.trips).get(), hasLength(1));
+    });
+
+    test('reprocessing the same trip replaces its verdict rather than '
+        'inserting a second one', () async {
+      final tripId = await saveTrip();
+      await process(tripId, points: cleanPoints(isMocked: true));
+      await process(tripId);
+
+      expect(await db.select(db.tripEligibility).get(), hasLength(1));
+      final stored = await repo.getTripEligibility(tripId);
+      expect(stored!.eligible, isTrue);
+    });
+
+    test('an ineligible trip is excluded from challenge progress', () async {
+      final target = await createTarget();
+      final tripId = await saveTrip();
+      await process(tripId, points: cleanPoints(isMocked: true));
+
+      final progress = await repo.getProgress(
+        challengeId: target.id,
+        uid: uid,
+      );
+      expect(progress!.currentValue, 0);
+    });
+  });
+
+  group("the pre-auth 'local' uid", () {
+    test('gets an eligibility record but no per-user rows — those would '
+        'be stranded when syncUid rewrites the trips to a real account, '
+        'and then re-earned under it', () async {
+      final target = await createTarget();
+      final tripId = await db
+          .into(db.trips)
+          .insert(
+            TripsCompanion.insert(
+              uid: kLocalPlaceholderUid,
+              topSpeedKmh: 90,
+              avgSpeedKmh: 54,
+              distanceKm: 600,
+              durationSeconds: 600,
+              startedAt: tripStart,
+            ),
+          );
+
+      final update = await process(tripId, user: kLocalPlaceholderUid);
+
+      expect(await repo.getTripEligibility(tripId), isNotNull);
+      expect(update.updatedProgress, isEmpty);
+      expect(update.unlockedTrophies, isEmpty);
+      expect(
+        await repo.getProgress(challengeId: target.id, uid: uid),
+        isNull,
+      );
+      expect(await repo.getTrophies(kLocalPlaceholderUid), isEmpty);
+    });
+  });
+
+  group('challenge progress', () {
+    test('recomputes the tally from the trips in the challenge window', () async {
+      final target = await createTarget(targetValue: 50);
+      await process(await saveTrip(distanceKm: 10));
+      await process(await saveTrip(distanceKm: 15));
+
+      final progress = await repo.getProgress(
+        challengeId: target.id,
+        uid: uid,
+      );
+      expect(progress!.currentValue, 25);
+      expect(progress.completedAt, isNull);
+    });
+
+    test('reprocessing the same trip twice does not double-count — the '
+        'engine recomputes rather than increments, which is what makes '
+        'the restore and debug-seed paths safe', () async {
+      final target = await createTarget(targetValue: 50);
+      final tripId = await saveTrip(distanceKm: 10);
+      await process(tripId);
+      await process(tripId);
+
+      final progress = await repo.getProgress(
+        challengeId: target.id,
+        uid: uid,
+      );
+      expect(progress!.currentValue, 10);
+    });
+
+    test('ignores trips outside the challenge window', () async {
+      final target = await createTarget(targetValue: 50);
+      await process(await saveTrip(distanceKm: 10));
+      // Same challenge, a trip from the following week.
+      final laterTripId = await saveTrip(
+        distanceKm: 90,
+        startedAt: DateTime(2026, 9, 10),
+      );
+      await processor.processCompletedTrip(
+        tripId: laterTripId,
+        uid: uid,
+        points: cleanPoints(from: DateTime(2026, 9, 10)),
+        distanceKm: 90,
+        durationSeconds: 600,
+        startedAt: DateTime(2026, 9, 10),
+      );
+
+      final progress = await repo.getProgress(
+        challengeId: target.id,
+        uid: uid,
+      );
+      expect(progress!.currentValue, 10);
+    });
+
+    test('two overlapping challenges both update', () async {
+      final distanceTarget = await createTarget(targetValue: 100);
+      final longestTarget = await createTarget(
+        targetValue: 100,
+        metric: CompetitionMetric.longestTrip,
+      );
+      await process(await saveTrip(distanceKm: 12));
+
+      expect(
+        (await repo.getProgress(challengeId: distanceTarget.id, uid: uid))!
+            .currentValue,
+        12,
+      );
+      expect(
+        (await repo.getProgress(challengeId: longestTarget.id, uid: uid))!
+            .currentValue,
+        12,
+      );
+    });
+
+    test('completing a personal target stamps completion and closes the '
+        'challenge', () async {
+      final target = await createTarget(targetValue: 10);
+      final update = await process(await saveTrip(distanceKm: 12));
+
+      expect(update.completedChallengeIds, [target.id]);
+      final progress = await repo.getProgress(
+        challengeId: target.id,
+        uid: uid,
+      );
+      expect(progress!.completedAt, isNotNull);
+      final challenge = await repo.getChallengeById(target.id);
+      expect(challenge!.status, ChallengeStatus.completed);
+    });
+
+    test('a head-to-head challenge stays active when the user hits the '
+        'target — the winner depends on the opponent too', () async {
+      final challenge = await createTarget(
+        targetValue: 10,
+        opponentUid: 'user-2',
+      );
+      await process(await saveTrip(distanceKm: 12));
+
+      final stored = await repo.getChallengeById(challenge.id);
+      expect(stored!.status, ChallengeStatus.active);
+      final progress = await repo.getProgress(
+        challengeId: challenge.id,
+        uid: uid,
+      );
+      expect(progress!.completedAt, isNotNull);
+    });
+
+    test('completion survives a recompute that lowers the tally — a '
+        'deleted trip must not un-complete a challenge already met. Uses '
+        'a head-to-head challenge because that stays active after the '
+        'target is hit (the winner still depends on the opponent), so it '
+        'keeps recomputing', () async {
+      final challenge = await createTarget(
+        targetValue: 10,
+        opponentUid: 'user-2',
+      );
+      final bigTripId = await saveTrip(distanceKm: 12);
+      await process(bigTripId);
+
+      final completedAt = (await repo.getProgress(
+        challengeId: challenge.id,
+        uid: uid,
+      ))!
+          .completedAt;
+      expect(completedAt, isNotNull);
+
+      // The user deletes the trip that got them there, then drives a
+      // shorter one.
+      await (db.delete(db.trips)..where((t) => t.id.equals(bigTripId))).go();
+      await process(await saveTrip(distanceKm: 2));
+
+      final progress = await repo.getProgress(
+        challengeId: challenge.id,
+        uid: uid,
+      );
+      expect(progress!.currentValue, 2);
+      expect(progress.completedAt, completedAt);
+    });
+
+    test('a completed personal target is frozen entirely — it stops '
+        'recomputing, so deleting the trip that finished it cannot '
+        'rewrite the historical result', () async {
+      final target = await createTarget(targetValue: 10);
+      final bigTripId = await saveTrip(distanceKm: 12);
+      await process(bigTripId);
+
+      await (db.delete(db.trips)..where((t) => t.id.equals(bigTripId))).go();
+      await process(await saveTrip(distanceKm: 2));
+
+      final progress = await repo.getProgress(
+        challengeId: target.id,
+        uid: uid,
+      );
+      expect(progress!.currentValue, 12);
+      expect(progress.completedAt, isNotNull);
+      final stored = await repo.getChallengeById(target.id);
+      expect(stored!.status, ChallengeStatus.completed);
+    });
+
+    test('a challenge that already completed is not reported as newly '
+        'completed again', () async {
+      await createTarget(targetValue: 5);
+      final first = await process(await saveTrip(distanceKm: 6));
+      expect(first.completedChallengeIds, hasLength(1));
+
+      // The challenge is closed now, so a later trip finds nothing
+      // active to update.
+      final second = await process(await saveTrip(distanceKm: 6));
+      expect(second.completedChallengeIds, isEmpty);
+    });
+
+    test('a pending challenge is untouched — only accepted ones accrue '
+        'progress', () async {
+      final pending = await createTarget(status: ChallengeStatus.pending);
+      await process(await saveTrip(distanceKm: 12));
+
+      expect(
+        await repo.getProgress(challengeId: pending.id, uid: uid),
+        isNull,
+      );
+      final stored = await repo.getChallengeById(pending.id);
+      expect(stored!.status, ChallengeStatus.pending);
+    });
+
+    test('consistency progress counts qualifying days', () async {
+      final target = await createTarget(
+        targetValue: 7,
+        metric: CompetitionMetric.consistency,
+      );
+      await process(await saveTrip(startedAt: DateTime(2026, 9, 1, 8)));
+      await process(await saveTrip(startedAt: DateTime(2026, 9, 1, 19)));
+      await process(await saveTrip(startedAt: DateTime(2026, 9, 2, 8)));
+
+      final progress = await repo.getProgress(
+        challengeId: target.id,
+        uid: uid,
+      );
+      expect(progress!.currentValue, 2);
+    });
+  });
+
+  group('expiry', () {
+    test('an active challenge whose window has closed expires on the next '
+        'trip', () async {
+      final lapsed = await createTarget(
+        startAt: DateTime(2026, 8, 1),
+        endAt: DateTime(2026, 8, 8),
+      );
+      final update = await process(await saveTrip());
+
+      expect(update.expiredChallengeIds, [lapsed.id]);
+      final stored = await repo.getChallengeById(lapsed.id);
+      expect(stored!.status, ChallengeStatus.expired);
+    });
+
+    test('an expired challenge is never revived or re-reported', () async {
+      final lapsed = await createTarget(
+        startAt: DateTime(2026, 8, 1),
+        endAt: DateTime(2026, 8, 8),
+      );
+      await process(await saveTrip());
+      final second = await process(await saveTrip());
+
+      expect(second.expiredChallengeIds, isEmpty);
+      final stored = await repo.getChallengeById(lapsed.id);
+      expect(stored!.status, ChallengeStatus.expired);
+    });
+  });
+
+  group('trophies', () {
+    test('roadWarrior unlocks once a weekly distance threshold is passed, '
+        'and only once for that week', () async {
+      final first = await process(
+        await saveTrip(distanceKm: kRoadWarriorWeeklyKm + 1),
+      );
+      expect(
+        first.unlockedTrophies.map((Trophy t) => t.type),
+        contains(TrophyType.roadWarrior),
+      );
+
+      final second = await process(await saveTrip(distanceKm: 10));
+      expect(second.unlockedTrophies, isEmpty);
+      expect(await repo.getTrophies(uid), hasLength(1));
+    });
+
+    test('roadWarrior is not awarded below the threshold', () async {
+      final update = await process(await saveTrip(distanceKm: 10));
+      expect(update.unlockedTrophies, isEmpty);
+    });
+
+    test('a weekly trophy is scoped to the week the trip was attributed '
+        'to, not the week it happened to be processed in — a drive that '
+        'starts 23:50 on a Sunday belongs to the closing week', () async {
+      // Sunday 23:50, the last night of the week of Mon 2026-08-31.
+      final sundayNight = DateTime(2026, 9, 6, 23, 50);
+      final tripId = await saveTrip(
+        distanceKm: kRoadWarriorWeeklyKm + 1,
+        startedAt: sundayNight,
+      );
+
+      final update = await processor.processCompletedTrip(
+        tripId: tripId,
+        uid: uid,
+        points: cleanPoints(from: sundayNight),
+        distanceKm: kRoadWarriorWeeklyKm + 1,
+        durationSeconds: 600,
+        startedAt: sundayNight,
+      );
+
+      expect(
+        update.unlockedTrophies.map((Trophy t) => t.type),
+        contains(TrophyType.roadWarrior),
+      );
+      // Keyed to that week, so the same drive can't earn it again and
+      // the next week starts fresh.
+      expect(update.unlockedTrophies.single.id, contains('2026-W36'));
+    });
+
+    test('consistent unlocks after every day of the week qualifies', () async {
+      for (var day = 31; day <= 31; day++) {
+        await process(await saveTrip(startedAt: DateTime(2026, 8, day, 9)));
+      }
+      for (var day = 1; day <= 5; day++) {
+        await process(await saveTrip(startedAt: DateTime(2026, 9, day, 9)));
+      }
+      final beforeLastDay = await repo.getTrophies(uid);
+      expect(
+        beforeLastDay.map((Trophy t) => t.type),
+        isNot(contains(TrophyType.consistent)),
+      );
+
+      final update = await process(
+        await saveTrip(startedAt: DateTime(2026, 9, 6, 9)),
+      );
+      expect(
+        update.unlockedTrophies.map((Trophy t) => t.type),
+        contains(TrophyType.consistent),
+      );
+    });
+
+    test('firstTarget unlocks when a personal target completes, and never '
+        'again — its id carries no period, so the second target the user '
+        'finishes collides with the first', () async {
+      await createTarget(targetValue: 5);
+      final first = await process(await saveTrip(distanceKm: 6));
+      expect(
+        first.unlockedTrophies.map((Trophy t) => t.type),
+        contains(TrophyType.firstTarget),
+      );
+
+      await createTarget(targetValue: 5);
+      final second = await process(await saveTrip(distanceKm: 6));
+      expect(
+        second.unlockedTrophies.map((Trophy t) => t.type),
+        isNot(contains(TrophyType.firstTarget)),
+      );
+      final firstTargets = (await repo.getTrophies(uid))
+          .where((Trophy t) => t.type == TrophyType.firstTarget);
+      expect(firstTargets, hasLength(1));
+    });
+
+    test('completing a head-to-head challenge does not award firstTarget', () async {
+      await createTarget(targetValue: 5, opponentUid: 'user-2');
+      final update = await process(await saveTrip(distanceKm: 6));
+      expect(
+        update.unlockedTrophies.map((Trophy t) => t.type),
+        isNot(contains(TrophyType.firstTarget)),
+      );
+    });
+  });
+
+  group('head-to-head trophies', () {
+    // The challenge closed well before the pinned clock, so its figures
+    // are frozen and the result is final. `endAt` is a day back and the
+    // grace is six hours.
+    final closedAt = now.subtract(const Duration(days: 1));
+
+    Future<Challenge> settled({
+      required double mine,
+      required double? theirs,
+      ChallengeStatus status = ChallengeStatus.active,
+    }) async {
+      final challenge = await createTarget(
+        opponentUid: 'rival',
+        startAt: now.subtract(const Duration(days: 8)),
+        endAt: closedAt,
+        status: status,
+        targetValue: 1000,
+      );
+      // The viewer's own figure comes from their trips, so it is seeded
+      // as driving rather than as a progress row.
+      if (mine > 0) {
+        await process(
+          await saveTrip(
+            distanceKm: mine,
+            startedAt: now.subtract(const Duration(days: 2)),
+          ),
+        );
+      }
+      if (theirs != null) {
+        await repo.upsertProgressValue(
+          ChallengeProgress(
+            challengeId: challenge.id,
+            uid: 'rival',
+            currentValue: theirs,
+            targetValue: 1000,
+            lastCalculatedAt: closedAt,
+          ),
+        );
+      }
+      // What the post-freeze server read stores, and all a final result
+      // is settled from: the figures each of them published.
+      await repo.storeFrozenFigures(
+        challengeId: challenge.id,
+        figures: {if (mine > 0) uid: mine, 'rival': ?theirs},
+      );
+      return challenge;
+    }
+
+    /// Drives once more, then reports every trophy the account holds.
+    ///
+    /// The stored set rather than one pass's `unlockedTrophies`:
+    /// seeding a settled challenge involves driving, so a trophy can
+    /// legitimately be awarded on that earlier pass, and asserting
+    /// against a single pass would be testing the order of the fixture
+    /// rather than the rule.
+    Future<Set<TrophyType>> allTrophies() async {
+      await process(await saveTrip(distanceKm: 1, startedAt: now));
+      final held = await repo.getTrophies(uid);
+      return held.map((Trophy t) => t.type).toSet();
+    }
+
+    test('winning awards both firstChallenge and firstWin', () async {
+      await settled(mine: 100, theirs: 40);
+      expect(
+        await allTrophies(),
+        containsAll([TrophyType.firstChallenge, TrophyType.firstWin]),
+      );
+    });
+
+    test('losing still awards firstChallenge — turning up counts, and '
+        'winning is a different trophy — but never firstWin', () async {
+      await settled(mine: 40, theirs: 100);
+      final unlocked = await allTrophies();
+      expect(unlocked, contains(TrophyType.firstChallenge));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('a draw awards firstChallenge and not firstWin', () async {
+      await settled(mine: 100, theirs: 100);
+      final unlocked = await allTrophies();
+      expect(unlocked, contains(TrophyType.firstChallenge));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('an opponent who never published still counts as a contest the '
+        'viewer took part in — but hands them no win, because absent is '
+        'not zero', () async {
+      await settled(mine: 100, theirs: null);
+      final unlocked = await allTrophies();
+      expect(unlocked, contains(TrophyType.firstChallenge));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('a challenge nobody ever accepted awards nothing — an '
+        'invitation that lapsed is not participation', () async {
+      await settled(
+        mine: 100,
+        theirs: null,
+        status: ChallengeStatus.pending,
+      );
+      final unlocked = await allTrophies();
+      expect(unlocked, isNot(contains(TrophyType.firstChallenge)));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('nothing is awarded while the figures can still move — a '
+        'challenge inside its finalization grace has closed but is not '
+        'decided, and a trophy for a result that might yet reverse is '
+        'the whole reason that state exists', () async {
+      await createTarget(
+        opponentUid: 'rival',
+        startAt: now.subtract(const Duration(days: 8)),
+        // Closed an hour ago: inside the six-hour grace.
+        endAt: now.subtract(const Duration(hours: 1)),
+        status: ChallengeStatus.active,
+        targetValue: 1000,
+      );
+      await process(
+        await saveTrip(
+          distanceKm: 100,
+          startedAt: now.subtract(const Duration(days: 2)),
+        ),
+      );
+
+      final unlocked = await allTrophies();
+      expect(unlocked, isNot(contains(TrophyType.firstChallenge)));
+      expect(unlocked, isNot(contains(TrophyType.firstWin)));
+    });
+
+    test('neither is awarded twice — the ids carry no window, so they '
+        'are lifetime trophies and a second settled challenge collides '
+        'on the unique index rather than inserting again', () async {
+      await settled(mine: 100, theirs: 40);
+      await allTrophies();
+
+      final update = await process(
+        await saveTrip(distanceKm: 1, startedAt: now),
+      );
+      final newlyUnlocked = update.unlockedTrophies
+          .map((Trophy t) => t.type)
+          .toSet();
+      expect(newlyUnlocked, isNot(contains(TrophyType.firstChallenge)));
+      expect(newlyUnlocked, isNot(contains(TrophyType.firstWin)));
+
+      // …and exactly one of each is stored.
+      final held = await repo.getTrophies(uid);
+      expect(
+        held.where((Trophy t) => t.type == TrophyType.firstWin),
+        hasLength(1),
+      );
+    });
+
+    test('completing a head-to-head challenge still does not award '
+        'firstTarget', () async {
+      await settled(mine: 100, theirs: 40);
+      expect(
+        await allTrophies(),
+        isNot(contains(TrophyType.firstTarget)),
+      );
+    });
+  });
+
+  // A result becomes final at a moment on the clock, not at a drive. The
+  // card said "You won" at once while the trophy waited for the next
+  // trip; these run the app-open pass with no trip processed at all.
+  group('on app open, with no drive', () {
+    final closedAt = now.subtract(const Duration(days: 1));
+
+    /// A head-to-head challenge whose figures froze before [now]. The
+    /// viewer's driving is saved but never processed, so nothing but
+    /// the app-open pass can award from it.
+    Future<Challenge> finalChallenge({
+      double mine = 0,
+      double? theirs,
+      ChallengeStatus status = ChallengeStatus.active,
+      DateTime? endAt,
+    }) async {
+      final challenge = await createTarget(
+        opponentUid: 'rival',
+        startAt: now.subtract(const Duration(days: 8)),
+        endAt: endAt ?? closedAt,
+        status: status,
+        targetValue: 1000,
+      );
+      if (mine > 0) {
+        await saveTrip(
+          distanceKm: mine,
+          startedAt: now.subtract(const Duration(days: 2)),
+        );
+      }
+      if (theirs != null) {
+        await repo.upsertProgressValue(
+          ChallengeProgress(
+            challengeId: challenge.id,
+            uid: 'rival',
+            currentValue: theirs,
+            targetValue: 1000,
+            lastCalculatedAt: closedAt,
+          ),
+        );
+      }
+      // What the post-freeze server read stores, and all a final result
+      // is settled from: the figures each of them published.
+      await repo.storeFrozenFigures(
+        challengeId: challenge.id,
+        figures: {if (mine > 0) uid: mine, 'rival': ?theirs},
+      );
+      return challenge;
+    }
+
+    Future<Set<TrophyType>> held() async =>
+        (await repo.getTrophies(uid)).map((Trophy t) => t.type).toSet();
+
+    Future<Set<TrophyType>> openApp() async {
+      await processor.awardSettledChallengeTrophies(uid: uid, now: now);
+      return held();
+    }
+
+    test('a win awards firstChallenge and firstWin when the app opens — '
+        'nothing waits for a drive', () async {
+      await finalChallenge(mine: 100, theirs: 40);
+      expect(await held(), isEmpty);
+
+      expect(
+        await openApp(),
+        {TrophyType.firstChallenge, TrophyType.firstWin},
+      );
+    });
+
+    test('a loss awards firstChallenge only', () async {
+      await finalChallenge(mine: 40, theirs: 100);
+      expect(await openApp(), {TrophyType.firstChallenge});
+    });
+
+    test('a draw awards firstChallenge only', () async {
+      await finalChallenge(mine: 100, theirs: 100);
+      expect(await openApp(), {TrophyType.firstChallenge});
+    });
+
+    test('no result — accepted, but the opponent never published — awards '
+        'firstChallenge only', () async {
+      await finalChallenge(mine: 100);
+      expect(await openApp(), {TrophyType.firstChallenge});
+    });
+
+    test('never started — nobody accepted it — awards nothing', () async {
+      await finalChallenge(
+        mine: 100,
+        theirs: 40,
+        status: ChallengeStatus.pending,
+      );
+      expect(await openApp(), isEmpty);
+    });
+
+    test('finalizing awards nothing yet — the figures can still move',
+        () async {
+      await finalChallenge(
+        mine: 100,
+        theirs: 40,
+        // Closed an hour ago: inside the six-hour grace.
+        endAt: now.subtract(const Duration(hours: 1)),
+      );
+      expect(await openApp(), isEmpty);
+    });
+
+    test('repeated app opens never create a second trophy, and report '
+        'nothing as newly unlocked after the first', () async {
+      await finalChallenge(mine: 100, theirs: 40);
+
+      final first = await processor.awardSettledChallengeTrophies(
+        uid: uid,
+        now: now,
+      );
+      expect(first.map((Trophy t) => t.type).toSet(), {
+        TrophyType.firstChallenge,
+        TrophyType.firstWin,
+      });
+      for (var i = 0; i < 3; i++) {
+        final again = await processor.awardSettledChallengeTrophies(
+          uid: uid,
+          now: now,
+        );
+        expect(again, isEmpty);
+      }
+
+      final stored = await repo.getTrophies(uid);
+      expect(stored, hasLength(2));
+    });
+
+    test('an app open racing a drive still stores each trophy once',
+        () async {
+      await finalChallenge(mine: 100, theirs: 40);
+      final tripId = await saveTrip(distanceKm: 1, startedAt: now);
+
+      await Future.wait([
+        processor.awardSettledChallengeTrophies(uid: uid, now: now),
+        process(tripId),
+      ]);
+
+      final stored = await repo.getTrophies(uid);
+      expect(
+        stored.where((Trophy t) => t.type == TrophyType.firstWin),
+        hasLength(1),
+      );
+      expect(
+        stored.where((Trophy t) => t.type == TrophyType.firstChallenge),
+        hasLength(1),
+      );
+    });
+
+    test('past the freeze but with the frozen figures not read yet, '
+        'nothing is awarded — a trophy is never decided on a guess',
+        () async {
+      await createTarget(
+        opponentUid: 'rival',
+        startAt: now.subtract(const Duration(days: 8)),
+        endAt: closedAt,
+        status: ChallengeStatus.active,
+        targetValue: 1000,
+      );
+      await saveTrip(
+        distanceKm: 100,
+        startedAt: now.subtract(const Duration(days: 2)),
+      );
+
+      expect(await openApp(), isEmpty);
+    });
+
+    test('the award follows what was published, not the local recompute '
+        '— driving that never reached the server wins nothing', () async {
+      final challenge = await finalChallenge(mine: 100, theirs: 40);
+      // Only 10 was ever published; 100 exists on this phone alone.
+      await repo.storeFrozenFigures(
+        challengeId: challenge.id,
+        figures: {uid: 10, 'rival': 40},
+      );
+      expect(await openApp(), {TrophyType.firstChallenge});
+    });
+
+    test("the pre-auth 'local' uid is never awarded anything", () async {
+      await finalChallenge(mine: 100, theirs: 40);
+      final unlocked = await processor.awardSettledChallengeTrophies(
+        uid: kLocalPlaceholderUid,
+        now: now,
+      );
+      expect(unlocked, isEmpty);
+    });
+  });
+
+  group('serialization', () {
+    test('two trips processed concurrently both land, and the final tally '
+        'reflects both — a skip-if-running mutex would drop one', () async {
+      final target = await createTarget(targetValue: 100);
+      final firstTripId = await saveTrip(distanceKm: 10);
+      final secondTripId = await saveTrip(distanceKm: 15);
+
+      await Future.wait([process(firstTripId), process(secondTripId)]);
+
+      final progress = await repo.getProgress(
+        challengeId: target.id,
+        uid: uid,
+      );
+      expect(progress!.currentValue, 25);
+      expect(await db.select(db.tripEligibility).get(), hasLength(2));
+    });
+
+    test('a failure on one trip does not poison the queue for the next', () async {
+      final target = await createTarget(targetValue: 100);
+      // No trip row exists for this id, so recording its verdict trips
+      // the foreign key.
+      await expectLater(process(999999), throwsA(anything));
+
+      await process(await saveTrip(distanceKm: 10));
+      final progress = await repo.getProgress(
+        challengeId: target.id,
+        uid: uid,
+      );
+      expect(progress!.currentValue, 10);
+    });
+  });
+}

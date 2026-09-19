@@ -97,4 +97,11 @@ class LiveWaypoints extends Table {
   RealColumn get speedKmh => real()();
   RealColumn get accuracyMeters => real()();
   DateTimeColumn get timestamp => dateTime()();
+
+  /// Whether the OS reported this fix as coming from a mock location
+  /// provider. Persisted here — not just held in memory — so a trip
+  /// interrupted and recovered mid-drive keeps its spoofing evidence;
+  /// otherwise force-quitting the app would clear it. Recovery rebuilds
+  /// `TripPoint`s from these rows (`ActiveTripStore.load`).
+  BoolColumn get isMocked => boolean().withDefault(const Constant(false))();
 }

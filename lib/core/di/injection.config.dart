@@ -57,6 +57,58 @@ import 'package:drive_rank/features/personal_bests/presentation/bloc/personal_be
     as _i314;
 import 'package:drive_rank/features/profile/presentation/bloc/profile_bloc.dart'
     as _i868;
+import 'package:drive_rank/features/social/data/datasources/social_local_data_source.dart'
+    as _i866;
+import 'package:drive_rank/features/social/data/processors/local_social_trip_processor.dart'
+    as _i319;
+import 'package:drive_rank/features/social/data/repositories/social_repository_impl.dart'
+    as _i621;
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart'
+    as _i80;
+import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart'
+    as _i785;
+import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart'
+    as _i800;
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart'
+    as _i1058;
+import 'package:drive_rank/features/social/data/services/competition_visibility.dart'
+    as _i1006;
+import 'package:drive_rank/features/social/data/services/friends_sync_service.dart'
+    as _i709;
+import 'package:drive_rank/features/social/data/services/social_directory.dart'
+    as _i408;
+import 'package:drive_rank/features/social/domain/repositories/social_repository.dart'
+    as _i247;
+import 'package:drive_rank/features/social/domain/usecases/compare_with_opponent.dart'
+    as _i989;
+import 'package:drive_rank/features/social/domain/usecases/competition_metric_calculator.dart'
+    as _i163;
+import 'package:drive_rank/features/social/domain/usecases/create_challenge.dart'
+    as _i669;
+import 'package:drive_rank/features/social/domain/usecases/create_target.dart'
+    as _i302;
+import 'package:drive_rank/features/social/domain/usecases/get_challenges.dart'
+    as _i797;
+import 'package:drive_rank/features/social/domain/usecases/get_friends_leaderboard.dart'
+    as _i108;
+import 'package:drive_rank/features/social/domain/usecases/get_global_leaderboard.dart'
+    as _i932;
+import 'package:drive_rank/features/social/domain/usecases/get_qualifying_days.dart'
+    as _i218;
+import 'package:drive_rank/features/social/domain/usecases/get_targets.dart'
+    as _i683;
+import 'package:drive_rank/features/social/domain/usecases/get_trip_rank_change.dart'
+    as _i593;
+import 'package:drive_rank/features/social/domain/usecases/refresh_target_progress.dart'
+    as _i717;
+import 'package:drive_rank/features/social/domain/usecases/settle_challenge.dart'
+    as _i699;
+import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart'
+    as _i804;
+import 'package:drive_rank/features/social/presentation/bloc/friends_bloc.dart'
+    as _i593;
+import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart'
+    as _i840;
 import 'package:drive_rank/features/tracking/presentation/bloc/tracking_bloc.dart'
     as _i687;
 import 'package:drive_rank/features/trip_insights/data/insights_repository.dart'
@@ -65,6 +117,8 @@ import 'package:drive_rank/features/trip_insights/domain/usecases/build_insights
     as _i486;
 import 'package:drive_rank/features/trip_insights/presentation/bloc/insights_bloc.dart'
     as _i723;
+import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_social_bloc.dart'
+    as _i121;
 import 'package:drive_rank/features/trip_summary/presentation/bloc/trip_summary_bloc.dart'
     as _i990;
 import 'package:drive_rank/shared/repositories/trip_repository.dart' as _i634;
@@ -80,6 +134,8 @@ import 'package:drive_rank/shared/services/sync_manager.dart' as _i830;
 import 'package:drive_rank/shared/services/territory_stats_service.dart'
     as _i970;
 import 'package:drive_rank/shared/services/trip_stats_service.dart' as _i67;
+import 'package:drive_rank/shared/services/username_reservation_service.dart'
+    as _i343;
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 
@@ -91,6 +147,7 @@ _i174.GetIt $initGetIt(
 }) {
   final gh = _i526.GetItHelper(getIt, environment, environmentFilter);
   final injectionModule = _$InjectionModule();
+  gh.factory<_i699.SettleChallenge>(() => const _i699.SettleChallenge());
   gh.singleton<_i425.AppDatabase>(() => _i425.AppDatabase());
   gh.singleton<_i901.AppRouter>(() => _i901.AppRouter());
   gh.singleton<_i375.GpsService>(() => _i375.GpsService());
@@ -119,6 +176,9 @@ _i174.GetIt $initGetIt(
     () => _i207.OemBatteryAdvisor(gh<_i833.DeviceInfoPlugin>()),
   );
   gh.lazySingleton<_i488.PushService>(() => injectionModule.noopPush());
+  gh.lazySingleton<_i408.SocialDirectory>(
+    () => const _i408.NoopSocialDirectory(),
+  );
   gh.factory<_i486.BuildInsights>(
     () => _i486.BuildInsights(gh<_i447.LocaleService>()),
   );
@@ -128,7 +188,13 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i495.PaywallService>(
     () => _i495.PreviewPaywallService(gh<_i447.LocaleService>()),
   );
+  gh.lazySingleton<_i800.CompetitionMirrorSink>(
+    () => const _i800.NoopCompetitionMirrorSink(),
+  );
   gh.lazySingleton<_i88.RemoteTripSink>(() => const _i88.NoopRemoteTripSink());
+  gh.lazySingleton<_i163.CompetitionMetricCalculator>(
+    () => const _i163.DefaultCompetitionMetricCalculator(),
+  );
   gh.lazySingleton<_i364.PublicProfileService>(
     () => _i364.NoopPublicProfileService(),
   );
@@ -136,6 +202,9 @@ _i174.GetIt $initGetIt(
     () => _i1058.FreeTripCounterService(gh<_i529.DeviceIdentityService>()),
   );
   gh.lazySingleton<_i1009.AuthService>(() => injectionModule.anonymousAuth());
+  gh.lazySingleton<_i343.UsernameReservationService>(
+    () => const _i343.NoopUsernameReservationService(),
+  );
   gh.lazySingleton<_i727.UserSettingsRepository>(
     () => _i727.UserSettingsRepository(
       gh<_i425.AppDatabase>(),
@@ -193,6 +262,9 @@ _i174.GetIt $initGetIt(
   gh.lazySingleton<_i766.ActiveTripStore>(
     () => _i766.ActiveTripStore(gh<_i425.AppDatabase>()),
   );
+  gh.lazySingleton<_i866.SocialLocalDataSource>(
+    () => _i866.SocialLocalDataSource(gh<_i425.AppDatabase>()),
+  );
   gh.lazySingleton<_i427.AccountDeletionService>(
     () => _i427.AccountDeletionService(
       gh<_i634.TripRepository>(),
@@ -219,8 +291,25 @@ _i174.GetIt $initGetIt(
       gh<_i486.BuildInsights>(),
     ),
   );
+  gh.lazySingleton<_i709.FriendsSyncService>(
+    () => _i709.FriendsSyncService(
+      gh<_i866.SocialLocalDataSource>(),
+      gh<_i727.UserSettingsRepository>(),
+    ),
+  );
   gh.factory<_i314.PersonalBestsBloc>(
     () => _i314.PersonalBestsBloc(gh<_i244.PersonalBestsRepository>()),
+  );
+  gh.factory<_i162.OnboardingBloc>(
+    () => _i162.OnboardingBloc(
+      gh<_i972.CarRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i447.LocaleService>(),
+      gh<_i576.PermissionService>(),
+      gh<_i46.TelemetryService>(),
+      gh<_i488.PushService>(),
+      gh<_i343.UsernameReservationService>(),
+    ),
   );
   gh.lazySingleton<_i183.RetentionNotificationService>(
     () => _i183.RetentionNotificationService(
@@ -238,16 +327,6 @@ _i174.GetIt $initGetIt(
       gh<_i261.CardExportService>(),
     ),
   );
-  gh.factory<_i162.OnboardingBloc>(
-    () => _i162.OnboardingBloc(
-      gh<_i972.CarRepository>(),
-      gh<_i727.UserSettingsRepository>(),
-      gh<_i447.LocaleService>(),
-      gh<_i576.PermissionService>(),
-      gh<_i46.TelemetryService>(),
-      gh<_i488.PushService>(),
-    ),
-  );
   gh.lazySingleton<_i970.TerritoryStatsService>(
     () => _i970.TerritoryStatsService(gh<_i634.TripRepository>()),
   );
@@ -260,11 +339,99 @@ _i174.GetIt $initGetIt(
       gh<_i46.TelemetryService>(),
     ),
   );
+  gh.lazySingleton<_i247.SocialRepository>(
+    () => _i621.SocialRepositoryImpl(gh<_i866.SocialLocalDataSource>()),
+  );
   gh.factory<_i868.ProfileBloc>(
     () => _i868.ProfileBloc(
       gh<_i727.UserSettingsRepository>(),
       gh<_i67.TripStatsService>(),
       gh<_i970.TerritoryStatsService>(),
+    ),
+  );
+  gh.factory<_i797.GetChallenges>(
+    () => _i797.GetChallenges(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+      gh<_i699.SettleChallenge>(),
+    ),
+  );
+  gh.lazySingleton<_i1058.CompetitionValuePublisher>(
+    () => _i1058.CompetitionValuePublisher(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.lazySingleton<_i80.ChallengeProgressPublisher>(
+    () => _i80.ChallengeProgressPublisher(
+      gh<_i247.SocialRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.lazySingleton<_i785.ChallengeSyncService>(
+    () => _i785.ChallengeSyncService(
+      gh<_i247.SocialRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+    ),
+  );
+  gh.factory<_i989.CompareWithOpponent>(
+    () => _i989.CompareWithOpponent(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.factory<_i108.GetFriendsLeaderboard>(
+    () => _i108.GetFriendsLeaderboard(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.factory<_i932.GetGlobalLeaderboard>(
+    () => _i932.GetGlobalLeaderboard(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.factory<_i683.GetTargets>(
+    () => _i683.GetTargets(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.factory<_i717.RefreshTargetProgress>(
+    () => _i717.RefreshTargetProgress(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+    ),
+  );
+  gh.lazySingleton<_i1006.CompetitionVisibility>(
+    () => _i1006.CompetitionVisibility(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i1058.CompetitionValuePublisher>(),
+    ),
+  );
+  gh.factory<_i593.FriendsBloc>(
+    () => _i593.FriendsBloc(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i247.SocialRepository>(),
+      gh<_i408.SocialDirectory>(),
+      gh<_i709.FriendsSyncService>(),
+    ),
+  );
+  gh.factory<_i669.CreateChallenge>(
+    () => _i669.CreateChallenge(gh<_i247.SocialRepository>()),
+  );
+  gh.factory<_i218.GetQualifyingDays>(
+    () => _i218.GetQualifyingDays(gh<_i247.SocialRepository>()),
+  );
+  gh.lazySingleton<_i804.SocialTripProcessor>(
+    () => _i319.LocalSocialTripProcessor(
+      gh<_i247.SocialRepository>(),
+      gh<_i163.CompetitionMetricCalculator>(),
+      gh<_i717.RefreshTargetProgress>(),
+      gh<_i699.SettleChallenge>(),
     ),
   );
   gh.factory<_i687.TrackingBloc>(
@@ -279,6 +446,42 @@ _i174.GetIt $initGetIt(
       gh<_i201.LiveTripNotificationService>(),
       gh<_i46.TelemetryService>(),
       gh<_i183.RetentionNotificationService>(),
+      gh<_i804.SocialTripProcessor>(),
+    ),
+  );
+  gh.factory<_i593.GetTripRankChange>(
+    () => _i593.GetTripRankChange(gh<_i932.GetGlobalLeaderboard>()),
+  );
+  gh.factory<_i121.TripSocialBloc>(
+    () => _i121.TripSocialBloc(
+      gh<_i634.TripRepository>(),
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i247.SocialRepository>(),
+      gh<_i593.GetTripRankChange>(),
+      gh<_i683.GetTargets>(),
+    ),
+  );
+  gh.factory<_i302.CreateTarget>(
+    () => _i302.CreateTarget(
+      gh<_i247.SocialRepository>(),
+      gh<_i717.RefreshTargetProgress>(),
+    ),
+  );
+  gh.factory<_i840.RankingsBloc>(
+    () => _i840.RankingsBloc(
+      gh<_i727.UserSettingsRepository>(),
+      gh<_i634.TripRepository>(),
+      gh<_i932.GetGlobalLeaderboard>(),
+      gh<_i683.GetTargets>(),
+      gh<_i302.CreateTarget>(),
+      gh<_i247.SocialRepository>(),
+      gh<_i218.GetQualifyingDays>(),
+      gh<_i108.GetFriendsLeaderboard>(),
+      gh<_i408.SocialDirectory>(),
+      gh<_i797.GetChallenges>(),
+      gh<_i669.CreateChallenge>(),
+      gh<_i785.ChallengeSyncService>(),
+      gh<_i80.ChallengeProgressPublisher>(),
     ),
   );
   return getIt;

@@ -1,12 +1,18 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsCompanion;
+import 'package:drive_rank/core/di/injection.dart';
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
+import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:drive_rank/shared/repositories/trip_repository.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/services/sync_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
@@ -58,6 +64,82 @@ class DebugSeedService {
     return inserted;
   }
 
+  /// Saves one competition-eligible trip starting **now**, then runs the
+  /// same social pass and publishes a finished drive does.
+  ///
+  /// [seedMockTrips] can't feed a challenge: its trips are dated in the
+  /// past, before any challenge's window opens, and its step-change
+  /// speeds fail the eligibility acceleration check. Simulator GPS is
+  /// flagged mocked, so this is the only way a simulator account can
+  /// move a head-to-head figure. Returns the trip id (null outside debug
+  /// mode).
+  Future<int?> seedEligibleTripNow() async {
+    if (!kDebugMode) return null;
+    final settings = await _settings.read();
+    final now = DateTime.now();
+    final stats = eligibleTripNowStats(now);
+    final tripId = await _trips.saveTrip(
+      uid: settings.uid,
+      stats: stats,
+      startedAt: now,
+      endedAt: now.add(Duration(seconds: stats.durationSeconds)),
+      mapTheme: settings.selectedMapTheme,
+      country: settings.country,
+    );
+
+    if (kSocialProcessingEnabled && getIt.isRegistered<SocialTripProcessor>()) {
+      await getIt<SocialTripProcessor>().processCompletedTrip(
+        tripId: tripId,
+        uid: settings.uid,
+        points: stats.points,
+        distanceKm: stats.distanceKm,
+        durationSeconds: stats.durationSeconds,
+        startedAt: now,
+      );
+    }
+    if (getIt.isRegistered<SyncManager>()) {
+      unawaited(getIt<SyncManager>().syncNow());
+    }
+    if (getIt.isRegistered<CompetitionValuePublisher>()) {
+      unawaited(getIt<CompetitionValuePublisher>().publishNow());
+    }
+    if (getIt.isRegistered<ChallengeProgressPublisher>()) {
+      unawaited(getIt<ChallengeProgressPublisher>().publishNow());
+    }
+    return tripId;
+  }
+
+  /// The trip [seedEligibleTripNow] saves: ~10 km with speed changes of
+  /// at most 10 km/h per second, so it clears every eligibility rule.
+  @visibleForTesting
+  static LiveTripStats eligibleTripNowStats(DateTime now) => _buildStats(
+    _TripBlueprint(
+      label: 'Challenge test drive',
+      startedAt: now,
+      startLat: 33.6844,
+      startLng: 73.0479,
+      headingDeg: 45,
+      altitudeStart: 520,
+      altitudeEnd: 540,
+      legs: const [
+        _Leg(10, 5),
+        _Leg(20, 5),
+        _Leg(30, 5),
+        _Leg(40, 5),
+        _Leg(50, 5),
+        _Leg(60, 600),
+        _Leg(50, 5),
+        _Leg(40, 5),
+        _Leg(30, 5),
+        _Leg(20, 5),
+        _Leg(10, 5),
+      ],
+      maxGforce: 0.3,
+      hardCorners: 0,
+      hardBrakes: 0,
+    ),
+  );
+
   /// Undoes [seedMockTrips]'s paywall bypass — does not touch trips
   /// (delete those individually from History, same as any real trip).
   Future<void> resetToFreeTier() async {
@@ -76,10 +158,21 @@ class DebugSeedService {
   // TrackingBloc never persists stationary samples).
   // ---------------------------------------------------------------------
 
-  List<_TripBlueprint> _blueprints(DateTime now) {
+  /// When [seedMockTrips]'s trips start, for a run at [now].
+  @visibleForTesting
+  static List<DateTime> mockTripStartTimes(DateTime now) => [
+    for (final blueprint in _blueprints(now)) blueprint.startedAt,
+  ];
+
+  static List<_TripBlueprint> _blueprints(DateTime now) {
+    // Never ahead of the clock: this month's fixed day-of-month lands in
+    // the future for anybody seeding before it, and a trip dated forward
+    // reads as "-3 days ago" in History, counts toward a window it
+    // hasn't happened in, and can outlive the competition it belongs to.
+    // A month earlier keeps the spread the blueprints are chosen for.
     DateTime monthsAgo(int n, int day, int hour) {
       final d = DateTime(now.year, now.month - n, day, hour);
-      return d;
+      return d.isAfter(now) ? DateTime(now.year, now.month - n - 1, day, hour) : d;
     }
 
     return [
@@ -244,7 +337,7 @@ class DebugSeedService {
     ];
   }
 
-  LiveTripStats _buildStats(_TripBlueprint bp) {
+  static LiveTripStats _buildStats(_TripBlueprint bp) {
     final rand = math.Random(bp.label.hashCode);
     final points = <TripPoint>[];
 

@@ -56,7 +56,41 @@ class UserSettings extends Table {
   IntColumn get freeTripLimit => integer().nullable()();
 
   BoolColumn get isPro => boolean().withDefault(const Constant(false))();
+
+  /// Whether the public rankings surfaces are available to this user.
+  ///
+  /// Defaults on. Persisted rather than held in memory so the last known
+  /// answer survives a cold, offline launch, and so every consumer — the
+  /// router redirect, the nav bar, the rankings screen itself — reads one
+  /// reactive source instead of each deciding for itself. Read only via
+  /// `UserSettingsRepository.watchRankingsEnabled()` /
+  /// `isRankingsEnabled()`.
+  ///
+  /// Turning it off hides global rankings only; friends, challenges,
+  /// personal targets, trophies and trip statistics all keep working.
+  /// A later phase adds the remote channel that patches this column.
+  BoolColumn get rankingsEnabled =>
+      boolean().withDefault(const Constant(true))();
   BoolColumn get onboardingComplete =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Whether this account actually holds its username in the shared
+  /// namespace (`usernames/{usernameLower}` in Firestore).
+  ///
+  /// Usernames were local-only and never checked for uniqueness, so two
+  /// existing accounts can already be `basit`. Friend search turns a
+  /// username into an address, and an address has to resolve to one
+  /// person — but an upgrade must not silently rename anybody or lock
+  /// them out either. So the claim is attempted, and this records
+  /// whether it succeeded.
+  ///
+  /// False means "everything works, but you are not findable by name" —
+  /// an unclaimed account still competes, still uses every existing
+  /// feature, and can still be added by invite. It also means the claim
+  /// is worth retrying: false can be because the name is genuinely
+  /// somebody else's, or merely because the device was offline when it
+  /// tried.
+  BoolColumn get usernameClaimed =>
       boolean().withDefault(const Constant(false))();
 
   /// Set to true once we've shown the user the OEM battery-killer
@@ -82,6 +116,17 @@ class UserSettings extends Table {
   /// of what was actually driven.
   RealColumn get speedGoalKmh => real().nullable()();
   RealColumn get distanceGoalKm => real().nullable()();
+
+  /// Whether this user has agreed to appear in the competition —
+  /// their username, car, country and competition totals visible to
+  /// other DriveRank users, and findable by name or code.
+  ///
+  /// **Null means not asked yet**, and is treated exactly like "no":
+  /// nothing public is claimed or published until this is true. An
+  /// upgrade used to publish every existing user the moment it
+  /// launched, without telling them. Asked once, by the "Join the
+  /// Competition" notice; changeable in Settings.
+  BoolColumn get competitionOptIn => boolean().nullable()();
 
   DateTimeColumn get createdAt => dateTime()();
 }

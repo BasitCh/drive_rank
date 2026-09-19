@@ -141,6 +141,11 @@ class SyncManager {
     final uid = _auth.currentUser.uid;
     var uploaded = 0;
     try {
+      // Deletions drain first. A trip deleted and then re-restored in the
+      // same tick would otherwise flicker back into History before the
+      // delete lands.
+      await _drainDeletions(uid);
+
       final pending = await (_db.select(_db.trips)
             ..where((t) => t.isSynced.equals(false) & t.uid.equals(uid))
             ..orderBy([(t) => OrderingTerm.asc(t.startedAt)]))
@@ -198,6 +203,35 @@ class SyncManager {
       _running = false;
     }
     return uploaded;
+  }
+
+  /// Removes the cloud copies of trips the user deleted locally.
+  ///
+  /// Each tombstone is dropped only once its remote delete reports
+  /// success, so a failure here leaves the row for the next tick rather
+  /// than quietly abandoning a delete the user already saw happen. Per-
+  /// tombstone failures are swallowed for the same reason uploads are:
+  /// one unreachable doc must not block the rest of the queue.
+  Future<void> _drainDeletions(String uid) async {
+    final pending = await (_db.select(_db.deletedTrips)
+          ..where((d) => d.uid.equals(uid))
+          ..orderBy([(d) => OrderingTerm.asc(d.deletedAt)]))
+        .get();
+    for (final tombstone in pending) {
+      try {
+        await _sink.deleteTrip(uid: uid, remoteId: tombstone.remoteId);
+        await (_db.delete(_db.deletedTrips)
+              ..where((d) => d.remoteId.equals(tombstone.remoteId)))
+            .go();
+      } catch (e, st) {
+        if (kDebugMode) {
+          debugPrint(
+            'SyncManager: remote delete failed for ${tombstone.remoteId}: $e',
+          );
+        }
+        await _telemetry.recordError(e, st);
+      }
+    }
   }
 
   /// Resets every trip owned by the current uid back to `is_synced = false`.

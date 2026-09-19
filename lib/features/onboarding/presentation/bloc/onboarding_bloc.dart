@@ -12,6 +12,7 @@ import 'package:drive_rank/features/onboarding/presentation/bloc/onboarding_stat
 import 'package:drive_rank/shared/models/country.dart';
 import 'package:drive_rank/shared/models/vehicle_type.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
+import 'package:drive_rank/shared/services/username_reservation_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 
@@ -23,10 +24,11 @@ import 'package:injectable/injectable.dart';
 /// mid-flow doesn't lose previous answers — onboarding resumes where
 /// the user left off.
 ///
-/// MVP scope: username is local-only. Earlier versions reserved it in
-/// Firestore (for the now-removed friends search). The bloc still
-/// validates format synchronously so the field disables Continue
-/// until the user has typed something legal.
+/// Usernames are reserved in a shared namespace again, now that friend
+/// search needs a username to resolve to one person. Format is still
+/// validated synchronously — that answer needs no network — and only a
+/// legal name is looked up, so typing never fires a query per keystroke
+/// for input that can't be claimed anyway.
 @injectable
 class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   OnboardingBloc(
@@ -36,6 +38,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     this._permissions,
     this._telemetry,
     this._push,
+    this._usernames,
   ) : super(OnboardingState.initial()) {
     on<OnboardingStarted>(_onStarted);
     on<OnboardingStepNext>(_onNext);
@@ -48,6 +51,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     on<OnboardingCarPhotoSelected>(_onCarPhoto);
     on<OnboardingCarPhotoSkipped>(_onCarPhotoSkipped);
     on<OnboardingUsernameChanged>(_onUsernameChanged);
+    on<OnboardingUsernameChecked>(_onUsernameChecked);
     on<OnboardingMapThemeSelected>(_onMapTheme);
     on<OnboardingSafetyToggled>(_onSafety);
     on<OnboardingLocationPermissionRequested>(_onRequestPermission);
@@ -60,6 +64,12 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   final PermissionService _permissions;
   final TelemetryService _telemetry;
   final PushService _push;
+  final UsernameReservationService _usernames;
+
+  /// Long enough that typing a name doesn't fire a lookup per
+  /// keystroke, short enough that the verdict feels immediate.
+  static const Duration _usernameDebounceDelay = Duration(milliseconds: 400);
+  Timer? _usernameDebounce;
 
   /// Local format rules used to gate the Continue button on the
   /// username step. Mirrors what the spec calls "minimum 3 characters,
@@ -117,6 +127,10 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     // when the user advances past the username step.
     if (state.step == OnboardingStep.username) {
       await _settings.setUsername(state.username.trim());
+      // Hold the name now that they've committed to it. A failure here
+      // leaves the account unclaimed rather than blocking onboarding —
+      // they keep the name locally and every launch retries.
+      await _settings.claimUsername();
     }
 
     // Each Continue tap is a step-completed checkpoint — the step name
@@ -160,18 +174,75 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     final raw = event.value;
     final trimmed = raw.trim();
 
-    // Synchronous local validation only — earlier versions hit
-    // Firestore for uniqueness; that path is gone in MVP.
-    final UsernameCheckStatus status;
+    // Shape first, and locally: an illegal name can't be claimed, so
+    // there's nothing to ask the network about.
     if (trimmed.length < _usernameMinLength) {
-      status = UsernameCheckStatus.tooShort;
-    } else if (trimmed.length > _usernameMaxLength ||
-        !_usernameAllowed.hasMatch(trimmed)) {
-      status = UsernameCheckStatus.invalidFormat;
-    } else {
-      status = UsernameCheckStatus.available;
+      emit(
+        state.copyWith(
+          username: raw,
+          usernameStatus: UsernameCheckStatus.tooShort,
+        ),
+      );
+      return;
     }
-    emit(state.copyWith(username: raw, usernameStatus: status));
+    if (trimmed.length > _usernameMaxLength ||
+        !_usernameAllowed.hasMatch(trimmed)) {
+      emit(
+        state.copyWith(
+          username: raw,
+          usernameStatus: UsernameCheckStatus.invalidFormat,
+        ),
+      );
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        username: raw,
+        usernameStatus: UsernameCheckStatus.checking,
+      ),
+    );
+
+    // Debounced: the field emits per keystroke, and a lookup per
+    // keystroke would both cost reads and let an early answer land
+    // after a later one.
+    final query = trimmed;
+    _usernameDebounce?.cancel();
+    final settled = Completer<void>();
+    _usernameDebounce = Timer(_usernameDebounceDelay, () async {
+      final uid = (await _settings.read()).uid;
+      final result = await _usernames.check(username: query, forUid: uid);
+      if (!isClosed && state.username.trim() == query) {
+        add(OnboardingUsernameChecked(query, result));
+      }
+      settled.complete();
+    });
+    // Keeps the handler alive until the timer resolves so a test can
+    // await a settled bloc rather than sleeping.
+    await settled.future;
+  }
+
+  void _onUsernameChecked(
+    OnboardingUsernameChecked event,
+    Emitter<OnboardingState> emit,
+  ) {
+    // A stale answer for a name the user has since edited is dropped —
+    // it would otherwise overwrite the current field's verdict.
+    if (state.username.trim() != event.username) return;
+    emit(
+      state.copyWith(
+        usernameStatus: switch (event.result) {
+          UsernameClaim.taken => UsernameCheckStatus.taken,
+          UsernameClaim.claimed ||
+          UsernameClaim.alreadyMine => UsernameCheckStatus.available,
+          // Couldn't reach the namespace. Reporting `error` rather than
+          // `taken` matters: an unreachable check must never accuse a
+          // free name of being somebody else's, and the user is still
+          // allowed to continue with it.
+          UsernameClaim.unknown => UsernameCheckStatus.error,
+        },
+      ),
+    );
   }
 
   Future<void> _onBack(
@@ -334,5 +405,11 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     Emitter<OnboardingState> emit,
   ) {
     emit(state.copyWith(locationStatus: event.status));
+  }
+
+  @override
+  Future<void> close() {
+    _usernameDebounce?.cancel();
+    return super.close();
   }
 }

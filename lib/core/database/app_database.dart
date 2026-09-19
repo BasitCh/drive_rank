@@ -2,8 +2,15 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:drive_rank/core/database/tables/challenge_progress_table.dart';
+import 'package:drive_rank/core/database/tables/challenges_table.dart';
+import 'package:drive_rank/core/database/tables/deleted_trips_table.dart';
+import 'package:drive_rank/core/database/tables/friend_requests_table.dart';
+import 'package:drive_rank/core/database/tables/friends_table.dart';
 import 'package:drive_rank/core/database/tables/live_trips_table.dart';
+import 'package:drive_rank/core/database/tables/trip_eligibility_table.dart';
 import 'package:drive_rank/core/database/tables/trips_table.dart';
+import 'package:drive_rank/core/database/tables/trophies_table.dart';
 import 'package:drive_rank/core/database/tables/user_settings_table.dart';
 import 'package:drive_rank/core/database/tables/waypoints_table.dart';
 import 'package:injectable/injectable.dart';
@@ -17,7 +24,20 @@ part 'app_database.g.dart';
 /// Reads are always served from this DB (reactive streams) — Firestore is
 /// a write-only sync target. Keeps the app fully offline-capable.
 @DriftDatabase(
-  tables: [Trips, Waypoints, UserSettings, LiveTrips, LiveWaypoints],
+  tables: [
+    Trips,
+    Waypoints,
+    UserSettings,
+    LiveTrips,
+    LiveWaypoints,
+    Friends,
+    FriendRequests,
+    Challenges,
+    ChallengeProgress,
+    Trophies,
+    TripEligibility,
+    DeletedTrips,
+  ],
 )
 @singleton
 class AppDatabase extends _$AppDatabase {
@@ -27,12 +47,26 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
+      // Every step below must tolerate schema that is already there.
+      // A database can carry a *newer* shape than its version says: an
+      // older build opened on a newer file (a tester going back to a
+      // previous TestFlight build, or a sideload) leaves the new tables
+      // and columns in place and only rewrites `user_version`. The next
+      // upgrade then replays steps whose work is already done, and a
+      // plain `ADD COLUMN` failed with "duplicate column name" — seen on
+      // a simulator, where it left every database call in the app
+      // throwing. So, within this callback, these two shadow the
+      // non-tolerant originals.
+      Future<void> customStatement(String sql) => _toleratingStatement(sql);
+      Future<void> createTable(TableInfo<Table, dynamic> table) =>
+          _createTableIfMissing(m, table);
+
       if (from < 2) {
         // v2 adds Trips.road_segment_ids — comma-separated famous-road
         // segment ids the trip's bounding box overlapped at save time.
@@ -48,8 +82,8 @@ class AppDatabase extends _$AppDatabase {
         // crash-recovery + service-isolate checkpoint flow. The
         // generated CREATE statements live on the migrator — no need
         // to hand-roll SQL.
-        await m.createTable(liveTrips);
-        await m.createTable(liveWaypoints);
+        await createTable(liveTrips);
+        await createTable(liveWaypoints);
       }
       if (from < 4) {
         // v4 adds UserSettings.oem_advice_shown — set once after the
@@ -165,6 +199,154 @@ class AppDatabase extends _$AppDatabase {
           'WHERE free_trip_limit IS NULL',
         );
       }
+      if (from < 11) {
+        // v11 — adds the Social Competition feature's local tables:
+        // friends, friend requests, challenges (+ per-participant
+        // progress), and trophies. Phase 1 scaffolding only — no
+        // remote/Firestore sync yet.
+        await createTable(friends);
+        await createTable(friendRequests);
+        await createTable(challenges); // must precede challengeProgress
+        await createTable(challengeProgress);
+        await createTable(trophies);
+      }
+      if (from < 12) {
+        // v12 — the competition engine's persistence.
+        //
+        // `trip_eligibility` records whether a saved trip counts toward
+        // competition. Deliberately a separate table rather than columns
+        // on `trips`: social state stays out of the production trip
+        // schema, and the row is keyed on trip_id alone so it survives
+        // both uid-rewriting migrations (see the table's doc comment).
+        // No backfill — an absent row reads as eligible, so existing
+        // history keeps counting without re-walking every old trip's
+        // waypoints.
+        await createTable(tripEligibility);
+
+        // Collapses a repeated trophy award to one row at the database
+        // level, since trophy remote ids are deterministic (see
+        // `trophyRemoteId`). Raw SQL keeps this independent of
+        // generated code; `IF NOT EXISTS` makes it a no-op on a
+        // database that already created the index via `createAll`. Safe
+        // to add now precisely because v11 never shipped, so no
+        // duplicate rows can exist in the wild to reject it.
+        await customStatement(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_trophies_remote_id '
+          'ON trophies (remote_id)',
+        );
+
+        // Carries mock-location evidence through crash recovery — the
+        // eligibility check runs on in-memory points, which are rebuilt
+        // from live_waypoints after an interrupted trip resumes.
+        await customStatement(
+          'ALTER TABLE live_waypoints ADD COLUMN is_mocked '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 13) {
+        // v13 — rankings_enabled: the kill switch for the public
+        // rankings surfaces. Defaults on, and persisted rather than
+        // held in memory so the last known answer survives a cold
+        // offline launch and every consumer (router, nav bar, page)
+        // reads one reactive source. Existing rows default to enabled
+        // — nobody loses a feature by upgrading.
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN rankings_enabled '
+          'INTEGER NOT NULL DEFAULT 1',
+        );
+      }
+      if (from < 14) {
+        // v14 — `deleted_trips`: the tombstones that make deleting a
+        // trip stick. Until now a delete only removed the local row, so
+        // the cloud copy came back on the next restore. No backfill is
+        // possible or wanted — trips already deleted under the old
+        // behaviour left no record of ever having existed.
+        await createTable(deletedTrips);
+      }
+      if (from < 15) {
+        // v15 — username_claimed: whether this account holds its
+        // username in the shared Firestore namespace.
+        //
+        // Defaults false, which is the truthful starting point for
+        // every existing install: usernames were never checked for
+        // uniqueness, so nobody holds theirs yet. The next launch
+        // attempts a claim and flips this when it succeeds. Nobody is
+        // renamed and nobody is blocked in the meantime — an unclaimed
+        // account simply isn't findable by name.
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN username_claimed '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 16) {
+        // v16 — one row per friend request, enforced.
+        //
+        // A request id is derived from the pair (`{fromUid}_{toUid}`),
+        // and every reader has assumed since 4b that a remote id
+        // therefore identifies exactly one local row. Nothing enforced
+        // it: the writer used a plain insert, so each send appended
+        // another copy. A real device was found holding the same
+        // request three times, which shows the same entry three times
+        // in a list and leaves "which copy is the status" undefined.
+        //
+        // Collapse first, then constrain — unlike the trophies index in
+        // v12, duplicates certainly exist in the wild, so an index
+        // added before the dedupe would fail to build and take the
+        // whole upgrade with it. The survivor is the most recently
+        // updated row, which carries the furthest-along status.
+        await customStatement(
+          'DELETE FROM friend_requests WHERE id NOT IN ('
+          ' SELECT id FROM ('
+          ' SELECT id, ROW_NUMBER() OVER ('
+          ' PARTITION BY remote_id ORDER BY updated_at DESC, id DESC'
+          ' ) AS rn FROM friend_requests'
+          ' ) WHERE rn = 1'
+          ' )',
+        );
+        await customStatement(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_friend_requests_remote_id '
+          'ON friend_requests (remote_id)',
+        );
+      }
+      if (from < 17) {
+        // v17 — one row per challenge, enforced.
+        //
+        // 4d lets a challenge arrive from the *opponent's* device, and
+        // the sync upserts it by its stable `remote_id`. Nothing
+        // constrained that id, so every reconciliation pass would have
+        // appended another copy — precisely the bug `friend_requests`
+        // shipped with and v16 had to migrate out of. Seen coming this
+        // time.
+        //
+        // Collapse before constrain, as in v16: nothing has ever
+        // written a challenge from a remote source, so duplicates
+        // cannot exist in the wild — but a restored or debug-seeded
+        // database costs nothing to be careful about, and an index that
+        // fails to build takes the whole upgrade with it.
+        await customStatement(
+          'DELETE FROM challenges WHERE id NOT IN ('
+          ' SELECT id FROM ('
+          ' SELECT id, ROW_NUMBER() OVER ('
+          ' PARTITION BY remote_id ORDER BY updated_at DESC, id DESC'
+          ' ) AS rn FROM challenges'
+          ' ) WHERE rn = 1'
+          ' )',
+        );
+        await customStatement(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_remote_id '
+          'ON challenges (remote_id)',
+        );
+      }
+      if (from < 18) {
+        // v18 — competition_opt_in: whether the user agreed to be
+        // publicly visible in the competition. Null for everybody
+        // upgrading — "not asked" — so nobody becomes public by
+        // updating the app; the one-time notice asks them.
+        await customStatement(
+          'ALTER TABLE user_settings ADD COLUMN competition_opt_in '
+          'INTEGER NULL CHECK ("competition_opt_in" IN (0, 1))',
+        );
+      }
     },
     beforeOpen: (details) async {
       // SQLite has foreign-key enforcement off by default per connection.
@@ -173,6 +355,40 @@ class AppDatabase extends _$AppDatabase {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+}
+
+/// Tolerance for re-running migration steps whose work is already done.
+extension on AppDatabase {
+  static final _addColumn = RegExp(
+    r'^\s*ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)',
+    caseSensitive: false,
+  );
+
+  /// Runs [sql], except an `ADD COLUMN` for a column that already
+  /// exists, which is skipped. Everything else the migrations run is
+  /// already safe to repeat (`IF NOT EXISTS` indexes, `UPDATE … WHERE
+  /// … IS NULL`, dedupes).
+  Future<void> _toleratingStatement(String sql) async {
+    final add = _addColumn.firstMatch(sql);
+    if (add != null && await _hasColumn(add.group(1)!, add.group(2)!)) return;
+    await customStatement(sql);
+  }
+
+  Future<bool> _hasColumn(String table, String column) async {
+    final columns = await customSelect('PRAGMA table_info("$table")').get();
+    return columns.any((c) => c.read<String>('name') == column);
+  }
+
+  Future<void> _createTableIfMissing(
+    Migrator m,
+    TableInfo<Table, dynamic> table,
+  ) async {
+    final existing = await customSelect(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable.withString(table.actualTableName)],
+    ).get();
+    if (existing.isEmpty) await m.createTable(table);
+  }
 }
 
 LazyDatabase _openConnection() {

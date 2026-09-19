@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:drive_rank/core/database/app_database.dart';
+import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/services/geocoding_service.dart';
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
 import 'package:drive_rank/features/tracking/domain/entities/live_trip_stats.dart';
 import 'package:drive_rank/features/tracking/domain/entities/trip_point.dart';
 import 'package:drive_rank/features/trip_insights/domain/usecases/zero_to_hundred.dart';
@@ -237,8 +242,82 @@ class TripRepository {
         .toList();
   }
 
-  Future<int> deleteTrip(int id) {
-    return (_db.delete(_db.trips)..where((t) => t.id.equals(id))).go();
+  /// Deletes a trip locally **and** records a tombstone so it is removed
+  /// from the cloud too.
+  ///
+  /// Without the tombstone this method was a half-delete: the local row
+  /// went, the Firestore doc stayed, and the next restore — or simply the
+  /// next device — brought the trip back. Recording the intent rather
+  /// than deleting remotely inline is what makes it survive being
+  /// offline; `SyncManager` drains the queue on the next online tick.
+  Future<int> deleteTrip(int id) async {
+    final trip = await getById(id);
+    final remoteId = trip?.remoteId;
+    final deleted = await _db.transaction(() async {
+      if (remoteId != null && remoteId.isNotEmpty) {
+        await _db
+            .into(_db.deletedTrips)
+            .insertOnConflictUpdate(
+              DeletedTripsCompanion.insert(
+                remoteId: remoteId,
+                uid: trip!.uid,
+                deletedAt: DateTime.now(),
+              ),
+            );
+      }
+      return (_db.delete(_db.trips)..where((t) => t.id.equals(id))).go();
+    });
+    // After the transaction, so a rolled-back delete never republishes.
+    if (deleted > 0) _republishCompetitionValues();
+    return deleted;
+  }
+
+  /// Republishes the competition mirror after a trip goes away.
+  ///
+  /// "Recompute, never accumulate" is the feature's load-bearing rule,
+  /// and until now nothing outside this device depended on it: deleting
+  /// a trip lowered every local figure immediately, while the *published*
+  /// total — the one friends rank against — kept the old, higher value
+  /// until the next app start. The one direction that flatters the
+  /// person who deleted it, on the one surface other people read.
+  ///
+  /// Fire-and-forget and registration-guarded, exactly as
+  /// `TrackingBloc` does it after a drive: a delete is a UI action and
+  /// must not wait on a network round trip, and a failed publish costs
+  /// freshness until the next launch rather than blocking the delete.
+  void _republishCompetitionValues() {
+    if (getIt.isRegistered<CompetitionValuePublisher>()) {
+      unawaited(getIt<CompetitionValuePublisher>().publishNow());
+    }
+    // And any live challenge's figure, for the same reason and with
+    // more at stake: an opponent is watching that number, and a
+    // challenge the viewer is losing must not stay winnable by
+    // deleting the trip that lost it.
+    if (getIt.isRegistered<ChallengeProgressPublisher>()) {
+      unawaited(getIt<ChallengeProgressPublisher>().publishNow());
+    }
+  }
+
+  /// Trips deleted locally whose cloud copy is still to be removed.
+  Future<List<DeletedTripRow>> pendingRemoteDeletions(String uid) {
+    return (_db.select(_db.deletedTrips)
+          ..where((d) => d.uid.equals(uid))
+          ..orderBy([(d) => OrderingTerm.asc(d.deletedAt)]))
+        .get();
+  }
+
+  /// Drops a tombstone once the cloud copy is confirmed gone.
+  Future<void> clearRemoteDeletion(String remoteId) {
+    return (_db.delete(_db.deletedTrips)
+          ..where((d) => d.remoteId.equals(remoteId)))
+        .go();
+  }
+
+  /// Whether a restore should skip this doc — it is one the user already
+  /// deleted, and the delete simply hasn't reached the cloud yet.
+  Future<Set<String>> deletedRemoteIds(String uid) async {
+    final rows = await pendingRemoteDeletions(uid);
+    return rows.map((r) => r.remoteId).toSet();
   }
 
   /// Deletes every trip owned by [uid] — waypoints cascade via the FK.

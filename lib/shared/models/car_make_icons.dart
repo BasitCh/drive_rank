@@ -34,3 +34,19 @@ String? makeIconAssetPath(String? makeId) {
   }
   return 'assets/images/makes/$makeId.svg';
 }
+
+/// Best-effort make id for a make *display name*, or null when it isn't
+/// one this registry knows.
+///
+/// For surfaces that only have the persisted display string and no
+/// `CarMake` — a friend's published mirror carries `"Land Rover"`, never
+/// `land_rover`. Deliberately conservative: it normalises and looks the
+/// result up in [makeIdsWithDedicatedIcon] rather than guessing an asset
+/// path, because a miss must fall back to category art, not crash on a
+/// file that doesn't exist.
+String? makeIdFromDisplayName(String? displayName) {
+  final raw = displayName?.trim().toLowerCase() ?? '';
+  if (raw.isEmpty) return null;
+  final id = raw.replaceAll(RegExp('[^a-z0-9]+'), '_');
+  return makeIdsWithDedicatedIcon.contains(id) ? id : null;
+}

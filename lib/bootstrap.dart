@@ -14,11 +14,20 @@ import 'package:drive_rank/core/services/push_service.dart';
 import 'package:drive_rank/core/services/retention_notification_service.dart';
 import 'package:drive_rank/core/services/revenuecat_paywall_service.dart';
 import 'package:drive_rank/core/services/telemetry_service.dart';
+import 'package:drive_rank/features/social/data/services/challenge_progress_publisher.dart';
+import 'package:drive_rank/features/social/data/services/challenge_sync_service.dart';
+import 'package:drive_rank/features/social/data/services/competition_mirror_sink.dart';
+import 'package:drive_rank/features/social/data/services/competition_value_publisher.dart';
+import 'package:drive_rank/features/social/data/services/competition_visibility.dart';
+import 'package:drive_rank/features/social/data/services/friends_sync_service.dart';
+import 'package:drive_rank/features/social/data/services/social_directory.dart';
+import 'package:drive_rank/features/social/domain/usecases/social_trip_processor.dart';
 import 'package:drive_rank/shared/repositories/user_settings_repository.dart';
 import 'package:drive_rank/shared/services/firestore_trip_sink.dart';
 import 'package:drive_rank/shared/services/public_profile_service.dart';
 import 'package:drive_rank/shared/services/remote_trip_sink.dart';
 import 'package:drive_rank/shared/services/sync_manager.dart';
+import 'package:drive_rank/shared/services/username_reservation_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_core/firebase_core.dart';
@@ -32,11 +41,14 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 /// best-effort, *offline-first* init of the production SDKs we still
 /// use after the MVP scope reduction.
 ///
-/// MVP scope: Drive Rank is offline-first. Local Drift is the source
-/// of truth for every trip; there is no cloud sync, no leaderboard,
-/// no friends, and no public profile yet. The only Firebase surfaces
-/// still wired up are Auth (anonymous) for stable per-install identity
-/// and Crashlytics/Analytics for telemetry. RevenueCat handles
+/// Drive Rank is offline-first. Local Drift is the source of truth for
+/// every trip, and the competition engine computes rankings from it
+/// locally — nothing publishes another user's values yet, so the
+/// rankings board is the viewer plus fixed benchmarks. Friends and
+/// remote leaderboards are still to come. The Firebase surfaces wired
+/// up here are Auth (anonymous) for stable per-install identity,
+/// Firestore for trip sync and the public profile mirror, and
+/// Crashlytics/Analytics for telemetry. RevenueCat handles
 /// purchases. OneSignal handles push. Each remote init is best-effort
 /// — a missing config leaves the preview/no-op impl in place and the
 /// app still works.
@@ -133,6 +145,7 @@ Future<void> _initDeferredServices() async {
     _maybeInitRevenueCat(),
     _maybeSyncFreeTripCounter(),
     _initRetentionNotifications(),
+    _publishCompetitionValues(),
   ]);
 }
 
@@ -150,6 +163,50 @@ Future<void> _initRetentionNotifications() async {
   } catch (e) {
     if (kDebugMode) {
       debugPrint('[bootstrap] retention notifications init failed: $e');
+    }
+  }
+}
+
+/// Claims this account's username and republishes its competitive
+/// totals.
+///
+/// Both run every launch, and both are cheap and idempotent. The claim
+/// matters on a launch because a failure can mean "offline" rather than
+/// "taken", so an account that couldn't reach the reservation last time
+/// gets another chance. The publish matters because a window may have
+/// rolled over while the app was closed — last week's totals are not
+/// this week's, and nothing else would notice until the next drive.
+Future<void> _publishCompetitionValues() async {
+  try {
+    final settings = getIt<UserSettingsRepository>();
+    // Someone who said no to the competition has no public profile —
+    // this repeats the removal in case the last attempt never landed.
+    await getIt<CompetitionVisibility>().enforceOnLaunch();
+    final claim = await settings.claimUsername();
+    if (kDebugMode) debugPrint('[bootstrap] username claim: ${claim.name}');
+    await getIt<CompetitionValuePublisher>().publishNow();
+    // Challenges opened on the opponent's device only exist locally
+    // once something pulls them in, and this driver's figures are only
+    // as fresh as the last publish. Both happen here for the same
+    // reason the mirror does: a cold launch is the one moment the app
+    // is certain to have a network and a signed-in uid.
+    await getIt<ChallengeSyncService>().syncNow();
+    await getIt<ChallengeProgressPublisher>().publishNow();
+    // Pulls friendships and requests other people's devices created.
+    await getIt<FriendsSyncService>().syncNow();
+    // A challenge becomes final at a moment on the clock, not at a
+    // drive, so its trophies are checked here too — after the sync
+    // above has pulled the frozen figures they are settled from.
+    // Without this, a card said "You won" while `firstWin` waited for
+    // the next trip.
+    if (kSocialProcessingEnabled) {
+      await getIt<SocialTripProcessor>().awardSettledChallengeTrophies(
+        uid: (await settings.read()).uid,
+      );
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('[bootstrap] competition publish failed: $e');
     }
   }
 }
@@ -266,6 +323,19 @@ Future<void> _maybeInitFirebase() async {
     );
     await _replace<PublicProfileService>(
       () => FirestorePublicProfileService(FirebaseFirestore.instance),
+    );
+    // The public competition mirror and the username namespace — the
+    // two Phase 4 surfaces other people read. Same reasoning as the
+    // sink above: they exist only once Firebase has initialised, and
+    // fall back to no-ops that keep the app fully usable without it.
+    await _replace<CompetitionMirrorSink>(
+      () => FirestoreCompetitionMirrorSink(FirebaseFirestore.instance),
+    );
+    await _replace<UsernameReservationService>(
+      () => FirestoreUsernameReservationService(FirebaseFirestore.instance),
+    );
+    await _replace<SocialDirectory>(
+      () => FirestoreSocialDirectory(FirebaseFirestore.instance),
     );
     unawaited(getIt<SyncManager>().start());
 

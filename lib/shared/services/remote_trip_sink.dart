@@ -14,9 +14,16 @@ import 'package:injectable/injectable.dart';
 ///    true so the queue empties without a Firestore project configured.
 ///  - `FirestoreTripSink` — swapped in at bootstrap when Firebase is
 ///    available, writes to `users/{uid}/trips/{remoteId}`.
-// ignore: one_member_abstracts
 abstract class RemoteTripSink {
   Future<void> uploadTrip(TripRow trip);
+
+  /// Removes a trip the user deleted locally from the cloud.
+  ///
+  /// Returning normally means "gone remotely, drop the tombstone".
+  /// Throwing means "retry on the next online tick" — which is why a doc
+  /// that is already absent must *not* throw: a delete that partially
+  /// succeeded has to be able to finish.
+  Future<void> deleteTrip({required String uid, required String remoteId});
 }
 
 @LazySingleton(as: RemoteTripSink)
@@ -26,5 +33,14 @@ class NoopRemoteTripSink implements RemoteTripSink {
   @override
   Future<void> uploadTrip(TripRow trip) async {
     // Successful no-op — trip is marked synced so the queue can drain.
+  }
+
+  @override
+  Future<void> deleteTrip({
+    required String uid,
+    required String remoteId,
+  }) async {
+    // Nothing was ever uploaded, so there is nothing to remove — and
+    // reporting success is what lets the tombstone queue drain.
   }
 }

@@ -328,6 +328,310 @@ class AppStrings {
       'Invite friends to see how you stack up against them on every drive.';
   static const String leaderboardFriendsCta = 'Invite Friends';
 
+  // Rankings — metric selector.
+  static const String rankingsMetricDistance = 'Distance';
+  static const String rankingsMetricLongestTrip = 'Longest Trip';
+  static const String rankingsMetricConsistency = 'Consistency';
+
+  // Rankings — period selector.
+  static const String rankingsPeriodWeek = 'This Week';
+  static const String rankingsPeriodMonth = 'This Month';
+  static const String rankingsPeriodAllTime = 'All Time';
+
+  /// Unit shown beside a consistency value. Distance metrics use
+  /// `LocaleService` so they honour the user's unit system; days don't
+  /// convert.
+  static const String rankingsUnitDays = 'DAYS';
+  static const String rankingsUnitDay = 'DAY';
+
+  // Rankings — your position.
+  static const String rankingsYourRank = 'YOUR RANK';
+
+  /// Name shown on the viewer's own row before they've set a username.
+  static const String rankingsYouFallback = 'You';
+  static const String rankingsUnranked = 'UNRANKED';
+  static const String rankingsRankPrefix = '#';
+
+  /// "2.1k km to beat Road Explorer" — the actionable version of a
+  /// rank. A position on its own tells the user nothing they can do;
+  /// naming the gap and who holds it turns the board into a target.
+  static String rankingsToBeat(String gap, String name) =>
+      '$gap to beat $name';
+
+  /// Shown to whoever is top of the board: what they're defending, so
+  /// being first still has stakes.
+  static String rankingsAheadOf(String gap, String name) =>
+      "You're $gap ahead of $name";
+
+  static const String rankingsLeadingAlone = "You're setting the pace";
+
+  // Rankings — game feel. All three are readings of data the engine
+  // already produces; none of them is a second progression system.
+
+  /// "TIER 4 / 6" — how much of the benchmark ladder is cleared.
+  static String rankingsTier(int cleared, int total) =>
+      'TIER $cleared / $total';
+
+  static const String rankingsTierTopped = 'LADDER CLEARED';
+
+  /// "Ends Sunday · 2 days left". The day label is formatted by the
+  /// caller from the window the domain returned.
+  static String rankingsEndsIn(String day, int daysLeft) => daysLeft == 0
+      ? 'Ends $day · last day'
+      : daysLeft == 1
+      ? 'Ends $day · 1 day left'
+      : 'Ends $day · $daysLeft days left';
+
+  /// Says what the dots are rather than repeating the period chip
+  /// sitting directly above them — the board read "THIS WEEK" twice.
+  static const String rankingsStreakLabel = 'DRIVING DAYS';
+
+  /// "4 of 7 days" under the streak dots.
+  static String rankingsStreakDays(int driven) =>
+      driven == 1 ? '1 day driven' : '$driven days driven';
+
+  // Compare sheet.
+  static const String compareTitle = 'Head to head';
+  static const String compareYou = 'YOU';
+
+  /// "You lead 2 of 3".
+  static String compareScore(int led, int total) => 'You lead $led of $total';
+  static const String compareScoreNone = 'No metric led yet';
+  static const String compareAllLed = 'You lead every metric';
+
+  /// Subtitle on a benchmark row — says what the thing *is*, in the slot
+  /// where a real driver's car and country go.
+  static const String rankingsPaceReference = 'Pace reference';
+
+  /// The label on a benchmark row. Deliberately shouty and unmissable —
+  /// a benchmark must never be mistakable for a person.
+  static const String leaderboardBenchmark = 'BENCHMARK';
+
+  static const String rankingsBenchmarkFooter =
+      'Benchmarks are fixed targets, not other drivers.';
+
+  /// The label on a row whose figure is older than `staleAfter`.
+  ///
+  /// "Old figure" rather than "stale" or "offline": it describes the
+  /// *number*, not the person. A friend who hasn't opened the app hasn't
+  /// gone anywhere, and their last published total is still the truest
+  /// thing the app knows about them.
+  static const String leaderboardStaleFigure = 'OLD FIGURE';
+
+  /// The freshness note under the friends board, e.g. "Updated 3 days
+  /// ago" — the caller supplies the phrase.
+  static String rankingsPublishedAgo(String ago) => 'Updated $ago';
+
+  static String rankingsAgoDays(int days) =>
+      days == 1 ? 'yesterday' : '$days days ago';
+  static const String rankingsAgoToday = 'today';
+
+  // Rankings — scope. A third selector beside metric and period rather
+  // than a fourth tab: friends-vs-global is the same board with a
+  // different population, and Targets and Trophies are personal
+  // surfaces that a scope would mean nothing on.
+  static const String rankingsScopeGlobal = 'Global';
+  static const String rankingsScopeFriends = 'Friends';
+  static const String rankingsScopeLabel = "Who you're ranked against";
+
+  /// Shown on the friends board when the viewer has no friends yet.
+  /// Points at the place that fixes it rather than just reporting the
+  /// emptiness.
+  static const String rankingsNoFriendsTitle = 'No friends ranked yet';
+  static const String rankingsNoFriendsBody =
+      'Add a friend and you both appear on this board. Until then, '
+      'Global ranks you against fixed benchmarks.';
+  static const String rankingsNoFriendsCta = 'Find friends';
+
+  /// The footer under a friends board — the self-reported trust model,
+  /// said plainly to the people it applies to.
+  static const String rankingsFriendsFooter =
+      "Friends' figures are published by their own devices.";
+
+  // Rankings — sparse states. Two variants, because the same note has
+  // to be true both for a driver with no ranked trips yet and for one
+  // who has plenty but is still the only real competitor here. Telling
+  // the second "complete trips to establish your ranking" would be
+  // plainly wrong — they already did.
+  //
+  // Both are deliberately one line: on a sparse board this note appears
+  // every single time, and a three-line paragraph pushed the podium
+  // itself below the fold.
+  static const String rankingsSparseTitle =
+      "You're one of the first — complete a drive to get ranked";
+  static const String rankingsSparseRankedTitle =
+      "You're the only driver ranked here yet";
+  static const String rankingsNoTripsTitle = 'No ranked drives yet';
+  static const String rankingsNoTripsBody =
+      'Finish a drive and your position appears here. Short or '
+      'low-quality GPS trips still show in History — they just '
+      "don't count toward rankings.";
+
+  // Rankings — disabled (kill switch).
+  static const String rankingsDisabledTitle = 'Rankings are unavailable';
+  static const String rankingsDisabledBody =
+      'Global rankings are switched off right now. Your trips, targets '
+      'and trophies are unaffected.';
+
+  // Rankings — tabs.
+  static const String rankingsTabBoard = 'Board';
+  static const String rankingsTabTargets = 'Targets';
+  static const String rankingsTabTrophies = 'Trophies';
+
+  // Targets. Deliberately "target", never "goal" — Goal is the
+  // speed/distance personal-best mechanic RecordGoalEvaluator drives,
+  // and the two must not read as the same feature.
+  static const String targetsTitle = 'Your targets';
+  static const String targetsEmptyTitle = 'No targets yet';
+  static const String targetsEmptyBody =
+      'Set yourself something to chase. A target is just for you — no '
+      'friends needed.';
+  static const String targetsCreateCta = 'Set a target';
+
+  // Challenges. The copy follows the three settlement states exactly,
+  // because the card is where a wrong boundary would be most visible:
+  // a challenge that named a winner the moment its window closed could
+  // then contradict itself when an honest late figure landed.
+  static const String challengesSectionLabel = 'Challenges';
+  static const String challengesIncomingLabel = 'Waiting on you';
+  static const String challengeVsPrefix = 'vs ';
+  static const String challengeYou = 'YOU';
+
+  // Provisional — while there is still driving to come.
+  static const String challengeLeading = "You're leading";
+  static const String challengeTrailing = "You're behind";
+  static const String challengeTied = 'Level';
+
+  /// The window has closed and the figures can still legally move, so
+  /// there is deliberately no winner here to name.
+  static const String challengeFinalizing = 'Finalizing…';
+
+  /// "Final in 5 hours" — how long until the figures freeze.
+  static String challengeFinalIn(String remaining) => 'Final in $remaining';
+
+  /// Frozen, but this phone hasn't read the final figures yet.
+  static const String challengeConfirming = 'Confirming the final figures…';
+
+  // Final.
+  static const String challengeWon = 'You won';
+  static const String challengeLost = 'You lost';
+  static const String challengeDrew = 'Draw';
+
+  /// Accepted, and the opponent never published a figure. Not a win —
+  /// absent is not zero.
+  static const String challengeUndecided = 'No result';
+  static const String challengeUndecidedBody =
+      'They never posted a figure for this one.';
+
+  /// Nobody accepted it before the window closed.
+  static const String challengeExpired = 'Never started';
+  static const String challengeExpiredBody = 'It was never accepted.';
+
+  static const String challengeAccept = 'Accept';
+  static const String challengeDecline = 'Decline';
+  static const String challengeWithdraw = 'Withdraw';
+  static const String challengeAwaitingReply = 'Waiting for their answer';
+
+  // Creating one.
+  static const String challengeCreateTitle = 'Challenge a friend';
+  static const String challengeCreateCta = 'Send challenge';
+  static const String challengeFriendAction = 'Challenge';
+  static const String challengeCreateFailed =
+      "Couldn't send the challenge — try again";
+  static const String challengeSent = 'Challenge sent';
+  static const String targetsActiveLabel = 'ACTIVE';
+  static const String targetsCompletedLabel = 'COMPLETED';
+  static const String targetsCompletedOn = 'Completed';
+
+  /// "58 km to go" / "3 days to go".
+  static String targetsRemaining(String amount) => '$amount to go';
+
+  static const String targetsDone = 'Target reached';
+
+  /// The window a target is scoped to, shown so the deadline it
+  /// inherits is never a surprise: "Ends Sunday".
+  static String targetsEndsOn(String weekdayOrDate) =>
+      'Ends $weekdayOrDate';
+
+  // Create-target sheet.
+  static const String createTargetTitle = 'Set a target';
+  static const String createTargetMetricLabel = 'What to track';
+  static const String createTargetPeriodLabel = 'Over what window';
+  static const String createTargetValueLabel = 'Target';
+  static const String createTargetValueHintDistance = 'e.g. 250';
+  static const String createTargetValueHintDays = 'e.g. 5';
+  static const String createTargetSave = 'Create target';
+  static const String createTargetInvalid = 'Enter a number above zero';
+
+  static const String targetsCancelTitle = 'Give up on this target?';
+  static const String targetsCancelBody =
+      "It stops tracking and won't appear in your list. Your trips and "
+      'trophies are unaffected.';
+  static const String targetsCancelConfirm = 'Give up';
+
+  // Trophies.
+  static const String trophiesTitle = 'Trophies';
+  static const String trophiesEarnedLabel = 'EARNED';
+  static const String trophiesLockedLabel = 'NOT YET';
+  static const String trophyNeedsFriends = 'Needs friends';
+  static const String trophyNeedsRivals = 'Needs more drivers';
+
+  static const String trophyFirstTargetTitle = 'First Target';
+  static const String trophyFirstTargetBody = 'Complete your first target.';
+  static const String trophyFirstChallengeTitle = 'First Challenge';
+  static const String trophyFirstChallengeBody =
+      'Finish a head-to-head challenge.';
+  static const String trophyFirstWinTitle = 'First Win';
+  static const String trophyFirstWinBody = 'Win a head-to-head challenge.';
+  static const String trophyRankClimberTitle = 'Rank Climber';
+  static const String trophyRankClimberBody = 'Climb 10 places overall.';
+  static const String trophyRoadWarriorTitle = 'Road Warrior';
+  static const String trophyRoadWarriorBody = 'Drive 500 km in one week.';
+  static const String trophyConsistentTitle = 'Consistent';
+  static const String trophyConsistentBody = 'Drive on all 7 days of a week.';
+  static const String trophyRivalHunterTitle = 'Rival Hunter';
+  static const String trophyRivalHunterBody = 'Beat the same friend 3 times.';
+
+  // Trip Summary — competition card.
+  static const String tripCompetitionTitle = 'COMPETITION';
+
+  /// "#24 → #18"
+  static String tripRankMoved(int from, int to) => '#$from → #$to';
+
+  static String tripRankPlaces(int places) =>
+      places == 1 ? '+1 place' : '+$places places';
+
+  /// "You passed Road Regular" / "You passed Road Regular and 2 others".
+  static String tripPassed(String name) => 'You passed $name';
+  static String tripPassedMore(String name, int others) =>
+      others == 1
+      ? 'You passed $name and 1 other'
+      : 'You passed $name and $others others';
+
+  static const String tripRankHeld = 'Position held';
+  static const String tripTargetCompleted = 'Target reached';
+
+  /// The supporting line under [tripTargetCompleted]. Says something the
+  /// headline doesn't — the completions this card lists are filtered to
+  /// ones stamped at or after this trip started, so crediting the drive
+  /// is accurate, not flattery.
+  static const String tripTargetCompletedBody = 'This drive finished it off.';
+  static const String tripTrophyUnlocked = 'Trophy unlocked';
+  static const String tripNotEligibleTitle = "This trip didn't count";
+  static const String tripNotEligibleBody =
+      "It's saved in your history, but something about the GPS data kept "
+      'it out of the rankings.';
+  static const String tripViewRankingsCta = 'View rankings';
+
+  // Benchmark identities. Descriptive on purpose — never plausible
+  // personal names, so a benchmark can't read as a real rival.
+  static const String benchmarkRoadWarrior = 'Road Warrior';
+  static const String benchmarkHighwayHunter = 'Highway Hunter';
+  static const String benchmarkRoadExplorer = 'Road Explorer';
+  static const String benchmarkDailyDriver = 'Daily Driver';
+  static const String benchmarkRoadRegular = 'Road Regular';
+  static const String benchmarkWeekendCruiser = 'Weekend Cruiser';
+
   // Friends feature (Add Friend bottom sheet + profile section).
   static const String friendsAddTitle = 'Add Friend';
   static const String friendsSearchHint = 'Search by username';
@@ -338,15 +642,65 @@ class AppStrings {
   static const String friendsSentButton = 'Sent';
   static const String friendsSendFailed =
       "Couldn't send the request — try again";
+
+  // An outstanding request, in either direction. The sheet used to show
+  // a live ADD button in both cases and report the refusal as an error,
+  // which read as a failure and offered no way forward.
+  static const String friendsAwaitingReply = 'Asked — waiting for a reply';
+  static const String friendsCancelButton = 'Withdraw';
+  static const String friendsCancelFailed =
+      "Couldn't withdraw the request — try again";
+  static const String friendsTheyAskedFirst =
+      'They asked you first — answer it under Friend requests';
+
+  /// When asking is genuinely not possible from this side.
+  ///
+  /// Deliberately does not say "they declined you": it is true, but the
+  /// useful half is what to do next, and stating it adds nothing the
+  /// viewer can act on. What it must not do is what it used to —
+  /// report "couldn't send, try again", which was a plain lie: trying
+  /// again could never work.
+  static const String friendsTheyMustAsk = 'They can add you from their end';
   static const String friendsSectionTitle = 'Friends';
   static const String friendsIncomingTitle = 'Friend requests';
   static const String friendsAccept = 'Accept';
   static const String friendsDecline = 'Decline';
   static const String friendsRequestPrefix = '@';
   static const String friendsRequestSuffix = ' wants to be friends';
-  static const String leaderboardSubThisWeek = 'This week';
-  static const String leaderboardEmpty =
-      'No drives recorded here yet — be the first to set a time.';
+
+  // Requests the viewer sent. They had no section at all, so a sent
+  // request was invisible to the only person who could withdraw it.
+  static const String friendsSentTitle = 'Requests you sent';
+  static const String friendsSentSuffix = ' — waiting for a reply';
+
+  // Friends — invite and empty states (Phase 4b).
+  static const String friendsTitle = 'Friends';
+  static const String friendsEmptyTitle = 'No friends yet';
+  static const String friendsEmptyBody =
+      'Share your code, or search for someone by username. You compete '
+      'against whoever you add — nobody else sees your figures.';
+  static const String friendsYourCodeLabel = 'YOUR CODE';
+  static const String friendsShareCode = 'Share code';
+
+  /// The message that goes out with the code.
+  static String friendsShareMessage(String code) =>
+      'Add me on DriveRank — my code is $code';
+
+  static const String friendsEnterCodeHint = 'Enter a friend code';
+  static const String friendsCodeNotFound = "That code doesn't match anyone";
+  static const String friendsSearchByCode = 'Code';
+  static const String friendsSearchByUsername = 'Username';
+  static const String friendsRequestSent = 'Request sent';
+  static const String friendsAlreadyFriends = 'Already friends';
+  static const String friendsIncomingEmpty = 'No requests right now';
+  static const String friendsRemove = 'Remove friend';
+  static const String friendsRemoveConfirm =
+      'They stop appearing on your board, and you stop appearing on '
+      'theirs.';
+  static const String friendsUnsearchableNotice =
+      "Your username isn't reserved yet, so you can't be found by name — "
+      'share your code instead.';
+  static const String friendsSelfCode = "That's your own code";
 
   // Profile.
   static const String profileTitle = 'Profile';
@@ -486,6 +840,26 @@ class AppStrings {
   static const String settingsFuelTypeElectric = 'Electric';
   static const String settingsMapTheme = 'Map Theme';
   static const String settingsAccount = 'Account';
+
+  // Competition visibility — the one-time "Join the Competition" notice
+  // and its Settings switch. Nothing public is written until the user
+  // joins.
+  static const String competitionJoinTitle = 'Join the Competition';
+  static const String competitionJoinBody =
+      'DriveRank now lets you compete with friends. To appear on friend '
+      'leaderboards, your username, car, country and competition stats '
+      'will be visible to other DriveRank users. You can change your '
+      'competition visibility in Settings.';
+  static const String competitionJoinAction = 'Join Competition';
+  static const String competitionNotNow = 'Not now';
+  static const String settingsCompetitionVisibility = 'Competition visibility';
+  static const String settingsCompetitionHidden = 'Hidden';
+  static const String settingsCompetitionVisible = 'Visible';
+  static const String friendsJoinFirstTitle = 'Join the competition first';
+  static const String friendsJoinFirstBody =
+      'Friends find you by your username or code, which only works once '
+      'you appear in the competition. Your username, car, country and '
+      'competition stats become visible to other DriveRank users.';
   static const String settingsUsername = 'Username';
   static const String settingsCountry = 'Country';
   static const String settingsUnitSystemMetric = 'Metric (km, km/h, L/100km)';
