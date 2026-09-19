@@ -211,7 +211,9 @@ void main() {
       );
 
       expect(find.text(AppStrings.rankingsPaceReference), findsOneWidget);
-      expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+      // No arrow, as on the reference board — the row itself is the
+      // tap target.
+      expect(find.byType(InkWell), findsOneWidget);
       await tester.tap(find.byType(LeaderboardRow));
       expect(tapped, isTrue);
     });

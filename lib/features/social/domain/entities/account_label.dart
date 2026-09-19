@@ -28,11 +28,13 @@ class AccountLabel {
     required String carModel,
     required String inviteCode,
     bool includeCode = true,
+    bool includeFlag = true,
   }) {
     final country = countryFromCode(countryCode);
     final car = [carMake, carModel].where((s) => s.trim().isNotEmpty).join(' ');
     return [
-      if (country != null) '${country.flag} ${country.name}',
+      if (country != null)
+        includeFlag ? '${country.flag} ${country.name}' : country.name,
       if (car.isNotEmpty) car,
       if (includeCode && inviteCode.isNotEmpty) inviteCode,
     ].join('  ·  ');

@@ -132,3 +132,8 @@ flutter:
     - family: JetBrainsMono
       fonts:
         - asset: assets/fonts/JetBrainsMono-VariableFont_wght.ttf
+    # Unbounded (SIL OFL 1.1 — assets/fonts/Unbounded-OFL.txt): the wide,
+    # heavy face for the Ranks title and rank numerals.
+    - family: Unbounded
+      fonts:
+        - asset: assets/fonts/Unbounded-VariableFont_wght.ttf

@@ -35,9 +35,13 @@ class RankIdentity extends StatelessWidget {
     required this.diameter,
     this.viewer,
     this.ringColor,
+    this.ringWidth,
     this.showFlag = false,
     super.key,
   });
+
+  /// Overrides the ring's width — the podium's medal rings are heavier.
+  final double? ringWidth;
 
   final LeaderboardEntry entry;
   final double diameter;
@@ -85,7 +89,7 @@ class RankIdentity extends StatelessWidget {
         color: AppColors.card,
         border: Border.all(
           color: ringColor ?? defaultRing,
-          width: entry.isCurrentUser || ringColor != null ? 2 : 1,
+          width: ringWidth ?? (entry.isCurrentUser || ringColor != null ? 2 : 1),
         ),
       ),
       clipBehavior: Clip.antiAlias,

@@ -1,12 +1,12 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
 import 'package:drive_rank/core/constants/app_spacing.dart';
-import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart'
     show UserSettingsRow;
 import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
 import 'package:drive_rank/features/social/presentation/widgets/benchmark_badge.dart';
 import 'package:drive_rank/features/social/presentation/widgets/rank_identity.dart';
+import 'package:drive_rank/features/social/presentation/widgets/rank_type.dart';
 import 'package:flutter/material.dart';
 
 /// The top three, as a podium.
@@ -50,8 +50,8 @@ class TopThreePodium extends StatelessWidget {
   /// jumbled podium rather than a stepped one. Pinning the head height
   /// per tier means the *only* thing that varies between places is the
   /// plinth, which is exactly the effect a podium wants.
-  static const double _leadHeadHeight = 186;
-  static const double _sideHeadHeight = 150;
+  static const double _leadHeadHeight = 210;
+  static const double _sideHeadHeight = 164;
 
   /// Medal colours, shared by each place's ring and its plinth.
   ///
@@ -59,9 +59,9 @@ class TopThreePodium extends StatelessWidget {
   /// the same grey ring, which is what made the podium read flat: the
   /// places were distinguishable only by height. One colour per place,
   /// carried by both parts of the tile.
-  static const Color _gold = AppColors.yellow;
-  static const Color _silver = Color(0xFFC7CBD4);
-  static const Color _bronze = AppColors.orange;
+  static const Color _gold = MedalColors.gold;
+  static const Color _silver = MedalColors.silver;
+  static const Color _bronze = MedalColors.bronze;
 
   VoidCallback? _tapFor(LeaderboardPosition position) {
     final compare = onCompare;
@@ -90,11 +90,11 @@ class TopThreePodium extends StatelessWidget {
                     formatValue: formatValue,
                     unitFor: unitFor,
                     viewer: viewer,
-                    diameter: 60,
+                    diameter: 68,
                     headHeight: _sideHeadHeight,
-                    plinthHeight: 58,
-                    plinthColor: _silver.withValues(alpha: 0.07),
-                    plinthBorder: _silver.withValues(alpha: 0.28),
+                    plinthHeight: 72,
+                    plinthColor: _silver.withValues(alpha: 0.10),
+                    plinthBorder: _silver.withValues(alpha: 0.30),
                     rankColor: _silver,
                     medal: _silver,
                   ),
@@ -107,11 +107,11 @@ class TopThreePodium extends StatelessWidget {
               formatValue: formatValue,
               unitFor: unitFor,
               viewer: viewer,
-              diameter: 78,
+              diameter: 88,
               headHeight: _leadHeadHeight,
-              plinthHeight: 84,
-              plinthColor: _gold.withValues(alpha: 0.08),
-              plinthBorder: _gold.withValues(alpha: 0.25),
+              plinthHeight: 104,
+              plinthColor: _gold.withValues(alpha: 0.16),
+              plinthBorder: _gold.withValues(alpha: 0.45),
               rankColor: _gold,
               medal: _gold,
               showTrophy: true,
@@ -127,11 +127,11 @@ class TopThreePodium extends StatelessWidget {
                     formatValue: formatValue,
                     unitFor: unitFor,
                     viewer: viewer,
-                    diameter: 60,
+                    diameter: 68,
                     headHeight: _sideHeadHeight,
-                    plinthHeight: 40,
-                    plinthColor: _bronze.withValues(alpha: 0.08),
-                    plinthBorder: _bronze.withValues(alpha: 0.25),
+                    plinthHeight: 54,
+                    plinthColor: _bronze.withValues(alpha: 0.14),
+                    plinthBorder: _bronze.withValues(alpha: 0.40),
                     rankColor: _bronze,
                     medal: _bronze,
                   ),
@@ -193,12 +193,12 @@ class _PodiumTile extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Icon(
                     Icons.emoji_events_rounded,
-                    size: 22,
+                    size: 28,
                     // Muted while a benchmark holds the top spot — nobody has
                     // won a board whose leader never drove anywhere.
                     color: entry.isBenchmark
                         ? AppColors.textTertiary
-                        : AppColors.yellow,
+                        : MedalColors.gold,
                   ),
                 ),
               RankIdentity(
@@ -206,9 +206,10 @@ class _PodiumTile extends StatelessWidget {
                 diameter: diameter,
                 viewer: viewer,
                 ringColor: medal,
+                ringWidth: 3,
                 showFlag: entry.isCurrentUser || entry.countryCode.isNotEmpty,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 entry.isCurrentUser ? 'YOU' : entry.displayName,
                 maxLines: 1,
@@ -216,7 +217,7 @@ class _PodiumTile extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Outfit',
-                  fontSize: showTrophy ? 14 : 13,
+                  fontSize: showTrophy ? 17 : 15,
                   fontWeight: FontWeight.w700,
                   color: entry.isCurrentUser
                       ? AppColors.teal
@@ -246,25 +247,31 @@ class _PodiumTile extends StatelessWidget {
               const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
                 children: [
+                  // In the place's own colour, as the reference board
+                  // does: the figure belongs to the medal, not the name.
                   Text(
                     formatValue(entry.value),
                     style: TextStyle(
-                      fontFamily: 'BebasNeue',
-                      fontSize: showTrophy ? 26 : 22,
+                      fontFamily: 'Outfit',
+                      fontSize: showTrophy ? 20 : 16,
+                      fontWeight: FontWeight.w800,
                       height: 1,
                       color: entry.isBenchmark
-                          ? AppColors.textSecondary
-                          : AppColors.textPrimary,
+                          ? medal.withValues(alpha: 0.7)
+                          : medal,
                     ),
                   ),
                   const SizedBox(width: 3),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 1),
-                    child: Text(
-                      unitFor(entry.value),
-                      style: AppTextStyles.microLabel.copyWith(fontSize: 9),
+                  Text(
+                    unitFor(entry.value).toLowerCase(),
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: showTrophy ? 13 : 11,
+                      fontWeight: FontWeight.w600,
+                      color: medal.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -276,20 +283,21 @@ class _PodiumTile extends StatelessWidget {
         Container(
           height: plinthHeight,
           decoration: BoxDecoration(
-            color: plinthColor,
-            border: Border.all(color: plinthBorder),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [plinthColor, plinthColor.withValues(alpha: 0.02)],
+            ),
+            border: Border.all(color: plinthBorder, width: 1.2),
             borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppSpacing.radiusSm),
+              top: Radius.circular(14),
             ),
           ),
-          alignment: Alignment.topCenter,
-          padding: const EdgeInsets.only(top: 8),
+          alignment: Alignment.center,
           child: Text(
             '${position.rank}',
-            style: TextStyle(
-              fontFamily: 'BebasNeue',
-              fontSize: showTrophy ? 30 : 24,
-              height: 1,
+            style: RankType.numeral(
+              size: showTrophy ? 40 : 30,
               color: rankColor,
             ),
           ),

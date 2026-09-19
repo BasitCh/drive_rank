@@ -1,5 +1,4 @@
 import 'package:drive_rank/core/constants/app_colors.dart';
-import 'package:drive_rank/core/constants/app_spacing.dart';
 import 'package:drive_rank/core/constants/app_strings.dart';
 import 'package:drive_rank/core/constants/app_text_styles.dart';
 import 'package:drive_rank/core/database/app_database.dart'
@@ -7,6 +6,8 @@ import 'package:drive_rank/core/database/app_database.dart'
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
 import 'package:drive_rank/features/social/presentation/widgets/benchmark_badge.dart';
 import 'package:drive_rank/features/social/presentation/widgets/rank_identity.dart';
+import 'package:drive_rank/features/social/presentation/widgets/rank_type.dart';
+import 'package:drive_rank/shared/models/country.dart';
 import 'package:flutter/material.dart';
 
 /// One row below the podium.
@@ -58,127 +59,138 @@ class LeaderboardRow extends StatelessWidget {
     final entry = position.entry;
     final isMe = entry.isCurrentUser;
     final isBenchmark = entry.isBenchmark;
+    // The viewer's country from settings, everyone else's from what they
+    // published — never the other way round. A benchmark is from
+    // nowhere, so it gets no flag.
+    final flag = isBenchmark
+        ? null
+        : countryFromCode(isMe ? (viewer?.country ?? '') : entry.countryCode)
+              ?.flag;
 
     final row = Container(
-      padding: const EdgeInsets.fromLTRB(8, 9, 14, 9),
+      height: 66,
       decoration: BoxDecoration(
-        color: isMe ? AppColors.teal.withValues(alpha: 0.06) : AppColors.card,
+        color: isMe ? const Color(0xFF16252C) : AppColors.card,
         border: Border.all(
           color: isMe ? AppColors.teal : AppColors.border,
           width: isMe ? 1.5 : 1,
         ),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
         children: [
-          // The rank sits in its own slab rather than floating in the
-          // padding — it's the row's index, not another one of its
-          // numbers, and the block keeps a two-digit rank from shoving
-          // the identity sideways.
-          Container(
-            width: 30,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isMe
-                  ? AppColors.teal.withValues(alpha: 0.14)
-                  : AppColors.bg2,
-              borderRadius: BorderRadius.circular(6),
+          // The driver's flag, faded out behind the rank — where they
+          // drive, read before their name is.
+          if (flag != null)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 92,
+              child: _FlagWash(flag: flag),
             ),
-            child: Text(
-              '${position.rank}',
-              style: TextStyle(
-                fontFamily: 'BebasNeue',
-                fontSize: 20,
-                height: 1,
-                color: isMe ? AppColors.teal : AppColors.textSecondary,
+          Row(
+            children: [
+              SizedBox(
+                width: 58,
+                child: Center(
+                  child: Text(
+                    '${position.rank}',
+                    style: RankType.numeral(
+                      size: position.rank >= 100 ? 15 : 21,
+                      color: AppColors.textPrimary,
+                    ).copyWith(
+                      shadows: const [
+                        Shadow(color: Colors.black54, blurRadius: 6),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          RankIdentity(
-            entry: entry,
-            diameter: 40,
-            viewer: viewer,
-            // Anyone who is actually a person and told us where they
-            // drive. A benchmark is excluded inside `RankIdentity`, so
-            // this can't accidentally grant one a nationality.
-            showFlag: isMe || entry.countryCode.isNotEmpty,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
+              RankIdentity(entry: entry, diameter: 42, viewer: viewer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Flexible(
-                      child: Text(
-                        isMe ? AppStrings.leaderboardYou : entry.displayName,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            isMe ? AppStrings.leaderboardYou : entry.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: isMe ? 1.2 : 0,
+                              color: isMe
+                                  ? AppColors.teal
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (isBenchmark) ...[
+                          const SizedBox(width: 6),
+                          const BenchmarkBadge(),
+                        ]
+                        // Marked on the row, not hidden from it. The value
+                        // still ranks — see `StaleBadge`.
+                        else if (entry.isStale) ...[
+                          const SizedBox(width: 6),
+                          const StaleBadge(),
+                        ],
+                      ],
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: isMe ? AppColors.teal : AppColors.textPrimary,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                    ),
-                    if (isBenchmark) ...[
-                      const SizedBox(width: 6),
-                      const BenchmarkBadge(),
-                    ]
-                    // Marked on the row, not hidden from it. The value
-                    // below still ranks — see `StaleBadge`.
-                    else if (entry.isStale) ...[
-                      const SizedBox(width: 6),
-                      const StaleBadge(),
                     ],
                   ],
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.microLabel.copyWith(fontSize: 10),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                formattedValue,
-                style: TextStyle(
-                  fontFamily: 'BebasNeue',
-                  fontSize: 25,
-                  height: 1,
-                  color: isBenchmark
-                      ? AppColors.textSecondary
-                      : AppColors.textPrimary,
-                ),
               ),
-              Text(
-                unitLabel,
-                style: AppTextStyles.microLabel.copyWith(fontSize: 10),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formattedValue,
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                        color: isBenchmark
+                            ? AppColors.textSecondary
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      unitLabel.toLowerCase(),
+                      style: AppTextStyles.bodySmall.copyWith(
+                        fontSize: 11.5,
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          if (onTap != null) ...[
-            const SizedBox(width: 2),
-            const Icon(
-              Icons.chevron_right_rounded,
-              size: 18,
-              color: AppColors.textTertiary,
-            ),
-          ],
         ],
       ),
     );
@@ -189,8 +201,42 @@ class LeaderboardRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: tap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        borderRadius: BorderRadius.circular(16),
         child: row,
+      ),
+    );
+  }
+}
+
+/// A country flag, blown up and faded out to the right — the backdrop
+/// behind a row's rank.
+class _FlagWash extends StatelessWidget {
+  const _FlagWash({required this.flag});
+
+  final String flag;
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => const LinearGradient(
+        colors: [Color(0x99FFFFFF), Color(0x73FFFFFF), Color(0x00FFFFFF)],
+        // Fully faded well inside the wash, so the emoji's own edge
+        // never shows as a line.
+        stops: [0, 0.35, 0.8],
+      ).createShader(bounds),
+      child: ClipRect(
+        child: OverflowBox(
+          maxWidth: double.infinity,
+          maxHeight: double.infinity,
+          child: Transform.scale(
+            // An emoji flag is drawn with rounded corners and a waving
+            // edge. Blown up well past the row and cropped, only its
+            // colours remain — a solid wash, like a printed flag.
+            scale: 2.2,
+            child: Text(flag, style: const TextStyle(fontSize: 60, height: 1)),
+          ),
+        ),
       ),
     );
   }

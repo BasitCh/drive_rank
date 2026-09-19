@@ -841,6 +841,9 @@ class AppStrings {
   static const String settingsMapTheme = 'Map Theme';
   static const String settingsAccount = 'Account';
 
+  static const String ranksTitle = 'Ranks';
+  static const String ranksAddFriends = 'Add friends';
+
   // Competition visibility — the one-time "Join the Competition" notice
   // and its Settings switch. Nothing public is written until the user
   // joins.

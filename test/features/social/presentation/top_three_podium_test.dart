@@ -4,6 +4,7 @@ import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dar
 import 'package:drive_rank/features/social/domain/entities/leaderboard_participant_type.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_position.dart';
 import 'package:drive_rank/features/social/presentation/widgets/benchmark_badge.dart';
+import 'package:drive_rank/features/social/presentation/widgets/rank_type.dart';
 import 'package:drive_rank/features/social/presentation/widgets/top_three_podium.dart';
 import 'package:drive_rank/shared/widgets/car_silhouette.dart';
 import 'package:flutter/material.dart';
@@ -115,7 +116,7 @@ void main() {
         isBenchmark: true,
       ),
     ]);
-    expect(trophyColour(tester), AppColors.yellow);
+    expect(trophyColour(tester), MedalColors.gold);
   });
 
   testWidgets('the viewer on the podium is named YOU and carries no '
@@ -166,7 +167,7 @@ void main() {
       expect(find.byIcon(Icons.speed_rounded), findsOneWidget);
       expect(find.byType(CarSilhouette), findsOneWidget);
       // A real person at the top means somebody actually won.
-      expect(trophyColour(tester), AppColors.yellow);
+      expect(trophyColour(tester), MedalColors.gold);
     });
 
     testWidgets('an old figure is marked in the badge slot, where a '

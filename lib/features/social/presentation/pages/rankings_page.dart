@@ -8,7 +8,6 @@ import 'package:drive_rank/core/di/injection.dart';
 import 'package:drive_rank/core/router/route_names.dart';
 import 'package:drive_rank/core/services/locale_service.dart';
 import 'package:drive_rank/features/social/domain/entities/account_label.dart';
-import 'package:drive_rank/features/social/domain/entities/benchmark_tier.dart';
 import 'package:drive_rank/features/social/domain/entities/challenge.dart';
 import 'package:drive_rank/features/social/domain/entities/competition_window.dart';
 import 'package:drive_rank/features/social/domain/entities/leaderboard_entry.dart';
@@ -21,7 +20,7 @@ import 'package:drive_rank/features/social/presentation/bloc/rankings_bloc.dart'
 import 'package:drive_rank/features/social/presentation/widgets/compare_sheet.dart';
 import 'package:drive_rank/features/social/presentation/widgets/create_target_sheet.dart';
 import 'package:drive_rank/features/social/presentation/widgets/leaderboard_row.dart';
-import 'package:drive_rank/features/social/presentation/widgets/my_rank_hero.dart';
+import 'package:drive_rank/features/social/presentation/widgets/rank_type.dart';
 import 'package:drive_rank/features/social/presentation/widgets/rankings_tab_bar.dart';
 import 'package:drive_rank/features/social/presentation/widgets/selector_chip.dart';
 import 'package:drive_rank/features/social/presentation/widgets/targets_tab.dart';
@@ -109,17 +108,6 @@ class _RankingsBody extends StatelessWidget {
                 if (isBoard) ...[
                   _BoardSelectors(state: state),
                   const SizedBox(height: AppSpacing.md),
-                  // Your standing stays pinned rather than scrolling
-                  // with the board: it's the answer the screen exists
-                  // to give, and as a scrolling child it slid out of
-                  // view the moment the user looked down the list.
-                  if (state.board?.me != null) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: _MyRank(state: state),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
                 ],
                 Expanded(
                   child: switch (state.tab) {
@@ -328,60 +316,6 @@ Future<void> _openChallengeSheet(
       value: request.value,
     ),
   );
-}
-
-class _MyRank extends StatelessWidget {
-  const _MyRank({required this.state});
-
-  final RankingsState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final board = state.board!;
-    final format = _MetricFormat.of(state.metric);
-    final window = CompetitionWindow.forPeriod(state.period, DateTime.now());
-    final countdown = window.countdownAt(DateTime.now());
-
-    return MyRankHero(
-      board: board,
-      formattedValue: format.value(board.me!.entry.value),
-      unitLabel: format.unit(board.me!.entry.value),
-      formatGap: format.gap,
-      tier: BenchmarkTier.forValue(
-        value: board.me!.entry.value,
-        metric: state.metric,
-        period: state.period,
-      ),
-      countdownLabel: countdown == null
-          ? null
-          : AppStrings.rankingsEndsIn(
-              _formatDay(countdown.endsAfter),
-              countdown.daysLeft,
-            ),
-      // Seven dots describe a week. On a monthly or all-time board they
-      // would be answering a question nobody asked.
-      weekDays: state.period == LeaderboardPeriod.weekly
-          ? _weekDays(window, state.qualifyingDayKeys)
-          : null,
-    );
-  }
-
-  /// Monday-first booleans for the window's seven days.
-  static List<bool> _weekDays(CompetitionWindow window, Set<int> driven) {
-    return [
-      for (var i = 0; i < 7; i++)
-        driven.contains(
-          _dayKey(
-            DateTime(window.start.year, window.start.month, window.start.day + i),
-          ),
-        ),
-    ];
-  }
-
-  /// The same key `CompetitionTrip.localDayKey` builds, so the strip and
-  /// the consistency metric agree on what a day is.
-  static int _dayKey(DateTime day) =>
-      day.year * 10000 + day.month * 100 + day.day;
 }
 
 /// Formats one metric's numbers.
@@ -632,11 +566,38 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(18, 10, 18, 12),
-      child: Text(
-        AppStrings.leaderboardTitle,
-        style: AppTextStyles.sectionTitle,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 14, 12),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(AppStrings.ranksTitle, style: RankType.title),
+          ),
+          // Friends are who you rank against, so they're reached from
+          // here — on every tab, where it covers nothing.
+          Tooltip(
+            message: AppStrings.ranksAddFriends,
+            child: Material(
+              color: AppColors.card,
+              shape: const CircleBorder(
+                side: BorderSide(color: AppColors.border2),
+              ),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => context.push(RouteNames.friends),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(
+                    Icons.person_add_alt_1_rounded,
+                    size: 21,
+                    color: AppColors.teal,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -764,20 +725,18 @@ class _Board extends StatelessWidget {
     if (entry.isBenchmark) return AppStrings.rankingsPaceReference;
 
     if (!entry.isCurrentUser) {
+      // The flag is the row's backdrop, so the line itself doesn't
+      // repeat it. A figure that has gone old is marked on the row by
+      // `StaleBadge`.
       final label = AccountLabel.describe(
         countryCode: entry.countryCode,
         carMake: entry.carMake,
         carModel: entry.carModel,
         inviteCode: '',
         includeCode: false,
+        includeFlag: false,
       );
-      final published = entry.publishedAt;
-      final age = published == null ? null : _agoLabel(published);
-      final parts = [
-        if (label.isNotEmpty) label,
-        if (age != null) AppStrings.rankingsPublishedAgo(age),
-      ];
-      return parts.isEmpty ? null : parts.join('  ·  ');
+      return label.isEmpty ? null : label;
     }
 
     if (viewer == null) return null;
@@ -787,20 +746,10 @@ class _Board extends StatelessWidget {
     ].where((part) => part.isNotEmpty).join(' ');
     final country = countryFromCode(viewer.country ?? '');
     final parts = [
-      if (country != null) '${country.flag} ${country.name}',
+      if (country != null) country.name,
       if (car.isNotEmpty) car,
     ];
     return parts.isEmpty ? null : parts.join('  ·  ');
-  }
-
-  /// "today" / "yesterday" / "3 days ago" — day granularity, because
-  /// the mirror is published a few times a day at most and "4 hours ago"
-  /// would imply a precision the number doesn't have.
-  static String _agoLabel(DateTime published) {
-    final days = DateTime.now().difference(published).inDays;
-    return days <= 0
-        ? AppStrings.rankingsAgoToday
-        : AppStrings.rankingsAgoDays(days);
   }
 }
 

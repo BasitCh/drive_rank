@@ -332,13 +332,8 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          // Friends is reached from the identity surface, not from
-          // Rankings: this is where you decide who you compete with.
-          _HeaderIconButton(
-            icon: Icons.people_alt_outlined,
-            onTap: () => context.push(RouteNames.friends),
-          ),
-          const SizedBox(width: AppSpacing.sm),
+          // Friends moved to the Ranks header: who you compete with is
+          // decided where you compete.
           _HeaderIconButton(
             icon: Icons.settings_outlined,
             onTap: () => context.push(RouteNames.settings),
